@@ -24,7 +24,7 @@ public class MainApplication extends Application implements ReactApplication {
 
         @Override
         protected boolean isNewArchEnabled() {
-          return false;
+          return BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
         }
 
         @Override
