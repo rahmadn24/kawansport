@@ -6,24 +6,53 @@
  */
 import { Platform } from 'react-native';
 
-jest.mock('@react-native-firebase/messaging', () => ({
-  AuthorizationStatus: {
+jest.mock('@react-native-firebase/messaging', () => {
+  // v19 namespaced API: default export = factory messaging() -> module
+  // instance. Named modular fns ikut diekspor agar test lama tetap jalan
+  // (menunjuk fn yang sama dengan method instance).
+  const requestPermission = jest.fn();
+  const getToken = jest.fn();
+  const onMessage = jest.fn(() => jest.fn());
+  const onNotificationOpenedApp = jest.fn(() => jest.fn());
+  const onTokenRefresh = jest.fn(() => jest.fn());
+  const getInitialNotification = jest.fn();
+  const registerDeviceForRemoteMessages = jest.fn();
+  const setBackgroundMessageHandler = jest.fn();
+  const AuthorizationStatus = {
     NOT_DETERMINED: -1,
     DENIED: 0,
     AUTHORIZED: 1,
     PROVISIONAL: 2,
     EPHEMERAL: 3,
-  },
-  getMessaging: jest.fn(() => ({})),
-  getToken: jest.fn(),
-  requestPermission: jest.fn(),
-  onMessage: jest.fn(() => jest.fn()),
-  onNotificationOpenedApp: jest.fn(() => jest.fn()),
-  onTokenRefresh: jest.fn(() => jest.fn()),
-  getInitialNotification: jest.fn(),
-  registerDeviceForRemoteMessages: jest.fn(),
-  setBackgroundMessageHandler: jest.fn(),
-}));
+  };
+  const instance = {
+    requestPermission,
+    getToken,
+    onMessage,
+    onNotificationOpenedApp,
+    onTokenRefresh,
+    getInitialNotification,
+    registerDeviceForRemoteMessages,
+    setBackgroundMessageHandler,
+  };
+  const defaultExport = Object.assign(jest.fn(() => instance), {
+    AuthorizationStatus,
+  });
+  return {
+    __esModule: true,
+    default: defaultExport,
+    FirebaseMessagingTypes: {},
+    AuthorizationStatus,
+    requestPermission,
+    getToken,
+    onMessage,
+    onNotificationOpenedApp,
+    onTokenRefresh,
+    getInitialNotification,
+    registerDeviceForRemoteMessages,
+    setBackgroundMessageHandler,
+  };
+});
 
 jest.mock('@react-native-community/push-notification-ios', () => ({
   __esModule: true,
@@ -239,7 +268,7 @@ describe('initializeNotifications flow (PH3-08)', () => {
 
     let openedListener: ((msg: unknown) => void) | undefined;
     messaging.onNotificationOpenedApp.mockImplementation(
-      (_m: unknown, cb: (msg: unknown) => void) => {
+      (cb: (msg: unknown) => void) => {
         openedListener = cb;
         return jest.fn();
       },
@@ -288,7 +317,7 @@ describe('initializeNotifications flow (PH3-08)', () => {
 
     let fgListener: ((msg: unknown) => void) | undefined;
     messaging.onMessage.mockImplementation(
-      (_m: unknown, cb: (msg: unknown) => void) => {
+      (cb: (msg: unknown) => void) => {
         fgListener = cb;
         return jest.fn();
       },

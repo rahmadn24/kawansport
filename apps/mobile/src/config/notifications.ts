@@ -3,9 +3,9 @@
  *
  * Menggantikan expo-notifications / expo-device / expo-constants:
  * - Permission: Android 13+ (POST_NOTIFICATIONS) via
- *   `@react-native-firebase/messaging` requestPermission;
+ *   `messaging().requestPermission`;
  *   iOS via `@react-native-community/push-notification-ios` requestPermissions.
- * - Token: FCM registration token via getToken(getMessaging()).
+ * - Token: FCM registration token via messaging().getToken().
  *   Token didaftarkan ke backend: POST /notifications/register
  *   { token, platform, deviceId?, appVersion? }.
  * - Foreground: onMessage → log + teruskan ke callback. Tray sistem saat
@@ -18,18 +18,8 @@
  */
 
 import { Platform } from 'react-native';
-import {
-  AuthorizationStatus,
-  getInitialNotification,
-  getMessaging,
-  getToken,
-  onMessage,
-  onNotificationOpenedApp,
-  onTokenRefresh,
-  registerDeviceForRemoteMessages,
-  requestPermission,
-  setBackgroundMessageHandler,
-  type RemoteMessage,
+import messaging, {
+  FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
 import PushNotificationIOS from '@react-native-community/push-notification-ios';
 import { api } from '../api/client';
@@ -44,7 +34,7 @@ export interface NotificationData {
 }
 
 /** RemoteMessage FCM yang diteruskan ke callback foreground. */
-export type ForegroundMessage = RemoteMessage;
+export type ForegroundMessage = FirebaseMessagingTypes.RemoteMessage;
 
 /**
  * Deep-link hasil tap notifikasi (PH3-06, pure — tanpa dependency native).
@@ -125,7 +115,7 @@ let backgroundHandlerRegistered = false;
 /**
  * Minta izin notifikasi dari user.
  * - iOS: PushNotificationIOS.requestPermissions (alert/badge/sound).
- * - Android: requestPermission(getMessaging()) — mencakup POST_NOTIFICATIONS
+ * - Android: messaging().requestPermission() — mencakup POST_NOTIFICATIONS
  *   di Android 13+.
  * Returns: { granted: boolean }.
  */
@@ -135,7 +125,7 @@ export async function requestNotificationPermissions(): Promise<{
   try {
     if (Platform.OS === 'ios') {
       try {
-        await registerDeviceForRemoteMessages(getMessaging());
+        await messaging().registerDeviceForRemoteMessages();
       } catch {
         // Simulator / APNs belum siap — lanjut ke request permission.
       }
@@ -144,10 +134,10 @@ export async function requestNotificationPermissions(): Promise<{
       if (!granted) console.log('Izin notifikasi tidak diberikan');
       return { granted };
     }
-    const status = await requestPermission(getMessaging());
+    const status = await messaging().requestPermission();
     const granted =
-      status === AuthorizationStatus.AUTHORIZED ||
-      status === AuthorizationStatus.PROVISIONAL;
+      status === messaging.AuthorizationStatus.AUTHORIZED ||
+      status === messaging.AuthorizationStatus.PROVISIONAL;
     if (!granted) console.log('Izin notifikasi tidak diberikan');
     return { granted };
   } catch (error) {
@@ -162,7 +152,7 @@ export async function requestNotificationPermissions(): Promise<{
  */
 export async function getDeviceToken(): Promise<string | null> {
   try {
-    return await getToken(getMessaging());
+    return await messaging().getToken();
   } catch (error) {
     console.error('Gagal mendapatkan FCM token:', error);
     return null;
@@ -214,7 +204,7 @@ export async function registerDeviceToken(token: string): Promise<boolean> {
 export function registerBackgroundMessageHandler(): void {
   if (backgroundHandlerRegistered) return;
   backgroundHandlerRegistered = true;
-  setBackgroundMessageHandler(getMessaging(), async (message) => {
+  messaging().setBackgroundMessageHandler(async (message) => {
     console.log('FCM background message:', message.messageId, message.data);
   });
 }
@@ -247,7 +237,7 @@ export async function initializeNotifications(
 
     // 3. Re-register otomatis saat FCM merotasi token
     unsubscribers.push(
-      onTokenRefresh(getMessaging(), (newToken) => {
+      messaging().onTokenRefresh((newToken) => {
         registerDeviceToken(newToken).catch(() => undefined);
       }),
     );
@@ -255,7 +245,7 @@ export async function initializeNotifications(
     // 4. Foreground: log + teruskan ke callback (tanpa notif lokal manual —
     //    tray sistem diserahkan ke FCM notification payload dari server).
     unsubscribers.push(
-      onMessage(getMessaging(), (message) => {
+      messaging().onMessage((message) => {
         console.log('Notification received (foreground):', message.messageId, message.data);
         onForegroundMessage?.(message);
       }),
@@ -263,7 +253,7 @@ export async function initializeNotifications(
 
     // 5. Tap saat app background → parse ke DeepLink
     unsubscribers.push(
-      onNotificationOpenedApp(getMessaging(), (message) => {
+      messaging().onNotificationOpenedApp((message) => {
         const link = parseNotificationToDeepLink(
           (message.data ?? {}) as Record<string, unknown>,
         );
@@ -272,7 +262,7 @@ export async function initializeNotifications(
     );
 
     // 6. Cold start: app dibuka dari quit state via tap notifikasi
-    const initial = await getInitialNotification(getMessaging());
+    const initial = await messaging().getInitialNotification();
     if (initial) {
       const link = parseNotificationToDeepLink(
         (initial.data ?? {}) as Record<string, unknown>,
