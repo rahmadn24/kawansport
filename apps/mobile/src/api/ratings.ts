@@ -9,7 +9,6 @@ export type RatingSortBy = 'latest' | 'highest' | 'lowest';
 
 export interface RatingUser {
   id: string;
-  email: string;
   displayName: string | null;
   avatarUrl: string | null;
 }
@@ -72,23 +71,23 @@ export async function createRating(
   return res.data;
 }
 
-/** GET /api/venues/:venueId/ratings — list venue ratings with pagination. */
+/** GET /api/ratings/venues/:venueId/ratings — list venue ratings with pagination. */
 export async function listVenueRatings(
   venueId: string,
   params: { page?: number; limit?: number; sortBy?: RatingSortBy } = {},
   http: Http = api,
 ): Promise<PaginatedRatings> {
-  const res = await http.get<PaginatedRatings>(`/venues/${venueId}/ratings`, { params });
+  const res = await http.get<PaginatedRatings>(`/ratings/venues/${venueId}/ratings`, { params });
   return res.data;
 }
 
-/** GET /api/courts/:courtId/ratings — list court ratings with pagination. */
+/** GET /api/ratings/courts/:courtId/ratings — list court ratings with pagination. */
 export async function listCourtRatings(
   courtId: string,
   params: { page?: number; limit?: number; sortBy?: RatingSortBy } = {},
   http: Http = api,
 ): Promise<PaginatedRatings> {
-  const res = await http.get<PaginatedRatings>(`/courts/${courtId}/ratings`, { params });
+  const res = await http.get<PaginatedRatings>(`/ratings/courts/${courtId}/ratings`, { params });
   return res.data;
 }
 
@@ -119,24 +118,24 @@ export async function deleteRating(
   await http.delete(`/ratings/${id}`);
 }
 
-/** GET /api/venues/:venueId/ratings/summary — rating summary (average, count, distribution). */
+/** GET /api/ratings/venues/:venueId/ratings/summary — rating summary (average, count, distribution). */
 export async function getVenueRatingSummary(
   venueId: string,
   http: Http = api,
 ): Promise<RatingSummary> {
   // This endpoint may not exist yet on backend; fallback to computing from list
-  const res = await http.get<PaginatedRatings>(`/venues/${venueId}/ratings`, {
+  const res = await http.get<PaginatedRatings>(`/ratings/venues/${venueId}/ratings`, {
     params: { limit: 1000, sortBy: 'latest' },
   });
   return computeSummary(res.data.data);
 }
 
-/** GET /api/courts/:courtId/ratings/summary — court rating summary. */
+/** GET /api/ratings/courts/:courtId/ratings/summary — court rating summary. */
 export async function getCourtRatingSummary(
   courtId: string,
   http: Http = api,
 ): Promise<RatingSummary> {
-  const res = await http.get<PaginatedRatings>(`/courts/${courtId}/ratings`, {
+  const res = await http.get<PaginatedRatings>(`/ratings/courts/${courtId}/ratings`, {
     params: { limit: 1000, sortBy: 'latest' },
   });
   return computeSummary(res.data.data);

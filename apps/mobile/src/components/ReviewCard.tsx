@@ -62,7 +62,7 @@ export function ReviewCard({
           />
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {rating.user.displayName || rating.user.email.split('@')[0]}
+              {rating.user.displayName || 'Pengguna'}
             </Text>
             <RatingStarsDisplay
               value={rating.score}
