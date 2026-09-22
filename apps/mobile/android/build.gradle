@@ -14,12 +14,15 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
         // FCM (PH3-08): plugin google-services. Classpath selalu ada agar
         // build tidak pecah; apply-nya kondisional di app/build.gradle
         // (hanya bila google-services.json asli sudah dipasang).
         classpath("com.google.gms:google-services:4.4.2")
     }
 }
+
+apply plugin: "com.facebook.react.rootproject"
 
 allprojects {
     repositories {
