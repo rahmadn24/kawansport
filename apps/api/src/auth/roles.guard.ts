@@ -37,6 +37,21 @@ export class RolesGuard implements CanActivate {
       | undefined;
     if (!reqUser?.id) throw new UnauthorizedException('Missing access token');
 
+    // SEC-01 Medium: untuk route yang memuat super_admin, role TIDAK
+    // dipercaya dari klaim JWT — selalu baca ulang dari DB (menutup
+    // eskalasi via token lama/curian). Keanggotaan tetap dicek terhadap
+    // `required` agar route multi-role (mis. venue_owner+super_admin)
+    // tidak berubah perilaku. Role lain tetap dari klaim (hindari overhead).
+    if (required.includes('super_admin')) {
+      const found = await this.users.findById(reqUser.id);
+      const dbRole = (found?.role ?? 'user') as UserRole;
+      req.user.role = dbRole;
+      if (!required.includes(dbRole)) {
+        throw new ForbiddenException('Forbidden: insufficient role');
+      }
+      return true;
+    }
+
     let role = reqUser.role;
     if (!role) {
       const found = await this.users.findById(reqUser.id);

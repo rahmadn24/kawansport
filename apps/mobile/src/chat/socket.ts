@@ -1,7 +1,7 @@
 /**
  * Socket chat SM-07 (socket.io-client).
  *
- * - Auth JWT via `auth.token` (fallback `query.token` di server).
+ * - Auth JWT hanya via `auth.token` (token via query URL tidak diterima server).
  * - Reconnect otomatis (bawaan socket.io, backoff default).
  * - `useChatSocket` dipakai ChatRoom: join room, kirim message:send,
  *   terima message:new. Bila socket gagal/pollingFallback aktif, ChatRoom
@@ -28,7 +28,6 @@ interface Ack {
 export function createChatSocket(token: string, baseURL: string = API_URL): Socket {
   return io(baseURL, {
     auth: { token },
-    query: { token },
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,

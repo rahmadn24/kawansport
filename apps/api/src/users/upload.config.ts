@@ -1,8 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import * as FileType from 'file-type';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
-import { extname, join } from 'path';
+import { join } from 'path';
 
 /**
  * Konfigurasi upload avatar (SM-03, MVP).
@@ -74,8 +75,20 @@ export async function saveAvatarBuffer(
   if (!file?.buffer || file.size <= 0) {
     throw new BadRequestException('Avatar file is empty');
   }
+  // SEC-01 Medium: jangan percaya ekstensi/mimetype kiriman klien — deteksi
+  // tipe via magic bytes (file-type v16, CJS agar kompatibel ts-jest).
+  // SVG ditolak (teks, tak terdeteksi = gagal).
+  const detected = await FileType.fromBuffer(file.buffer).catch(
+    () => undefined,
+  );
+  if (!detected || !AVATAR_MIME_ALLOWLIST.has(detected.mime)) {
+    throw new BadRequestException(
+      `Avatar must be an image (${[...AVATAR_MIME_ALLOWLIST].join(', ')})`,
+    );
+  }
+  // Tulis ulang ekstensi dari hasil deteksi (bukan dari nama file klien).
+  const ext = detected.ext === 'jpg' ? '.jpg' : `.${detected.ext}`;
   const dir = ensureAvatarDir();
-  const ext = extname(file.originalname ?? '').toLowerCase() || '.png';
   const filename = `${userId}-${Date.now()}-${randomUUID()}${ext}`;
   await writeFile(join(dir, filename), file.buffer);
   return toAvatarUrl(filename);

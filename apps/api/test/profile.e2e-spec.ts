@@ -168,6 +168,17 @@ describe('Profile /me (e2e) SM-03', () => {
       .expect(400);
   });
 
+  it('POST /me/avatar isi bukan gambar tapi mimetype image -> 400 (magic bytes)', async () => {
+    await request(app.getHttpServer())
+      .post('/me/avatar')
+      .set(auth())
+      .attach('avatar', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'), {
+        filename: 'evil.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+  });
+
   it('POST /me/avatar tanpa token -> 401', async () => {
     await request(app.getHttpServer())
       .post('/me/avatar')

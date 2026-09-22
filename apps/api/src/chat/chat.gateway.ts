@@ -11,6 +11,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
+import { getCorsOrigins } from '../config/cors';
 
 interface WsClient extends Socket {
   data: { userId?: string; email?: string };
@@ -22,8 +23,9 @@ const userRoomOf = (userId: string) => `user:${userId}`;
 /**
  * Gateway chat 1-1 (SM-07, Socket.io).
  *
- * Auth: JWT access token via `handshake.auth.token` (disarankan) atau
- * `handshake.query.token`. Koneksi tanpa token valid langsung ditolak.
+ * Auth: JWT access token hanya via `handshake.auth.token`. Token via
+ * `handshake.query.token` tidak lagi diterima (terekspos di URL/log).
+ * Koneksi tanpa token valid langsung ditolak.
  *
  * Events:
  * - client -> `join` { conversationId }: verifikasi membership lalu join room.
@@ -31,7 +33,7 @@ const userRoomOf = (userId: string) => `user:${userId}`;
  *   `message:new` ke room conversation + `conversation:update` (unread) ke
  *   personal room kedua belah pihak.
  */
-@WebSocketGateway({ cors: { origin: '*' } })
+@WebSocketGateway({ cors: { origin: getCorsOrigins(), credentials: true } })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
@@ -47,8 +49,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const auth = client.handshake.auth as Record<string, unknown> | undefined;
     const fromAuth = typeof auth?.token === 'string' ? (auth.token as string) : null;
     if (fromAuth) return fromAuth;
-    const q = client.handshake.query?.token;
-    if (typeof q === 'string' && q) return q;
     return null;
   }
 

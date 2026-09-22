@@ -25,7 +25,6 @@ describe('Chat 1-1 (e2e) SM-07 — REST + WebSocket + unread', () => {
     new Promise((resolve, reject) => {
       const s = ioClient(`http://127.0.0.1:${port}`, {
         auth: token ? { token } : {},
-        query: token ? { token } : {},
         transports: ['websocket'],
         timeout: 5000,
       });
