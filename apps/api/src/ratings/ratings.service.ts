@@ -18,7 +18,7 @@ import { Review } from './review.entity';
 export interface RatingItem {
   id: string;
   userId: string;
-  user: { id: string; email: string; displayName: string | null; avatarUrl: string | null };
+  user: { id: string; displayName: string | null; avatarUrl: string | null };
   venueId: string;
   courtId: string | null;
   score: number;
@@ -221,7 +221,6 @@ export class RatingsService {
       userId: rating.userId,
       user: {
         id: rating.user?.id ?? rating.userId,
-        email: rating.user?.email ?? '',
         displayName: rating.user?.displayName ?? null,
         avatarUrl: rating.user?.avatarUrl ?? null,
       },

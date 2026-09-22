@@ -194,4 +194,17 @@ describe('Admin Stats (e2e)', () => {
     expect(res.body.bookings.total).toBe(0);
     expect(res.body.orders.total).toBe(0);
   });
+
+  it('from/to invalid -> 400', async () => {
+    await request(app.getHttpServer())
+      .get('/admin/stats')
+      .query({ from: 'not-a-date' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/admin/stats')
+      .query({ to: 'yesterday-ish' })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(400);
+  });
 });
