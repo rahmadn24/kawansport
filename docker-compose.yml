@@ -1,0 +1,119 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: kawansport-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kawansport}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kawansport_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-kawansport}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-kawansport} -d ${POSTGRES_DB:-kawansport}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kawansport-redis
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    container_name: kawansport-api
+    restart: unless-stopped
+    ports:
+      # Port host diatur via API_PORT; port internal container tetap 3000
+      # (API_PORT=3000 di environment bawah + healthcheck ke :3000).
+      - '${API_PORT:-3000}:3000'
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      # URL antar-service memakai hostname compose (db/redis), BUKAN localhost.
+      # Nilai DATABASE_URL/REDIS_URL di .env menarget localhost untuk dev di
+      # host (`npm run api:dev`) — di-override di sini khusus untuk container.
+      DATABASE_URL: postgres://${POSTGRES_USER:-kawansport}:${POSTGRES_PASSWORD:-kawansport_dev}@db:5432/${POSTGRES_DB:-kawansport}
+      REDIS_URL: redis://redis:6379
+      DB_DRIVER: ${DB_DRIVER:-postgres}
+      # Auto-sync skema: true untuk dev/demo agar `compose up` + seed langsung
+      # jalan. PROD wajib false + migrasi DB berversi (belum ada — lihat README).
+      TYPEORM_SYNC: ${TYPEORM_SYNC:-true}
+      JWT_SECRET: ${JWT_SECRET:-change-me-dev-only}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-only}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      UPLOAD_DIR: ./uploads
+      AVATAR_MAX_MB: ${AVATAR_MAX_MB:-2}
+      # Midtrans sandbox (AD-01) — key via env, tanpa hardcode. Dipakai BK/MP.
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      MIDTRANS_IS_PRODUCTION: ${MIDTRANS_IS_PRODUCTION:-false}
+      MIDTRANS_SNAP_URL: ${MIDTRANS_SNAP_URL:-https://app.sandbox.midtrans.com/snap/v1/transactions}
+      # Push notification via FCM HTTP v1 (PH3-08). Default stub (aman tanpa
+      # kredensial). Produksi: set FIREBASE_STUB=false + isi salah satu dari
+      # FIREBASE_SERVICE_ACCOUNT_JSON (inline) / GOOGLE_APPLICATION_CREDENTIALS
+      # (path file di-mount ke container).
+      FIREBASE_STUB: ${FIREBASE_STUB:-true}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      # Persist avatar upload lokal SM-03 (./uploads relatif cwd container).
+      - uploadsdata:/app/apps/api/uploads
+
+  # --- Fase 2: CMS + Landing aktif (satu compose) ---
+  # Mobile RN bare tetap jalan di host (emulator) dan TIDAK di-docker-kan.
+  cms:
+    build:
+      context: ./apps/cms
+      args:
+        # Dibake saat build (NEXT_PUBLIC_* di-inline Next.js). Default menembak
+        # API di host. Ganti API_PORT -> rebuild cms (`compose up --build cms`).
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-3000}
+    container_name: kawansport-cms
+    restart: unless-stopped
+    ports:
+      - '${CMS_PORT:-3001}:3001'
+    depends_on:
+      api:
+        condition: service_healthy
+  landing:
+    build:
+      context: ./apps/landing
+      args:
+        NEXT_PUBLIC_IOS_APP_STORE_URL: ${NEXT_PUBLIC_IOS_APP_STORE_URL:-}
+        NEXT_PUBLIC_ANDROID_PLAY_STORE_URL: ${NEXT_PUBLIC_ANDROID_PLAY_STORE_URL:-}
+    container_name: kawansport-landing
+    restart: unless-stopped
+    ports:
+      - '${LANDING_PORT:-3002}:3002'
+
+volumes:
+  pgdata:
+  redisdata:
+  uploadsdata:

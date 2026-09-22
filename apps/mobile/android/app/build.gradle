@@ -1,0 +1,30 @@
+apply plugin: "com.android.application"
+apply plugin: "com.facebook.react"
+
+react {
+    entryFile = file("../../index.js")
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native-community/cli")
+}
+
+android {
+    namespace "com.kawansport"
+    compileSdkVersion 34
+
+    defaultConfig {
+        applicationId "com.kawansport"
+        minSdkVersion 23
+        targetSdkVersion 34
+        versionCode 1
+        versionName "0.1.0"
+    }
+}
+
+// FCM (PH3-08): apply google-services HANYA bila file asli sudah dipasang.
+// Tanpa ini, build gagal dengan "File google-services.json is missing".
+// Lihat google-services.json.example + README.md (Push Notifications).
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.warn('[KawanSport] google-services.json belum ada — push notification nonaktif, build lanjut tanpa FCM.')
+}

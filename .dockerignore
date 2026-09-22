@@ -1,0 +1,17 @@
+# INF-01: konteks build docker = repo root (service `api`).
+# Kecualikan yang tidak dibutuhkan image agar build cepat + cache efektif.
+node_modules/
+apps/*/node_modules/
+apps/api/dist/
+apps/api/uploads/
+uploads/
+coverage/
+.git/
+.gitignore
+.env
+apps/api/.env
+apps/mobile/.env
+.DS_Store
+# Mobile RN bare jalan di host (emulator), tidak di-docker-kan.
+apps/mobile/android/
+apps/mobile/ios/

@@ -1,0 +1,32 @@
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
+
+# RN
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/ios/build/
+apps/mobile/ios/Pods/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+
+# env
+.env
+!.env.example
+apps/api/.env
+apps/mobile/.env
+
+# Firebase (PH3-08): kredensial asli JANGAN di-commit.
+# Pasang file asli dari Firebase Console; yg di-commit hanya *.example.
+apps/mobile/android/app/google-services.json
+apps/mobile/ios/KawanSport/GoogleService-Info.plist
+
+# coverage
+coverage/
+
+# upload lokal avatar SM-03 (MVP) — jangan commit hasil upload
+uploads/
+apps/api/uploads/

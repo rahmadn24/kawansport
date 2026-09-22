@@ -1,0 +1,24 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- FCM (PH3-08): wajib untuk Android 13+ (runtime permission, diminta via JS). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <application
+      android:name=".MainApplication"
+      android:label="KawanSport"
+      android:allowBackup="false"
+      android:theme="@style/AppTheme">
+        <activity
+          android:name=".MainActivity"
+          android:label="KawanSport"
+          android:exported="true"
+          android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <!-- Service/receiver FCM tidak ditulis manual: autolinking
+             @react-native-firebase/messaging (manifest-merging dari library)
+             sudah mendaftarkan MessagingService + receiver yg diperlukan. -->
+    </application>
+</manifest>
