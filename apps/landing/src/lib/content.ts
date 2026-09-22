@@ -141,9 +141,9 @@ export const TESTIMONIALS = [
   },
 ] as const;
 
-/** PLACEHOLDER — teks komisi masih draft, JANGAN jadikan janji kontrak. */
+/** Komisi resmi venue owner (keputusan bisnis 2026-09-23): flat 5%. */
 export const B2B_COMMISSION_TEXT =
-  'Komisi mulai dari ~5% per booking lunas (angka final menyusul — hubungi tim kami untuk skema early partner).';
+  'Komisi flat 5% per booking lunas — tanpa biaya pendaftaran, tanpa biaya bulanan.';
 
 export const B2B_PERKS = [
   'Dashboard okupansi & pendapatan real-time',
@@ -171,7 +171,7 @@ export const FAQS = [
   },
   {
     q: 'Berapa komisi untuk venue owner?',
-    a: 'PLACEHOLDER: Komisi mulai dari ~5% per booking lunas (angka final menyusul). Early partner yang daftar sebelum launching mendapat potongan komisi 3 bulan pertama.',
+    a: 'Komisi flat 5% dari setiap booking lunas. Early partner yang daftar sebelum launching gratis komisi 3 bulan pertama.',
   },
   {
     q: 'Apakah data saya aman?',

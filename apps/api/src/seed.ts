@@ -10,6 +10,7 @@
  * Butuh Postgres jalan (docker compose up -d db redis) + DATABASE_URL valid.
  * JANGAN pakai DB_DRIVER=sqljs untuk seed (in-memory, hilang saat exit).
  */
+import './env-preload';
 import { NestFactory } from '@nestjs/core';
 import * as bcrypt from 'bcryptjs';
 import { DataSource } from 'typeorm';

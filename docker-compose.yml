@@ -42,7 +42,10 @@ services:
       # (API_PORT=3000 di environment bawah + healthcheck ke :3000).
       - '${API_PORT:-3000}:3000'
     environment:
-      NODE_ENV: production
+      # development = demo/lokal via compose (stub Midtrans/FCM diizinkan).
+      # Deploy prod SEBENARNYA wajib NODE_ENV=production + MIDTRANS_SERVER_KEY
+      # + JWT_SECRET real (fail-closed SEC-01 menolak boot bila kosong).
+      NODE_ENV: ${NODE_ENV:-development}
       API_PORT: 3000
       # URL antar-service memakai hostname compose (db/redis), BUKAN localhost.
       # Nilai DATABASE_URL/REDIS_URL di .env menarget localhost untuk dev di
