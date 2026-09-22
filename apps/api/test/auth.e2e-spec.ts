@@ -103,6 +103,33 @@ describe('Auth (e2e) SM-02', () => {
       .expect(401);
   });
 
+  it('reuse refresh token lama -> 401 dan token baru ikut mati (family revoke)', async () => {
+    const login = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password })
+      .expect(200);
+    const first = login.body.refreshToken as string;
+
+    const rotated = await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: first })
+      .expect(200);
+    const second = rotated.body.refreshToken as string;
+    expect(second).not.toBe(first);
+
+    // Pakai token lama yang sudah diputarkan -> 401 + seluruh keluarga dicabut.
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: first })
+      .expect(401);
+
+    // Token baru hasil pencurian ikut mati.
+    await request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken: second })
+      .expect(401);
+  });
+
   it('GET /health tetap OK', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
     expect(res.body.status).toBe('ok');

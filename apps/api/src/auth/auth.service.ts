@@ -44,7 +44,17 @@ export class AuthService {
   }
 
   private get refreshSecret(): string {
-    return process.env.JWT_REFRESH_SECRET ?? `${process.env.JWT_SECRET ?? 'change-me-dev-only'}:refresh`;
+    // Fail-closed (SEC-01 High): tanpa JWT_REFRESH_SECRET, turunkan dari
+    // JWT_SECRET; bila keduanya hilang, gagal saat dipakai (bootstrap sudah
+    // gagal lebih dulu via AuthModule.requireJwtSecret). Tanpa fallback
+    // hardcoded 'change-me-...'.
+    const fromEnv = process.env.JWT_REFRESH_SECRET;
+    if (fromEnv) return fromEnv;
+    const base = process.env.JWT_SECRET;
+    if (!base) {
+      throw new Error('JWT_REFRESH_SECRET is required (refusing insecure fallback)');
+    }
+    return `${base}:refresh`;
   }
 
   async register(email: string, password: string, displayName?: string) {
@@ -82,6 +92,19 @@ export class AuthService {
       where: { tokenHash: hashRefreshToken(rawRefreshToken) },
     });
     if (!row || row.revoked || row.expiresAt.getTime() <= Date.now()) {
+      // SEC-01 Medium (reuse detection): token yang sudah diputarkan
+      // (revoked) dipakai lagi = indikasi pencurian — cabut SELURUH
+      // keluarga token user tersebut agar token curian ikut mati.
+      if (row?.revoked && payload.sub) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[auth] refresh token reuse detected for user ${payload.sub}; revoking token family`,
+        );
+        await this.refreshTokens.update(
+          { userId: payload.sub },
+          { revoked: true },
+        );
+      }
       throw new UnauthorizedException('Invalid refresh token');
     }
     if (row.userId !== payload.sub) {
