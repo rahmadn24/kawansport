@@ -6,7 +6,8 @@
       android:name=".MainApplication"
       android:label="KawanSport"
       android:allowBackup="false"
-      android:theme="@style/AppTheme">
+      android:theme="@style/AppTheme"
+      android:usesCleartextTraffic="true">
         <activity
           android:name=".MainActivity"
           android:label="KawanSport"
@@ -20,5 +21,7 @@
         <!-- Service/receiver FCM tidak ditulis manual: autolinking
              @react-native-firebase/messaging (manifest-merging dari library)
              sudah mendaftarkan MessagingService + receiver yg diperlukan. -->
+        <!-- TODO(prod): ganti API_URL ke https:// domain prod lalu set
+             usesCleartextTraffic="false" + networkSecurityConfig pin domain. -->
     </application>
 </manifest>
