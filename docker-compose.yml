@@ -57,6 +57,9 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-only}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      # CORS (SEC-01): origin dibatasi, bukan *. Default dev-friendly
+      # (CMS :3001 + landing :3002). PROD: set CORS_ORIGIN ke domain asli.
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001,http://localhost:3002}
       UPLOAD_DIR: ./uploads
       AVATAR_MAX_MB: ${AVATAR_MAX_MB:-2}
       # Midtrans sandbox (AD-01) — key via env, tanpa hardcode. Dipakai BK/MP.
