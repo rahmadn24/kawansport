@@ -288,6 +288,44 @@ describe('Bookings BK-03 (e2e)', () => {
     expect(await slotStatus('09:00')).toBe('free');
   });
 
+  it('webhook settlement dengan gross_amount salah -> 409 dan tetap pending', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/bookings')
+      .set(authOther())
+      .send({ courtId, date: DATE, start: '09:00' })
+      .expect(201);
+    expect(created.body.status).toBe('pending');
+
+    const statusCode = '200';
+    const wrongAmount = String(created.body.amount + 1000);
+    await request(app.getHttpServer())
+      .post('/payments/midtrans/notification')
+      .send({
+        order_id: created.body.paymentRef,
+        status_code: statusCode,
+        gross_amount: wrongAmount,
+        signature_key: sign(created.body.paymentRef, statusCode, wrongAmount),
+        transaction_status: 'settlement',
+      })
+      .expect(409);
+
+    const me = await request(app.getHttpServer())
+      .get('/bookings/me')
+      .set(authOther())
+      .expect(200);
+    const still = (
+      me.body.data as Array<{ paymentRef: string; status: string }>
+    ).find((b) => b.paymentRef === created.body.paymentRef);
+    expect(still?.status).toBe('pending');
+
+    // Bersih-bersih: expire agar slot 09:00 bebas untuk test berikut.
+    await request(app.getHttpServer())
+      .post('/payments/midtrans/notification')
+      .send(notif(created.body, 'expire'))
+      .expect(200);
+    expect(await slotStatus('09:00')).toBe('free');
+  });
+
   it('cancel milik sendiri (pending) -> cancelled + slot free; cancel ulang -> 409', async () => {
     const created = await request(app.getHttpServer())
       .post('/bookings')

@@ -324,6 +324,10 @@ export class BookingsService {
     if (booking.status !== 'pending') {
       return { ok: true, status: booking.status };
     }
+    // SEC-01 High: gross_amount wajib sama dengan amount booking — tolak
+    // 409 (status tetap pending) bila beda agar paid palsu via nominal
+    // kecil tidak mungkin.
+    assertAmountMatches(dto.gross_amount, booking.amount);
 
     const tx = dto.transaction_status;
     const fraud = dto.fraud_status;
@@ -376,6 +380,9 @@ export class BookingsService {
     if (order.status !== 'pending') {
       return { ok: true, status: order.status };
     }
+    // SEC-01 High: sama seperti booking — gross_amount wajib sama dengan
+    // order.total, beda -> 409 dan status tetap pending.
+    assertAmountMatches(dto.gross_amount, order.total);
 
     const tx = dto.transaction_status;
     const fraud = dto.fraud_status;
@@ -517,6 +524,17 @@ export class BookingsService {
 /** `payment_ref` = Midtrans `order_id` (unik, ≤64 char). */
 export function generatePaymentRef(): string {
   return `BK-${Date.now()}-${randomBytes(4).toString('hex')}`;
+}
+
+/**
+ * Samakan nominal notifikasi dengan nominal tercatat (rupiah, integer).
+ * Beda / bukan angka -> 409; pemanggil belum memutasi apa pun sehingga
+ * status tetap pending.
+ */
+function assertAmountMatches(grossAmount: string, expected: number): void {
+  if (Number(grossAmount) !== expected) {
+    throw new ConflictException('Amount mismatch');
+  }
 }
 
 function resolveBookingStart(dto: CreateBookingDto): number {

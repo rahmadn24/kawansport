@@ -27,6 +27,20 @@ export interface SnapTransactionResult {
  */
 @Injectable()
 export class MidtransService {
+  /**
+   * Fail-closed (SEC-01 Critical): di production webhook tidak boleh jalan
+   * mode stub — signature dengan key kosong membuat webhook palsu bisa
+   * menandai paid. Lempar saat bootstrap bila key kosong di production;
+   * dev/test (NODE_ENV!=production) tetap stub agar E2E hijau.
+   */
+  onModuleInit() {
+    if (process.env.NODE_ENV === 'production' && this.isStubMode()) {
+      throw new Error(
+        'MIDTRANS_SERVER_KEY is required in production (refusing stub mode)',
+      );
+    }
+  }
+
   private get serverKey(): string {
     return process.env.MIDTRANS_SERVER_KEY ?? '';
   }

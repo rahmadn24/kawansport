@@ -373,6 +373,44 @@ describe('Marketplace MP-02 cart + checkout + orders (e2e)', () => {
       .expect(200);
   });
 
+  it('webhook settlement dengan gross_amount salah -> 409 dan tetap pending', async () => {
+    await request(app.getHttpServer())
+      .put('/cart')
+      .set(authBuyer2())
+      .send({ productId: productBId, qty: 1 })
+      .expect(200);
+    const created = await request(app.getHttpServer())
+      .post('/checkout')
+      .set(authBuyer2())
+      .expect(201);
+    expect(created.body.status).toBe('pending');
+
+    const statusCode = '200';
+    const wrongAmount = String(created.body.total + 5000);
+    await request(app.getHttpServer())
+      .post('/payments/midtrans/notification')
+      .send({
+        order_id: created.body.paymentRef,
+        status_code: statusCode,
+        gross_amount: wrongAmount,
+        signature_key: sign(created.body.paymentRef, statusCode, wrongAmount),
+        transaction_status: 'settlement',
+      })
+      .expect(409);
+
+    const detail = await request(app.getHttpServer())
+      .get(`/orders/${created.body.id}`)
+      .set(authBuyer2())
+      .expect(200);
+    expect(detail.body.status).toBe('pending');
+
+    // Bersih-bersih: expire agar stok rollback untuk test berikut.
+    await request(app.getHttpServer())
+      .post('/payments/midtrans/notification')
+      .send(notif(created.body, 'expire'))
+      .expect(200);
+  });
+
   it('webhook expire -> expired + rollback stok; cancel -> cancelled + rollback', async () => {
     const beforeA = (await products.findOneOrFail({ where: { id: productAId } }))
       .stock;
