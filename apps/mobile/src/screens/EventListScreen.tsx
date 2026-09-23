@@ -185,8 +185,19 @@ export function EventListScreen({
         />
       )}
 
+      {/*
+        FAB Stitch events feed: pill oranye kompak rata kanan (h-12, pl-4 pr-5,
+        label 14 bold + ikon), bukan bar full-width raksasa.
+      */}
       <View style={styles.fabWrap}>
-        <UIButton title="＋ Buat Mabar" variant="accent" onPress={onCreate} accessibilityLabel="Buat event baru" />
+        <UIButton
+          title="＋ Buat Mabar"
+          variant="accent"
+          onPress={onCreate}
+          accessibilityLabel="Buat event baru"
+          style={styles.fabBtn}
+          textStyle={styles.fabBtnText}
+        />
       </View>
     </View>
   );
@@ -248,10 +259,20 @@ const styles = StyleSheet.create({
   cardHost: { fontSize: 14, color: COLORS.ink, fontWeight: '700' },
   hostSub: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
   joinBtn: { marginTop: SPACING.md },
+  // FAB kompak Stitch (code.html: fixed bottom-20 right-4, h-12 pl-4 pr-5
+  // rounded-full oranye): lebar mengikuti konten, rata kanan, tinggi 48.
   fabWrap: {
     position: 'absolute',
-    left: SPACING.screen,
     right: SPACING.screen,
     bottom: SPACING.screen,
+    alignItems: 'flex-end',
   },
+  fabBtn: {
+    alignSelf: 'auto',
+    flexGrow: 0,
+    minHeight: 48,
+    paddingHorizontal: SPACING.screen,
+    paddingVertical: SPACING.md,
+  },
+  fabBtnText: { fontSize: 14 },
 });

@@ -1430,15 +1430,24 @@ function Gate() {
 function App(): React.JSX.Element {
   return (
     <AuthProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" />
-        <Gate />
-      </SafeAreaView>
+      {/*
+        Latar navy di balik SafeAreaView: inset atas (status bar) menyatu
+        dengan header navy + StatusBar light agar ikon sistem terbaca.
+        Inset bawah tetap putih mengikuti container konten. Tanpa dep baru.
+      */}
+      <View style={styles.rootTop}>
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={COLORS.navy} />
+          <Gate />
+        </SafeAreaView>
+      </View>
     </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  // Inset status-bar navy agar menyatu header; konten di container putih.
+  rootTop: { flex: 1, backgroundColor: COLORS.navy },
   container: { flex: 1, backgroundColor: COLORS.bg },
   flowWrap: { flex: 1 },
   screenWrap: { flex: 1, backgroundColor: COLORS.bg },

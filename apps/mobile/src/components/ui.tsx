@@ -36,6 +36,10 @@ interface UIButtonProps {
   loadingTitle?: string;
   accessibilityLabel?: string;
   testID?: string;
+  /** Override gaya tombol khusus (mis. FAB kompak) — default stretch penuh. */
+  style?: object;
+  /** Override gaya teks tombol khusus (mis. samakan label Stitch). */
+  textStyle?: object;
 }
 
 export function UIButton({
@@ -47,6 +51,8 @@ export function UIButton({
   loadingTitle,
   accessibilityLabel,
   testID,
+  style,
+  textStyle,
 }: UIButtonProps) {
   const inactive = disabled || loading;
   return (
@@ -59,6 +65,7 @@ export function UIButton({
         variant === 'ghost' && styles.btnGhost,
         variant === 'danger' && styles.btnDanger,
         inactive && styles.btnDisabled,
+        style,
       ]}
       onPress={onPress}
       disabled={inactive}
@@ -78,6 +85,7 @@ export function UIButton({
               styles.btnText,
               variant === 'outline' && styles.btnTextOutline,
               variant === 'ghost' && styles.btnTextGhost,
+              textStyle,
             ]}
           >
             {loadingTitle ?? title}
@@ -89,6 +97,7 @@ export function UIButton({
             styles.btnText,
             variant === 'outline' && styles.btnTextOutline,
             variant === 'ghost' && styles.btnTextGhost,
+            textStyle,
           ]}
         >
           {title}
@@ -536,20 +545,22 @@ export function UIHeader({
         </View>
       </View>
       <View style={styles.headerRight}>
-        {onBellPress ? (
-          <TouchableOpacity
-            style={styles.headerBell}
-            onPress={onBellPress}
-            accessibilityRole="button"
-            accessibilityLabel="Buka notifikasi"
-          >
-            {bellInner}
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.headerBell} accessibilityRole="image" accessibilityLabel="Notifikasi">
-            {bellInner}
-          </View>
-        )}
+        {/*
+          Bell SELALU Touchable agar ada respons sentuh (ripple/opacity).
+          Tanpa onBellPress: no-op jujur — tanpa angka palsu & tanpa navigasi
+          palsu; label a11y menjelaskan riwayat notifikasi segera hadir.
+          (Toast tinggal di flow App.tsx dan tak terjangkau header.)
+        */}
+        <TouchableOpacity
+          style={styles.headerBell}
+          onPress={onBellPress ?? (() => undefined)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            onBellPress ? 'Buka notifikasi' : 'Notifikasi push aktif, riwayat notifikasi segera hadir'
+          }
+        >
+          {bellInner}
+        </TouchableOpacity>
         {onAvatarPress ? (
           <TouchableOpacity
             onPress={onAvatarPress}
