@@ -399,3 +399,39 @@ Body parsial Record key→value, mis.
 `{ "service_fee_amount": 3000, "commission_percent": 7 }` → 200 shape sama
 dengan GET. Kunci asing → 400; tipe/rentang salah (fee negatif,
 percent >100, tanggal invalid) → 400; body kosong → 400.
+
+## Analitik owner per venue (API-W05, auth)
+
+Guard dua lapis: `JwtAuthGuard + RolesGuard` (`venue_owner`,
+`super_admin`) + cek DB `ownerId == user.id` di service (lintas
+owner → 403, menutup catatan guard CMS). User biasa → 403.
+Dipakai CMS owner (ganti form `venueId` manual via `/venues/mine`).
+Agregasi di DB (`COUNT/SUM/GROUP BY`); join booking↔court memakai
+`CAST(... AS TEXT)` agar join varchar-uuid aman di Postgres
+(pelajaran FIX-02, pola `admin-stats`).
+
+### `GET /venues/:id/stats?date=YYYY-MM-DD`
+`date` default hari ini (UTC, string apa adanya seperti booking).
+- 200: `{ venueId, occupancy: { date, totalSlots, bookedSlots, pct },
+  reservations: { total, byStatus: { pending, paid, expired, cancelled } },
+  revenue: { paidCount, gmv, commissionPercent, net },
+  rating: { avg, count }, topCourts: [{ courtId, courtName, booked, gmv }] }`.
+- `occupancy`: `totalSlots` = jumlah slot dari `open_hours` court
+  **aktif** pada tanggal tsb; `bookedSlots` = booking `pending/paid`
+  court venue ini pada tanggal tsb; `pct` = persen 2 desimal
+  (0 bila tanpa slot).
+- `reservations`: semua booking court venue ini (semua tanggal),
+  `GROUP BY status`.
+- `revenue`: booking `paid` → `gmv = SUM(amount)`; `commissionPercent`
+  = komisi efektif `PlatformSetting` (API-W03, termasuk promo bila
+  aktif); `net = round(gmv × (100 − commission) / 100)`.
+- `rating`: `AVG(score)` (2 desimal, `null` bila belum ada) + `COUNT`
+  dari `ratings` venue ini.
+- `topCourts`: per court (`booked` = jumlah booking paid, `gmv` =
+  total `amount` paid, court tanpa booking = 0), urut `gmv` DESC.
+- 403 lintas owner; 400 tanggal kalender invalid; 404 venue tak ada.
+
+### `GET /venues/mine?all=`
+`{ data: [{ id, name, status, courtsCount }], meta: { total } }`,
+urut `createdAt` DESC. Default milik sendiri; `super_admin` boleh
+`?all=true` untuk semua venue (non-admin `all=true` → 403).

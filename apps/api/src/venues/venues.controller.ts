@@ -25,16 +25,20 @@ import type { UserRole } from '../users/user.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { ListVenuesDto } from './dto/list-venues.dto';
+import { MineVenuesQueryDto } from './dto/mine-venues-query.dto';
 import { RejectVenueDto } from './dto/reject-venue.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenuePhotoDto } from './dto/venue-photo.dto';
+import { VenueStatsQueryDto } from './dto/venue-stats-query.dto';
+import { VenueStatsService } from './venue-stats.service';
 import { VenuesService } from './venues.service';
 
 @Controller('venues')
 export class VenuesController {
   constructor(
     private readonly venues: VenuesService,
+    private readonly stats: VenueStatsService,
     private readonly jwt: JwtService,
   ) {}
 
@@ -56,6 +60,33 @@ export class VenuesController {
   @Get()
   list(@Query() query: ListVenuesDto) {
     return this.venues.list(query);
+  }
+
+  /**
+   * Daftar venue milik sendiri (API-W05, untuk CMS owner — ganti form
+   * venueId manual). WAJIB sebelum rute `:id` agar `mine` tidak
+   * ditangkap sebagai UUID.
+   */
+  @Get('mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('venue_owner', 'super_admin')
+  mine(@CurrentUser() user: RequestUser, @Query() query: MineVenuesQueryDto) {
+    return this.stats.listMine(user, query.all);
+  }
+
+  /**
+   * Analitik satu venue milik sendiri (API-W05). Lintas owner → 403
+   * (cek DB `ownerId == user.id` di service, super_admin lolos).
+   */
+  @Get(':id/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('venue_owner', 'super_admin')
+  venueStats(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Query() query: VenueStatsQueryDto,
+  ) {
+    return this.stats.getStats(id, user, query.date);
   }
 
   /**
