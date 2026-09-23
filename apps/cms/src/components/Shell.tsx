@@ -42,6 +42,16 @@ export const ADMIN_PARTNER_NAV: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [...ADMIN_MAIN_NAV, ...ADMIN_PARTNER_NAV];
 
 /**
+ * NAVIGASI OWNER — venue manager CMS (WEB-03).
+ * Tidak ada endpoint list-mine venue (TODO API-W05), sehingga entri
+ * "/dashboard/owner/venues" meminta venueId manual.
+ */
+export const OWNER_NAV: NavItem[] = [
+  { href: '/dashboard/owner', label: 'Overview', icon: '⚽' },
+  { href: '/dashboard/owner/venues', label: 'Venue Saya', icon: '🏟' },
+];
+
+/**
  * Kerangka global CMS: sidebar Stitch (navigasi + Server Core ID) +
  * topbar (search, status gateway, bell, user+role) + drawer mobile.
  * Search topbar: fungsional bila onSearchQuery diisi (filter tabel halaman

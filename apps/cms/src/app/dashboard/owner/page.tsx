@@ -28,6 +28,7 @@ function OwnerContent() {
         </div>
         <div className="ks-nav-label">Menu</div>
         <Link className="ks-nav-link active" href="/dashboard/owner">🏟️ Venue saya</Link>
+        <Link className="ks-nav-link" href="/dashboard/owner/venues">🛠️ Kelola venue (manager)</Link>
       </aside>
       <div className="ks-main">
         <header className="ks-topbar">
@@ -43,7 +44,7 @@ function OwnerContent() {
             icon="🏟️"
             title="Segera hadir"
             desc="Daftar venue dan status booking akan tampil di sini pada fase berikutnya. Saat ini belum ada fitur yang perlu ditindaklanjuti."
-            action={<Link className="ks-btn ks-btn-ghost ks-btn-sm" href="/dashboard">← Kembali ke dashboard</Link>}
+            action={<Link className="ks-btn ks-btn-ghost ks-btn-sm" href="/dashboard/owner/venues">🛠️ Buka venue manager →</Link>}
           />
         </main>
       </div>
