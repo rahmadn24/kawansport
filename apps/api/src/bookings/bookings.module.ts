@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventParticipant } from '../events/event-participant.entity';
 import { SportEvent } from '../events/event.entity';
 import { Court } from '../venues/court.entity';
+import { Venue } from '../venues/venue.entity';
 import { VenuesModule } from '../venues/venues.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -15,7 +16,7 @@ import { PaymentsController } from './payments.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Booking, Court, SportEvent, EventParticipant]),
+    TypeOrmModule.forFeature([Booking, Court, Venue, SportEvent, EventParticipant]),
     VenuesModule,
     VouchersModule,
     SettingsModule,

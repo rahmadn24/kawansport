@@ -35,6 +35,7 @@ import { Voucher, VoucherRedemption } from './vouchers/voucher.entity';
 import { VouchersModule } from './vouchers/vouchers.module';
 import { Rating } from './ratings/rating.entity';
 import { Review } from './ratings/review.entity';
+import { SlotBlock } from './venues/slot-block.entity';
 import { SlotClaim } from './venues/slot-claim.entity';
 import { Venue } from './venues/venue.entity';
 import { VenuesModule } from './venues/venues.module';
@@ -54,13 +55,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),

@@ -6,10 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
+import { assertOwnerOrAdmin } from '../auth/ownership';
 import { Court } from './court.entity';
+import { CreateBlockDto } from './dto/create-block.dto';
 import { HoldSlotDto } from './dto/hold-slot.dto';
+import { SlotBlock } from './slot-block.entity';
 import { SlotClaim } from './slot-claim.entity';
 import { Venue } from './venue.entity';
 
@@ -18,7 +21,12 @@ export const SLOT_DURATION_MINUTES = 60;
 /** Hold kedaluwarsa 10 menit setelah dibuat (BK-02). */
 export const HOLD_TTL_MS = 10 * 60 * 1000;
 
-export type SlotStatus = 'free' | 'held' | 'booked';
+/**
+ * Status slot availability. `blocked` (API-W06) = ditutup owner via
+ * POST /courts/:id/blocks — SENGAJA beda dari `booked` agar statistik
+ * okupansi (API-W05, dihitung dari booking) tetap jujur.
+ */
+export type SlotStatus = 'free' | 'held' | 'booked' | 'blocked';
 
 export interface SlotAvailability {
   date: string;
@@ -44,6 +52,20 @@ export interface HoldItem {
   updatedAt: Date;
 }
 
+export interface BlockItem {
+  id: string;
+  courtId: string;
+  date: string;
+  start: string;
+  end: string;
+  startMinute: number;
+  endMinute: number;
+  reason: string | null;
+  createdBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class SlotsService {
   constructor(
@@ -53,6 +75,8 @@ export class SlotsService {
     private readonly venues: Repository<Venue>,
     @InjectRepository(SlotClaim)
     private readonly claims: Repository<SlotClaim>,
+    @InjectRepository(SlotBlock)
+    private readonly blocks: Repository<SlotBlock>,
   ) {}
 
   /**
@@ -86,8 +110,13 @@ export class SlotsService {
 
   /**
    * GET /courts/:id/availability — generate slot dari courts.open_hours
-   * untuk tanggal tsb, lalu tandai free/held/booked dari slot_claims.
+   * untuk tanggal tsb, lalu tandai free/held/booked dari slot_claims +
+   * blocked dari slot_blocks (API-W06).
    * Hold kedaluwarsa (expires_at <= now) dibaca sebagai free.
+   * Klaim aktif (held-valid/confirmed) MENANG atas blokir — slot yang sudah
+   * terbooking tetap terbaca booked (bukan blocked) agar booking berbayar
+   * tidak hilang dari pandangan; blokir tetap menutup slot bebas lain dalam
+   * rentangnya dan menolak klaim baru.
    */
   async availability(
     courtId: string,
@@ -106,19 +135,26 @@ export class SlotsService {
     const byStart = new Map<number, SlotClaim>();
     for (const r of rows) byStart.set(r.startMinute, r);
 
+    const blocks = await this.blocks.find({ where: { courtId, date } });
+
     const now = Date.now();
-    const slots: SlotAvailability[] = generated.map((g) => ({
-      ...g,
-      status: claimToSlotStatus(byStart.get(g.startMinute), now),
-    }));
+    const slots: SlotAvailability[] = generated.map((g) => {
+      const claimStatus = claimToSlotStatus(byStart.get(g.startMinute), now);
+      if (claimStatus !== 'free') return { ...g, status: claimStatus };
+      const blocked = blocks.some(
+        (b) => g.startMinute < b.endMinute && b.startMinute < g.endMinute,
+      );
+      return { ...g, status: blocked ? 'blocked' : 'free' };
+    });
     return { courtId, date, slots };
   }
 
   /**
    * POST /courts/:id/hold — klaim transaksional anti-race:
    * mutex in-process + SELECT FOR UPDATE (Postgres) + unique-catch → 409.
-   * Slot yang sudah confirmed (booking BK-03) atau masih di-hold valid
-   * ditolak 409; released / held-kedaluwarsa boleh diklaim ulang.
+   * Slot yang sudah confirmed (booking BK-03), masih di-hold valid, atau
+   * diblokir owner (API-W06) ditolak 409; released / held-kedaluwarsa boleh
+   * diklaim ulang.
    */
   async hold(
     courtId: string,
@@ -154,6 +190,9 @@ export class SlotsService {
     return this.withSlotLock(lockKey, () =>
       this.claims.manager.transaction(async (mgr) => {
         const claimRepo = mgr.getRepository(SlotClaim);
+
+        // API-W06: slot yang overlap blokir owner → 409 (sama seperti booked).
+        await assertSlotNotBlocked(mgr, courtId, dto.date, startMinute, endMinute);
 
         const existing = this.isPostgres
           ? await claimRepo.findOne({
@@ -255,6 +294,106 @@ export class SlotsService {
   }
 
   /**
+   * POST /courts/:id/blocks (API-W06, owner venue / super_admin) — tutup slot.
+   * Rentang boleh mencakup >1 slot generate; minimal overlap 1 slot generate
+   * (selain itu 400). Duplikat exact (court,date,start) → 409.
+   * Blokir atas slot yang sudah terbooking tetap tersimpan (menutup slot
+   * setelah booking tsb batal/kedaluwarsa); availability memprioritaskan
+   * klaim aktif (tetap booked) di atas blokir.
+   */
+  async createBlock(
+    courtId: string,
+    actor: ActorInput,
+    dto: CreateBlockDto,
+  ): Promise<BlockItem> {
+    assertValidDate(dto.date);
+    const startMinute = resolveBlockStart(dto);
+    const duration = dto.durationMinutes ?? SLOT_DURATION_MINUTES;
+    const endMinute = startMinute + duration;
+    if (endMinute > 24 * 60) {
+      throw new BadRequestException('Slot exceeds 24:00');
+    }
+
+    const court = await this.courts.findOne({ where: { id: courtId } });
+    if (!court) throw new NotFoundException('Court not found');
+    const venue = await this.venues.findOne({ where: { id: court.venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+
+    const generated = generateSlotsForDate(court.openHours, dto.date);
+    const overlaps = generated.some(
+      (g) => g.startMinute < endMinute && startMinute < g.endMinute,
+    );
+    if (!overlaps) {
+      throw new BadRequestException(
+        'Block is outside court open hours for this date',
+      );
+    }
+
+    try {
+      const saved = await this.blocks.save(
+        this.blocks.create({
+          courtId,
+          date: dto.date,
+          startMinute,
+          endMinute,
+          reason: dto.reason?.trim() ? dto.reason.trim() : null,
+          createdBy: actor.id,
+        }),
+      );
+      return toBlockItem(saved);
+    } catch {
+      throw new ConflictException('Slot is already blocked');
+    }
+  }
+
+  /**
+   * GET /courts/:id/blocks (API-W06, owner venue / super_admin) — daftar blokir.
+   * Filter `date` opsional; urut tanggal + jam mulai ASC.
+   */
+  async listBlocks(
+    courtId: string,
+    actor: ActorInput,
+    date?: string,
+  ): Promise<{ data: BlockItem[]; meta: { total: number } }> {
+    if (date !== undefined) assertValidDate(date);
+    const court = await this.courts.findOne({ where: { id: courtId } });
+    if (!court) throw new NotFoundException('Court not found');
+    const venue = await this.venues.findOne({ where: { id: court.venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+
+    const rows = await this.blocks.find({
+      where: date ? { courtId, date } : { courtId },
+      order: { date: 'ASC', startMinute: 'ASC' },
+    });
+    return { data: rows.map(toBlockItem), meta: { total: rows.length } };
+  }
+
+  /**
+   * DELETE /courts/:id/blocks/:blockId (API-W06, owner venue / super_admin).
+   * Blokir milik court lain / tak ada → 404; lintas owner → 403.
+   */
+  async deleteBlock(
+    courtId: string,
+    blockId: string,
+    actor: ActorInput,
+  ): Promise<{ ok: true; id: string }> {
+    const court = await this.courts.findOne({ where: { id: courtId } });
+    if (!court) throw new NotFoundException('Court not found');
+    const venue = await this.venues.findOne({ where: { id: court.venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+
+    const block = await this.blocks.findOne({ where: { id: blockId } });
+    if (!block || block.courtId !== courtId) {
+      throw new NotFoundException('Block not found');
+    }
+    await this.blocks.remove(block);
+    return { ok: true, id: blockId };
+  }
+
+  /**
    * Klaim slot sebagai CONFIRMED untuk booking BK-03 (penggunaan internal).
    * Dipakai `BookingsService.create`: slot langsung confirmed agar tidak bisa
    * diklaim pihak lain selama menunggu pembayaran (pending 30 mnt) maupun
@@ -275,6 +414,10 @@ export class SlotsService {
     return this.withSlotLock(lockKey, () =>
       this.claims.manager.transaction(async (mgr) => {
         const claimRepo = mgr.getRepository(SlotClaim);
+
+        // API-W06: blokir owner menolak klaim booking sama seperti booked.
+        await assertSlotNotBlocked(mgr, courtId, date, startMinute, endMinute);
+
         const existing = this.isPostgres
           ? await claimRepo.findOne({
               where: { courtId, date, startMinute },
@@ -385,6 +528,33 @@ export function resolveStartMinute(dto: HoldSlotDto): number {
   throw new BadRequestException('Either start or startMinute is required');
 }
 
+/** Sama seperti hold, untuk DTO blokir (API-W06). */
+export function resolveBlockStart(dto: CreateBlockDto): number {
+  if (dto.startMinute !== undefined) return dto.startMinute;
+  if (dto.start !== undefined) return parseHHMM(dto.start);
+  throw new BadRequestException('Either start or startMinute is required');
+}
+
+/**
+ * Tolak klaim (hold/confirm) yang overlap blokir owner → 409.
+ * Dipakai di dalam transaksi klaim agar cek + tulis atomik.
+ */
+async function assertSlotNotBlocked(
+  mgr: EntityManager,
+  courtId: string,
+  date: string,
+  startMinute: number,
+  endMinute: number,
+): Promise<void> {
+  const blocks = await mgr
+    .getRepository(SlotBlock)
+    .find({ where: { courtId, date } });
+  const hit = blocks.some(
+    (b) => startMinute < b.endMinute && b.startMinute < endMinute,
+  );
+  if (hit) throw new ConflictException('Slot is blocked');
+}
+
 export function parseHHMM(s: string): number {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(s);
   if (!m) throw new BadRequestException('start must be HH:MM (00:00-23:59)');
@@ -411,6 +581,22 @@ function toHoldItem(c: SlotClaim): HoldItem {
     expiresAt: c.expiresAt as Date,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+  };
+}
+
+function toBlockItem(b: SlotBlock): BlockItem {
+  return {
+    id: b.id,
+    courtId: b.courtId,
+    date: b.date,
+    start: toHHMM(b.startMinute),
+    end: toHHMM(b.endMinute),
+    startMinute: b.startMinute,
+    endMinute: b.endMinute,
+    reason: b.reason ?? null,
+    createdBy: b.createdBy ?? null,
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
   };
 }
 

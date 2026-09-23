@@ -6,6 +6,7 @@ import { Rating } from '../ratings/rating.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
 import { Court } from './court.entity';
+import { SlotBlock } from './slot-block.entity';
 import { SlotClaim } from './slot-claim.entity';
 import { SlotsController } from './slots.controller';
 import { SlotsService } from './slots.service';
@@ -17,7 +18,7 @@ import { VenuesService } from './venues.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Venue, Court, SlotClaim, Booking, Rating, VenueDocument]),
+    TypeOrmModule.forFeature([Venue, Court, SlotClaim, SlotBlock, Booking, Rating, VenueDocument]),
     UsersModule,
     ChangeRequestsModule,
     SettingsModule,

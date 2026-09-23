@@ -15,6 +15,11 @@ import { SportEvent } from '../events/event.entity';
 /** Status booking (BK-03, keputusan PO: pending 30 mnt → expired). */
 export type BookingStatus = 'pending' | 'paid' | 'expired' | 'cancelled';
 
+/** Kanal asal booking (API-W06): `app` = via POST /bookings, `walkin` = owner input langsung. */
+export type BookingChannel = 'app' | 'walkin';
+
+export const BOOKING_CHANNELS: BookingChannel[] = ['app', 'walkin'];
+
 export const BOOKING_STATUSES: BookingStatus[] = [
   'pending',
   'paid',
@@ -131,6 +136,47 @@ export class Booking {
       : { name: 'paid_at', type: 'timestamptz', nullable: true },
   )
   paidAt?: Date | null;
+
+  /**
+   * Kanal asal booking (API-W06). Default `app`; walk-in owner → `walkin`.
+   * Postgres memakai varchar agar tambah nilai kanal baru tidak butuh migrasi enum.
+   */
+  @Column({ type: 'varchar', length: 10, default: 'app' })
+  channel!: BookingChannel;
+
+  /**
+   * Nama pembeli walk-in (API-W06, wajib diisi saat create walk-in).
+   * Booking `app` → null (identitas = relasi user).
+   */
+  @Column({ name: 'buyer_name', type: 'varchar', length: 120, nullable: true })
+  buyerName?: string | null;
+
+  /**
+   * Id user yang mencatat booking (API-W06, jejak audit walk-in = owner).
+   * Booking `app` → null (pencatat = user itu sendiri).
+   */
+  @Column({ name: 'created_by', type: 'varchar', nullable: true })
+  createdBy?: string | null;
+
+  /**
+   * Kode human-readable untuk check-in (API-W07, format `KS-XXXXXX`).
+   * Unique + dibuat saat create SEMUA channel; nullable agar baris lama
+   * (pra-W07) tetap valid — di-backfill oportunistik oleh
+   * `BookingsService.expireDueBookings` (dipanggil di hampir semua path baca/tulis).
+   */
+  @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
+  code?: string | null;
+
+  /**
+   * Waktu check-in (API-W07). Diisi sekali via POST /bookings/:id/check-in;
+   * check-in ulang → 409.
+   */
+  @Column(
+    isSqljs
+      ? { name: 'checked_in_at', type: 'datetime', nullable: true }
+      : { name: 'checked_in_at', type: 'timestamptz', nullable: true },
+  )
+  checkedInAt?: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

@@ -7,8 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
+import { assertOwnerOrAdmin } from '../auth/ownership';
 import { EventParticipant } from '../events/event-participant.entity';
 import { SportEvent } from '../events/event.entity';
 import {
@@ -18,6 +19,7 @@ import {
 } from '../marketplace/shop-order.entity';
 import { Product } from '../marketplace/product.entity';
 import { Court } from '../venues/court.entity';
+import { Venue } from '../venues/venue.entity';
 import {
   SLOT_DURATION_MINUTES,
   SlotsService,
@@ -25,8 +27,9 @@ import {
   generateSlotsForDate,
   parseHHMM,
 } from '../venues/slots.service';
-import { Booking, BookingStatus } from './booking.entity';
+import { Booking, BookingChannel, BookingStatus } from './booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateWalkInDto } from './dto/create-walk-in.dto';
 import { MidtransNotificationDto } from './dto/midtrans-notification.dto';
 import { MidtransService } from './midtrans.service';
 import { VouchersService } from '../vouchers/vouchers.service';
@@ -62,6 +65,16 @@ export interface BookingItem {
   /** Id event asal (BK-04); null bila booking langsung via POST /bookings. */
   eventId: string | null;
   paidAt: Date | null;
+  /** Kanal asal (API-W06): `app` via POST /bookings, `walkin` via owner. */
+  channel: BookingChannel;
+  /** Nama pembeli walk-in (API-W06); null untuk kanal `app`. */
+  buyerName: string | null;
+  /** Id owner pencatat walk-in (API-W06, audit); null untuk kanal `app`. */
+  createdBy: string | null;
+  /** Kode check-in human-readable (API-W07, `KS-XXXXXX`, null hanya baris pra-W07). */
+  code: string | null;
+  /** Waktu check-in (API-W07); null bila belum check-in. */
+  checkedInAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +89,8 @@ export class BookingsService {
     private readonly bookings: Repository<Booking>,
     @InjectRepository(Court)
     private readonly courts: Repository<Court>,
+    @InjectRepository(Venue)
+    private readonly venues: Repository<Venue>,
     @InjectRepository(SportEvent)
     private readonly events: Repository<SportEvent>,
     @InjectRepository(EventParticipant)
@@ -277,6 +292,7 @@ export class BookingsService {
             serviceFee,
             slotClaimId: claim.id,
             eventId,
+            channel: 'app',
           }),
         );
         if (redemptionId) {
@@ -297,6 +313,10 @@ export class BookingsService {
       await this.slots.releaseClaimInternal(claim.id).catch(() => undefined);
       throw err;
     }
+
+    // Kode check-in (API-W07) di-assign setelah row commit — di luar transaksi
+    // voucher/poin agar retry collision tidak mengulang mutasi promo.
+    await this.assignUniqueCode(bookingId);
 
     try {
       const bookingRepo = this.dataSource.getRepository(Booking);
@@ -416,6 +436,170 @@ export class BookingsService {
       await this.slots.releaseClaimInternal(booking.slotClaimId);
     }
     return { ok: true, id: booking.id, status: 'cancelled' };
+  }
+
+  /**
+   * POST /bookings/walk-in (API-W06) — owner mencatat booking langsung di tempat.
+   * Guard: owner venue court tsb / super_admin (pola API-W05, cek DB di service).
+   * Status langsung `paid` TANPA Midtrans (tanpa Snap — `snapToken` null);
+   * `paymentRef` auto `WALKIN-...`; slot claim flow SAMA (anti double + tolak
+   * blocked → 409). `userId` diisi id owner pencatat (FK user) + `buyerName`
+   * nama pembeli aktual + `createdBy` audit. Service fee TIDAK dikenakan
+   * (fee hanya kanal `app`); `amount` = body bila diisi, else harga prorata.
+   */
+  async createWalkIn(
+    actor: ActorInput,
+    dto: CreateWalkInDto,
+  ): Promise<BookingItem> {
+    assertValidDate(dto.date);
+    const startMinute = resolveBookingStart(dto);
+    const duration = dto.durationMinutes ?? SLOT_DURATION_MINUTES;
+    const endMinute = startMinute + duration;
+    if (endMinute > 24 * 60) {
+      throw new BadRequestException('Slot exceeds 24:00');
+    }
+
+    const court = await this.courts.findOne({ where: { id: dto.courtId } });
+    if (!court) throw new NotFoundException('Court not found');
+    const venue = await this.venues.findOne({ where: { id: court.venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    if (court.status !== 'active') {
+      throw new ConflictException('Court is not active');
+    }
+
+    const generated = generateSlotsForDate(court.openHours, dto.date);
+    const match = generated.find(
+      (g) => g.startMinute === startMinute && g.endMinute === endMinute,
+    );
+    if (!match) {
+      throw new BadRequestException(
+        'Slot is outside court open hours for this date',
+      );
+    }
+
+    await this.expireDueBookings();
+
+    const subtotal = Math.round((court.pricePerHour * duration) / 60);
+    const amount = dto.amount ?? subtotal;
+    const buyerName = dto.buyerName.trim();
+    const claim = await this.slots.confirmSlot(
+      court.id,
+      dto.date,
+      startMinute,
+      endMinute,
+      actor.id,
+    );
+
+    const paymentRef = generateWalkInRef();
+    try {
+      const booking = await this.bookings.save(
+        this.bookings.create({
+          userId: actor.id,
+          courtId: court.id,
+          date: dto.date,
+          startMinute,
+          endMinute,
+          status: 'paid',
+          paymentRef,
+          amount,
+          subtotal: amount,
+          discount: 0,
+          voucherCode: null,
+          pointsUsed: 0,
+          serviceFee: 0,
+          slotClaimId: claim.id,
+          eventId: null,
+          channel: 'walkin',
+          buyerName,
+          createdBy: actor.id,
+          paidAt: new Date(),
+          snapToken: null,
+          redirectUrl: null,
+        }),
+      );
+      booking.code = await this.assignUniqueCode(booking.id);
+      return toBookingItem(booking);
+    } catch (err) {
+      await this.slots.releaseClaimInternal(claim.id).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  /**
+   * GET /bookings/by-code/:code (API-W07) — lookup untuk kasir owner.
+   * Hanya owner venue booking tsb / super_admin; di luar itu (termasuk kode
+   * tak dikenal) → 404 agar tidak membocorkan keberadaan booking.
+   */
+  async getByCode(code: string, actor: ActorInput): Promise<BookingItem> {
+    await this.expireDueBookings();
+    const normalized = code.trim().toUpperCase();
+    const booking = await this.bookings.findOne({
+      where: { code: normalized },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    await this.assertBookingVenueOwner(actor, booking);
+    return toBookingItem(booking);
+  }
+
+  /**
+   * POST /bookings/:id/check-in (API-W07) — catat kehadiran, sekali saja.
+   * Guard sama dengan by-code (lintas owner → 404). Hanya `paid` yang bisa
+   * check-in (pending/cancelled/expired → 409); sudah check-in → 409.
+   */
+  async checkIn(id: string, actor: ActorInput): Promise<BookingItem> {
+    await this.expireDueBookings();
+    const booking = await this.bookings.findOne({ where: { id } });
+    if (!booking) throw new NotFoundException('Booking not found');
+    await this.assertBookingVenueOwner(actor, booking);
+    if (booking.checkedInAt) {
+      throw new ConflictException('Booking is already checked in');
+    }
+    if (booking.status !== 'paid') {
+      throw new ConflictException(
+        `Only paid bookings can be checked in (current: ${booking.status})`,
+      );
+    }
+    booking.checkedInAt = new Date();
+    return toBookingItem(await this.bookings.save(booking));
+  }
+
+  /**
+   * Kepemilikan venue untuk alur kasir (API-W06/W07): booking → court →
+   * venue.ownerId. Bukan owner & bukan admin → 404 (bukan 403) agar enumerated
+   * code/id tidak membocorkan data venue lain.
+   */
+  private async assertBookingVenueOwner(
+    actor: ActorInput,
+    booking: Booking,
+  ): Promise<void> {
+    if (actor.role === 'super_admin') return;
+    const court = await this.courts.findOne({
+      where: { id: booking.courtId },
+    });
+    const venue = court
+      ? await this.venues.findOne({ where: { id: court.venueId } })
+      : null;
+    if (!court || !venue || venue.ownerId !== actor.id) {
+      throw new NotFoundException('Booking not found');
+    }
+  }
+
+  /**
+   * Assign kode unik `KS-XXXXXX` ke booking (API-W07). Retry 5x bila tabrakan
+   * unique (peluang praktis nol: 32^6 kombinasi).
+   */
+  private async assignUniqueCode(bookingId: string): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const code = generateBookingCode();
+      try {
+        await this.bookings.update({ id: bookingId }, { code });
+        return code;
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+      }
+    }
+    throw new ConflictException('Could not generate booking code, please retry');
   }
 
   /**
@@ -622,6 +806,21 @@ export class BookingsService {
         await this.slots.releaseClaimInternal(b.slotClaimId);
       }
     }
+    // Backfill kode check-in (API-W07) untuk baris pra-W07 yang `code`-nya
+    // null — dibatasi 100/call agar path baca/tulis tetap ringan; tabrakan
+    // unique diabaikan (dicoba lagi di pemanggilan berikut).
+    const missing = await this.bookings.find({
+      where: { code: IsNull() },
+      take: 100,
+    });
+    for (const m of missing) {
+      try {
+        m.code = generateBookingCode();
+        await this.bookings.save(m);
+      } catch {
+        // Kemungkinan tabrakan unique / balapan antar-proses — skip, retry next call.
+      }
+    }
     return due.length;
   }
 
@@ -654,6 +853,40 @@ export function generatePaymentRef(): string {
   return `BK-${Date.now()}-${randomBytes(4).toString('hex')}`;
 }
 
+/** `payment_ref` walk-in (API-W06): tidak masuk Midtrans, prefix `WALKIN-`. */
+export function generateWalkInRef(): string {
+  return `WALKIN-${Date.now()}-${randomBytes(4).toString('hex')}`;
+}
+
+/**
+ * Kode check-in human-readable (API-W07): `KS-` + 6 char Crockford-lite
+ * (tanpa 0/O/1/I agar tak ambigu saat dibaca kasir).
+ */
+const BOOKING_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function generateBookingCode(): string {
+  const bytes = randomBytes(6);
+  let suffix = '';
+  for (const b of bytes) {
+    suffix += BOOKING_CODE_ALPHABET[b % BOOKING_CODE_ALPHABET.length];
+  }
+  return `KS-${suffix}`;
+}
+
+/** True bila error DB adalah pelanggaran unique (Postgres 23505 / SQLite). */
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const rec = err as Record<string, unknown>;
+  if (rec.code === '23505') return true;
+  const msg = [
+    rec.message,
+    (rec.driverError as Record<string, unknown> | undefined)?.message,
+  ]
+    .filter((m) => typeof m === 'string')
+    .join(' ');
+  return /unique|UNIQUE|uq_/i.test(msg);
+}
+
 /**
  * Samakan nominal notifikasi dengan nominal tercatat (rupiah, integer).
  * Beda / bukan angka -> 409; pemanggil belum memutasi apa pun sehingga
@@ -665,7 +898,10 @@ function assertAmountMatches(grossAmount: string, expected: number): void {
   }
 }
 
-function resolveBookingStart(dto: CreateBookingDto): number {
+function resolveBookingStart(dto: {
+  start?: string;
+  startMinute?: number;
+}): number {
   if (dto.startMinute !== undefined) return dto.startMinute;
   if (dto.start !== undefined) return parseHHMM(dto.start);
   throw new BadRequestException('Either start or startMinute is required');
@@ -705,6 +941,11 @@ function toBookingItem(b: Booking): BookingItem {
     redirectUrl: b.redirectUrl ?? null,
     eventId: b.eventId ?? null,
     paidAt: b.paidAt ?? null,
+    channel: b.channel ?? 'app',
+    buyerName: b.buyerName ?? null,
+    createdBy: b.createdBy ?? null,
+    code: b.code ?? null,
+    checkedInAt: b.checkedInAt ?? null,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
   };

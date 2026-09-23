@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01/W03/W05..W07)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -18,6 +18,8 @@ Ringkasan per SM:
 | AD-02 | CMS approval + edit-butuh-approve | `GET /me/change-requests`, `GET /admin/change-requests?status=` + approve/reject, `PATCH` sensitif atas approved → 202 CR, `GET /admin/{venues,products,sellers,users,bookings,orders}` |
 | BK-02 | Slot availability + hold anti-race | `GET /courts/:id/availability`, `POST /courts/:id/hold`, `POST /holds/:id/release` |
 | BK-03 | Booking + Midtrans sandbox + webhook | `POST /bookings`, `GET /bookings/me`, `GET /bookings/:id`, `POST /bookings/:id/cancel`, `POST /payments/midtrans/notification` |
+| API-W06 | Walk-in owner + blokir slot maintenance | `POST /bookings/walk-in`, `POST/GET/DELETE /courts/:id/blocks[/:blockId]` (status availability baru: `blocked`) |
+| API-W07 | Check-in via kode booking | `GET /bookings/by-code/:code`, `POST /bookings/:id/check-in` (kode `KS-XXXXXX`) |
 | MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
 | MP-02 | Cart multiseller + checkout + orders per seller | `GET/PUT /cart`, `POST /checkout`, `GET /orders/me`, `GET /orders/:id` (webhook sama `POST /payments/midtrans/notification`, prefix `MP-`) |
 
@@ -197,7 +199,8 @@ otomatis terbaca `free` saat baca (`expires_at`); job bersih-bersih penuh di BK-
 
 ### `GET /courts/:id/availability?date=YYYY-MM-DD`
 Response `{ courtId, date, slots: [{ date, start, end, startMinute, endMinute, status }] }`,
-`status`: `free | held | booked`. Tanpa jam di hari itu → `slots: []`.
+`status`: `free | held | booked | blocked` (`blocked` = ditutup owner via
+API-W06, lihat seksi Walk-in). Tanpa jam di hari itu → `slots: []`.
 Tanggal kalender invalid → 400; court tak ada → 404.
 
 ### `POST /courts/:id/hold`
@@ -465,3 +468,58 @@ lain → 404.
 Body: `{ status: verified|rejected, note? (≤1000) }` → 200 item dokumen.
 Status selain itu (termasuk `pending`) → 400; non-admin → 403;
 dokumen tak ada / milik venue lain → 404.
+
+## Walk-in + blokir slot (API-W06, auth)
+
+Tabel `bookings` tambah `channel` (`app` default | `walkin`), `buyer_name`
+(wajib untuk walk-in), `created_by` (audit owner pencatat). Tabel baru
+`slot_blocks` (`court_id` CASCADE, `date`, `start_minute/end_minute`,
+`reason?`, `created_by`, unique `(court_id, date, start_minute)`).
+Status availability baru `blocked` — SENGAJA beda dari `booked` agar
+statistik okupansi API-W05 (dihitung dari booking) tetap jujur.
+Prioritas di availability: klaim aktif (held-valid/confirmed) MENANG atas
+blokir — slot terbooking tetap terbaca `booked`; blokir hanya menutup slot
+bebas dalam rentangnya + menolak klaim baru (hold/confirm → 409, sama
+seperti booked). Expire logic booking mengabaikan blokir (blokir dibuka
+manual via DELETE, tidak kedaluwarsa).
+
+### `POST /bookings/walk-in` (owner venue court tsb / super_admin)
+Body: `{ courtId, date, start: "HH:MM" | startMinute, durationMinutes?
+(default 60), buyerName (wajib, ≤120), amount? (default harga court prorata
+durasi, TANPA service fee) }` → 201 booking `paid` langsung (tanpa Midtrans:
+`snapToken/redirectUrl` null, `paymentRef` auto `WALKIN-...`, `paidAt` diisi,
+`channel: "walkin"`, `userId` = owner pencatat). Slot claim flow SAMA
+(anti double + tolak blocked → 409). Lintas owner / user biasa → 403;
+court tak ada → 404; di luar open hours → 400.
+
+### `POST /courts/:id/blocks` (owner venue / super_admin)
+Body: `{ date, start: "HH:MM" | startMinute, durationMinutes? (default 60,
+boleh >60 untuk multi-slot), reason? (≤255) }` → 201 `BlockItem`
+(`id, courtId, date, start, end, startMinute, endMinute, reason,
+createdBy`). Lintas owner → 403; duplikat exact → 409; tidak overlap
+open hours → 400.
+
+### `GET /courts/:id/blocks?date=` (owner venue / super_admin)
+`{ data: BlockItem[], meta: { total } }`, urut tanggal + jam ASC.
+Lintas owner → 403.
+
+### `DELETE /courts/:id/blocks/:blockId` (owner venue / super_admin)
+→ 200 `{ ok: true, id }`. Blokir tak ada / milik court lain → 404;
+lintas owner → 403. Slot kembali `free` (kecuali ada klaim aktif).
+
+## Check-in via kode (API-W07, auth)
+
+Kolom `bookings.code` unik (`KS-XXXXXX`, alfabet tanpa 0/O/1/I ambigu) +
+`checked_in_at`. Kode dibuat saat create SEMUA channel (app, walk-in,
+event); baris lama (pra-W07, `code` null) di-backfill oportunistik di
+`expireDueBookings` (maks 100/call). `BookingItem` tambah
+`channel, buyerName, createdBy, code, checkedInAt`.
+
+### `GET /bookings/by-code/:code` (owner venue booking tsb / super_admin)
+Lookup untuk kasir (kode case-insensitive). Lintas owner / kode tak
+dikenal → 404 (tanpa membocorkan keberadaan booking).
+
+### `POST /bookings/:id/check-in` (owner venue booking tsb / super_admin)
+Check-in sekali saja → 200 `BookingItem` (`checkedInAt` terisi). Ulang →
+409; non-`paid` (pending/cancelled/expired) → 409; lintas owner / tak
+ada → 404.
