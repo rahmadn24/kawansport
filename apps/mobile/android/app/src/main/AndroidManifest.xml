@@ -11,6 +11,7 @@
         <activity
           android:name=".MainActivity"
           android:label="KawanSport"
+          android:theme="@style/LaunchTheme"
           android:exported="true"
           android:launchMode="singleTask">
             <intent-filter>

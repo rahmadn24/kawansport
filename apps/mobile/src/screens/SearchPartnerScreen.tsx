@@ -87,6 +87,9 @@ export function SearchPartnerScreen({
   // UI-only: kata kunci saring hasil yg sudah ada (nama/cabor), buka-tutup filter.
   const [query, setQuery] = useState('');
   const [showFilter, setShowFilter] = useState(true);
+  // UI-only: input radius manual disembunyikan di balik toggle advanced
+  // (collapsed default); nilai tetap terkirim seperti sekarang.
+  const [showRadiusManual, setShowRadiusManual] = useState(false);
 
   const locSet = lat.trim() !== '' && lng.trim() !== '';
 
@@ -257,14 +260,27 @@ export function SearchPartnerScreen({
                       );
                     })}
                   </View>
-                  <UITextInput
-                    label="Radius manual (meter)"
-                    testID="partner-radius"
-                    placeholder="100..100000"
-                    keyboardType="numbers-and-punctuation"
-                    value={radius}
-                    onChangeText={setRadius}
-                  />
+                  <TouchableOpacity
+                    style={styles.radiusToggle}
+                    onPress={() => setShowRadiusManual((v) => !v)}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showRadiusManual }}
+                    accessibilityLabel="Tampilkan pengaturan radius manual"
+                  >
+                    <Text style={styles.radiusToggleText}>
+                      {showRadiusManual ? '▾' : '▸'} Radius manual
+                    </Text>
+                  </TouchableOpacity>
+                  {showRadiusManual ? (
+                    <UITextInput
+                      label="Radius manual (meter)"
+                      testID="partner-radius"
+                      placeholder="100..100000"
+                      keyboardType="numbers-and-punctuation"
+                      value={radius}
+                      onChangeText={setRadius}
+                    />
+                  ) : null}
 
                   <Text style={styles.label}>Lokasi</Text>
                   <Text style={styles.gpsStatus} accessibilityLabel={locSet ? 'Lokasi sudah ditandai' : 'Lokasi belum ditandai'}>
@@ -424,7 +440,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bgAlt },
   padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.screen },
+  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.screen + 96 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -499,9 +515,11 @@ const styles = StyleSheet.create({
   },
   radarBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: COLORS.bg },
   label: { fontSize: 14, fontWeight: '600', color: COLORS.ink, marginTop: SPACING.md, marginBottom: SPACING.sm },
+  radiusToggle: { paddingVertical: SPACING.sm, marginTop: SPACING.sm, alignSelf: 'flex-start' },
+  radiusToggleText: { fontSize: 14, fontWeight: '700', color: COLORS.brand700 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'flex-start' },
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0, flexShrink: 1 },
   gap: { height: SPACING.sm },
   gapH: { width: SPACING.sm },
   gpsStatus: { fontSize: 13, color: COLORS.muted, marginBottom: SPACING.sm },
