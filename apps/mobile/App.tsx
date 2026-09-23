@@ -182,6 +182,7 @@ function Profile() {
                 <Text style={styles.profileEmail} numberOfLines={1}>
                   {user?.email ?? '—'}
                 </Text>
+                {/* TODO(ST-07): badge verifikasi komunitas DISEMBUNYIKAN sampai API profil sosial ada. */}
                 {user?.skillLevel ? (
                   <View style={styles.badgeRow}>
                     <UIBadge kind="skill" label={skillLabel(user.skillLevel)} icon="★" />
@@ -193,18 +194,22 @@ function Profile() {
               <View style={styles.sportsRow}>
                 {shownSports.map((s) => (
                   <View key={s} style={styles.miniChip}>
-                    <Text style={styles.miniChipText}>{s}</Text>
+                    <Text style={styles.miniChipText}>🏅 {s}</Text>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.profileEmpty}>Belum ada olahraga favorit — lengkapi via Edit.</Text>
+              <Text style={styles.profileEmpty}>Belum ada olahraga favorit — lengkapi via Edit Profil.</Text>
             )}
             <Text style={styles.profileLoc} accessibilityLabel={user?.lat != null ? 'Lokasi sudah ditandai' : 'Lokasi belum ditandai'}>
               {user?.lat != null && user?.lng != null
                 ? '📍 Lokasi sudah ditandai'
-                : '📍 Lokasi belum ditandai'}
+                : '📍 Lokasi belum ditandai — atur via Edit Profil'}
             </Text>
+            {/* TODO(ST-07): stat sosial (TOTAL MABAR, game selesai, bintang sportif)
+                DISEMBUNYIKAN — butuh EL-00/ST-07; tampilkan yang ada: olahraga + skill + lokasi. */}
+            {/* TODO(ST-07): badge prestasi, riwayat main bareng, dan circle teman
+                DISEMBUNYIKAN sampai API profil sosial tersedia. */}
           </UICard>
 
           <UISectionTitle>Pratinjau kartu partner</UISectionTitle>
@@ -229,6 +234,7 @@ function Profile() {
             <ActivityIndicator accessibilityLabel="Memuat profil" />
           ) : (
             <>
+              {/* Profil sendiri: Edit. Tombol "Ajak Mabar" HANYA di profil orang lain. */}
               <UIButton title="Edit Profil" onPress={() => setEditing(true)} accessibilityLabel="Edit profil" />
               <View style={styles.gap} />
               <UIButton title="Muat ulang" variant="ghost" onPress={() => refreshProfile().catch(() => undefined)} accessibilityLabel="Muat ulang profil" />

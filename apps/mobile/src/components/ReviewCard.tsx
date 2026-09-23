@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ViewStyle } from 'react-native';
 import { RatingItem } from '../api/ratings';
 import { RatingStarsDisplay } from './RatingStars';
+import { UIAvatar } from './ui';
 import { formatDateShort } from '../api/bookings';
+import { COLORS, RADIUS, SPACING } from '../theme';
 
 export interface ReviewCardProps {
   /** Data review dari API */
@@ -21,10 +23,11 @@ export interface ReviewCardProps {
 
 /**
  * ReviewCard - menampilkan satu review user dengan:
- * - Avatar + nama user
- * - Rating bintang
+ * - Avatar + inisial fallback + nama user
+ * - Rating bintang amber
  * - Komentar review
  * - Tanggal
+ * - Badge court biru lembut (bila rating court spesifik)
  * - Action buttons (edit/hapus) jika owner
  */
 export function ReviewCard({
@@ -55,22 +58,12 @@ export function ReviewCard({
       {/* Header: User + Rating */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleUserPress} style={styles.userRow} activeOpacity={0.7}>
-          <Image
-            source={rating.user.avatarUrl ? { uri: rating.user.avatarUrl } : require('../assets/placeholder-avatar.png')}
-            style={styles.avatar}
-            resizeMode="cover"
-          />
+          <UIAvatar name={rating.user.displayName} uri={rating.user.avatarUrl} size={36} />
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {rating.user.displayName || 'Pengguna'}
+              {rating.user.displayName || 'Kawan main'}
             </Text>
-            <RatingStarsDisplay
-              value={rating.score}
-              size={14}
-              showValue={true}
-              activeColor="#FFC107"
-              inactiveColor="#E0E0E0"
-            />
+            <RatingStarsDisplay value={rating.score} size={14} showValue={true} />
           </View>
         </TouchableOpacity>
 
@@ -86,19 +79,31 @@ export function ReviewCard({
 
       {/* Court info jika rating untuk court spesifik */}
       {rating.courtId && (
-        <View style={styles.courtBadge}>
-          <Text style={styles.courtBadgeText}>Rating untuk lapangan spesifik</Text>
+        <View style={styles.courtBadge} accessibilityLabel="Ulasan untuk lapangan spesifik">
+          <Text style={styles.courtBadgeText}>🏟 Ulasan lapangan spesifik</Text>
         </View>
       )}
 
       {/* Actions untuk owner */}
       {isOwner && (
         <View style={styles.actions}>
-          <TouchableOpacity onPress={handleEdit} style={styles.actionButton} activeOpacity={0.7}>
-            <Text style={styles.actionButtonText}>Edit</Text>
+          <TouchableOpacity
+            onPress={handleEdit}
+            style={styles.editButton}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Ubah ulasan saya"
+          >
+            <Text style={styles.editButtonText}>Ubah</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDelete} style={[styles.actionButton, styles.actionButtonDestructive]} activeOpacity={0.7}>
-            <Text style={styles.actionButtonTextDestructive}>Hapus</Text>
+          <TouchableOpacity
+            onPress={handleDelete}
+            style={[styles.editButton, styles.deleteButton]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Hapus ulasan saya"
+          >
+            <Text style={styles.deleteButtonText}>Hapus</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -108,96 +113,91 @@ export function ReviewCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.md,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
-    backgroundColor: '#F0F0F0',
-  },
   userInfo: {
     flex: 1,
+    marginLeft: SPACING.sm,
   },
   userName: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontWeight: '700',
+    color: COLORS.ink,
   },
   date: {
     fontSize: 12,
-    color: '#888',
-    marginLeft: 8,
+    color: COLORS.faint,
+    marginLeft: SPACING.sm,
   },
   reviewContainer: {
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: COLORS.line,
   },
   reviewText: {
     fontSize: 14,
-    lineHeight: 20,
-    color: '#333',
+    lineHeight: 22,
+    color: COLORS.ink,
   },
   courtBadge: {
-    marginTop: 8,
-    paddingHorizontal: 8,
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    backgroundColor: '#E8F0FE',
-    borderRadius: 8,
+    backgroundColor: '#DBEAFE',
+    borderRadius: RADIUS.full,
     alignSelf: 'flex-start',
   },
   courtBadgeText: {
-    fontSize: 11,
-    color: '#1A73E8',
-    fontWeight: '500',
+    fontSize: 12,
+    color: COLORS.navy,
+    fontWeight: '700',
   },
   actions: {
     flexDirection: 'row',
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: COLORS.line,
   },
-  actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
+  editButton: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.brand700,
+    minHeight: 40,
+    justifyContent: 'center',
   },
-  actionButtonDestructive: {
-    backgroundColor: '#FCE8E6',
-    marginLeft: 8,
-  },
-  actionButtonText: {
+  editButtonText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1A73E8',
+    fontWeight: '700',
+    color: COLORS.bg,
   },
-  actionButtonTextDestructive: {
-    color: '#C00',
+  deleteButton: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1.5,
+    borderColor: COLORS.danger,
+    marginLeft: SPACING.sm,
+  },
+  deleteButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.danger,
   },
 });

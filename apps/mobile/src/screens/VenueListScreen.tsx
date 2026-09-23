@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { VenueItem } from '../api/venues';
 import { formatDistance } from '../api/partners';
@@ -9,6 +9,7 @@ import {
   UIChip,
   UIEmptyState,
   UIErrorBanner,
+  UISearchBar,
   UISkeleton,
 } from '../components/ui';
 
@@ -26,7 +27,9 @@ interface Props {
 
 const SPORTS = ['Futsal', 'Basket', 'Badminton', 'Tenis', 'Voli'];
 
-/** Layar Venue List (BK-04, Stitch UX-03): filter sport + kartu venue. */
+/** Layar Venue List (BK-04, Stitch UX-03): search lokal + filter sport + kartu kaya. */
+// TODO(ST-06): rating venue di kartu DISEMBUNYIKAN sampai API rating tersedia.
+// TODO(ST-01): ganti thumb gradasi dengan foto asli venue.
 export function VenueListScreen({
   venues,
   loading,
@@ -37,6 +40,14 @@ export function VenueListScreen({
   onSelect,
   eventLabel,
 }: Props) {
+  const [query, setQuery] = useState('');
+  // Filter lokal display-only (tak mengubah request server).
+  const q = query.trim().toLowerCase();
+  const visible = q
+    ? venues.filter((v) =>
+        `${v.name} ${v.address} ${v.sports.join(' ')}`.toLowerCase().includes(q),
+      )
+    : venues;
   return (
     <View style={styles.box}>
       <UIAppBar title="Booking Lapangan" />
@@ -45,6 +56,13 @@ export function VenueListScreen({
           <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
         </View>
       ) : null}
+
+      <UISearchBar
+        value={query}
+        onChange={setQuery}
+        placeholder="Cari venue, alamat, olahraga…"
+        accessibilityLabel="Cari venue di daftar ini"
+      />
 
       <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Saring olahraga">
         <UIChip label="Semua" active={!sportFilter} onPress={() => onFilterChange(null)} />
@@ -67,17 +85,21 @@ export function VenueListScreen({
         <FlatList
           style={styles.list}
           contentContainerStyle={styles.listPad}
-          data={venues}
+          data={visible}
           keyExtractor={(item) => item.id}
           onRefresh={onRefresh}
           refreshing={loading}
           ListEmptyComponent={
             <UIEmptyState
               illustration="🏟"
-              title="Belum ada venue"
-              message="Coba ganti filter olahraga atau muat ulang daftar."
-              actionLabel="Muat Ulang"
-              onAction={onRefresh}
+              title={q ? 'Tidak ketemu' : 'Belum ada venue'}
+              message={
+                q
+                  ? 'Coba kata kunci lain atau ganti filter olahragamu.'
+                  : 'Coba ganti filter olahraga atau muat ulang daftar.'
+              }
+              actionLabel={q ? undefined : 'Muat Ulang'}
+              onAction={q ? undefined : onRefresh}
             />
           }
           renderItem={({ item }) => {
@@ -102,11 +124,12 @@ export function VenueListScreen({
                     <Text style={styles.cardTitle} numberOfLines={1}>
                       {item.name}
                     </Text>
+                    {/* TODO(ST-06): rating venue DISEMBUNYIKAN sampai API rating ada. */}
                     <Text style={styles.cardSub} numberOfLines={1}>
-                      {item.sports.join(', ')}
+                      {item.sports.join(' • ')}
                     </Text>
                     <Text style={styles.cardSub} numberOfLines={1}>
-                      {item.address}
+                      📍 {item.address}
                     </Text>
                   </View>
                 </View>
@@ -141,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   ctxText: { fontSize: 13, fontWeight: '600', color: COLORS.brand900, textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.sm, marginTop: SPACING.md },
   list: { flex: 1 },
   listPad: { paddingBottom: SPACING.screen },
   card: {

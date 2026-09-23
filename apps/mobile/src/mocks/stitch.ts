@@ -78,6 +78,60 @@ export const STITCH_PICKUP_BANNER = {
   message: 'Ambil perlengkapanmu langsung di venue pas tanding!',
 };
 
+/* ---------- Batch UX-04 (chat + rating + misc) ---------- */
+
+/** Banner event spesial di feed: STATIS display-only, bukan promo server. */
+// TODO(ST-09): ganti API search/banner — banner + klaim slot dari server.
+export const STITCH_EVENT_BANNER = {
+  title: 'Mabar Akbar Akhir Pekan',
+  message: 'Bonus jersey eksklusif & kawan baru anti canggung!',
+  cta: 'Klaim Slot Kamu',
+};
+
+/** Form rating kaya (aspek/tag/foto) DISEMBUNYIKAN sampai API ada. */
+// TODO(ST-06): ganti API review kaya — aspek, tag sorotan, foto suasana.
+export const STITCH_RATING_RICH_HIDDEN = true;
+
+/** Badge verifikasi profil DISEMBUNYIKAN (jangan tampilkan badge palsu). */
+// TODO(ST-07): ganti API profil sosial — verifikasi komunitas.
+export const STITCH_PROFILE_VERIFIED_HIDDEN = true;
+
+/** Stat sosial profil (total mabar, game selesai, bintang) DISEMBUNYIKAN. */
+// TODO(ST-07): ganti API profil sosial (depend EL-00/EL-04 utk riwayat/achievement).
+export const STITCH_PROFILE_STATS_HIDDEN = true;
+
+/** Badge prestasi / riwayat / circle profil DISEMBUNYIKAN. */
+// TODO(ST-07): ganti API profil sosial — badge, riwayat main, circle teman.
+export const STITCH_PROFILE_SOCIAL_HIDDEN = true;
+
+/** Rating venue di kartu list DISEMBUNYIKAN (belum ada di DTO list). */
+// TODO(ST-06): ganti API rating venue — tampilkan rata-rata + jumlah ulasan.
+export const STITCH_VENUE_RATING_HIDDEN = true;
+
+/** Biaya event di kartu feed DISEMBUNYIKAN (event berbayar butuh ST-02). */
+// TODO(ST-02): ganti API event berbayar — biaya per orang dari server.
+export const STITCH_EVENT_FEE_HIDDEN = true;
+
+/** Ikon olahraga statis untuk chip feed (presentasi, bukan data). */
+export const STITCH_SPORT_ICONS: Record<string, string> = {
+  badminton: '🏸',
+  futsal: '⚽',
+  basket: '🏀',
+  padel: '🎾',
+  tenis: '🎾',
+  voli: '🏐',
+  default: '🏅',
+};
+
+/** Ikon olahraga berdasar nama (case-insensitive, fallback trofi). */
+export function sportIconOf(sport: string): string {
+  const low = sport.toLowerCase();
+  for (const key of Object.keys(STITCH_SPORT_ICONS)) {
+    if (key !== 'default' && low.includes(key)) return STITCH_SPORT_ICONS[key];
+  }
+  return STITCH_SPORT_ICONS.default;
+}
+
 /** Copy proteksi: teks statis informatif, bukan angka klaim server. */
 export const STITCH_PROTECTION = {
   title: 'Jaminan 100% KawanSport Proteksi',
@@ -185,4 +239,42 @@ export function orderBadgeKind(status: string): BadgeKind {
   if (status === 'pending') return 'pending';
   if (status === 'cancelled') return 'cancelled';
   return 'expired';
+}
+
+/** Waktu relatif Indonesia dari ISO: "baru saja", "5 mnt", "2 jam", "kemarin", "12 Agu". */
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  const diffMs = Date.now() - t;
+  if (diffMs < 0) return 'baru saja';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'baru saja';
+  if (mins < 60) return `${mins} mnt`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam`;
+  if (hours < 48) return 'kemarin';
+  try {
+    const d = new Date(t);
+    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(d);
+  } catch {
+    return '';
+  }
+}
+
+/** Jam "14:32" (WIB) dari ISO untuk bubble chat. */
+export function formatClockWIB(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Asia/Jakarta',
+    }).format(new Date(t));
+  } catch {
+    return '';
+  }
 }

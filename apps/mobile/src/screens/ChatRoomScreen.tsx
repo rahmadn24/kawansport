@@ -1,14 +1,17 @@
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
   FlatList,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import type { ChatMessage } from '../api/chat';
+import { COLORS, RADIUS, SPACING, friendlyServerError } from '../theme';
+import { UIButton, UIEmptyState, UIErrorBanner, UISkeleton } from '../components/ui';
+import { formatClockWIB } from '../mocks/stitch';
 
 interface Props {
   messages: ChatMessage[];
@@ -28,9 +31,10 @@ interface Props {
 }
 
 /**
- * Ruang chat 1-1 (SM-07): bubble pesan, auto-scroll ke bawah,
- * optimistic UI (diatur induk via onSend), polling fallback tiap 5 dtk
- * bila socket terputus (indikator "polling" tampil).
+ * Ruang chat 1-1 (SM-07, gaya Stitch): bubble hijau-muda milikku / putih
+ * lawan + nama + jam, status bahasa manusia, composer 48 + tombol kirim primer.
+ * Prop `polling`/`socketError` tetap diterima dari induk (logika sinkronisasi
+ * tak berubah) tapi TIDAK ditampilkan mentah ke pengguna.
  */
 export function ChatRoomScreen({
   messages,
@@ -53,44 +57,69 @@ export function ChatRoomScreen({
 
   const submit = () => {
     const body = draft.trim();
-    if (!body) return;
+    if (!body || sending) return;
     setDraft('');
     onSend(body);
   };
 
-  const status = polling
-    ? 'polling (socket terputus)'
-    : connected
-      ? 'realtime'
-      : 'menghubungkan…';
+  // Bahasa manusia: hanya "Terhubung langsung" vs "Menyambung…".
+  const live = connected && !socketError && !polling;
+  const status = live ? 'Terhubung langsung' : 'Menyambung…';
+
+  const firstLoad = loading && messages.length === 0;
 
   return (
-    <View style={styles.box}>
+    <View style={styles.screen}>
       <View style={styles.header}>
-        <View style={styles.flex}>
-          <Button title="‹ Kembali" onPress={onBack} />
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.back}
+          accessibilityRole="button"
+          accessibilityLabel="Kembali ke daftar chat"
+        >
+          <Text style={styles.backText}>‹ Kembali</Text>
+        </TouchableOpacity>
+        <View style={styles.statusWrap}>
+          <View style={[styles.dot, live && styles.dotLive]} accessibilityElementsHidden />
+          <Text style={styles.status} accessibilityLabel={`Status chat: ${status}`}>
+            {status}
+          </Text>
         </View>
-        <Text style={styles.status}>{status}</Text>
       </View>
-      {socketError && !polling ? <Text style={styles.notice}>{socketError}</Text> : null}
-      {loading && messages.length === 0 ? (
-        <ActivityIndicator />
-      ) : error ? (
-        <Text style={styles.error}>{error}</Text>
+
+      {firstLoad ? (
+        <View style={styles.padded}>
+          <UISkeleton rows={3} />
+        </View>
+      ) : error && messages.length === 0 ? (
+        <View style={styles.padded}>
+          <UIErrorBanner message={friendlyServerError(error)} />
+          <UIButton title="Coba lagi" variant="outline" onPress={onLoadMore} accessibilityLabel="Coba muat pesan lagi" />
+        </View>
       ) : (
         <FlatList
           ref={listRef}
           style={styles.list}
+          contentContainerStyle={styles.listContent}
           data={messages}
           keyExtractor={(item) => item.id}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={<Text style={styles.empty}>Belum ada pesan. Sapa dulu!</Text>}
+          ListEmptyComponent={
+            <UIEmptyState
+              illustration="👋"
+              title="Belum ada pesan"
+              message="Sapa dulu! Obrolan ringan buka jalan ke mabar seru."
+            />
+          }
           ListHeaderComponent={
             hasMore ? (
               <View style={styles.more}>
-                <Button
+                <UIButton
                   title={loadingMore ? 'Memuat…' : 'Muat pesan lama'}
+                  variant="ghost"
                   onPress={onLoadMore}
+                  disabled={loadingMore}
+                  accessibilityLabel="Muat pesan yang lebih lama"
                 />
               </View>
             ) : null
@@ -98,10 +127,17 @@ export function ChatRoomScreen({
           renderItem={({ item }) => {
             const mine = myId != null && item.senderId === myId;
             return (
-              <View style={[styles.bubbleRow, mine ? styles.mine : styles.theirs]}>
+              <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                  <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
-                    {item.body}
+                  {!mine ? (
+                    <Text style={styles.senderName} numberOfLines={1}>
+                      Kawan main
+                    </Text>
+                  ) : null}
+                  <Text style={styles.bubbleText}>{item.body}</Text>
+                  <Text style={[styles.bubbleTime, mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs]}>
+                    {formatClockWIB(item.createdAt)}
+                    {mine && item.readAt ? ' • Dibaca' : ''}
                   </Text>
                 </View>
               </View>
@@ -109,48 +145,102 @@ export function ChatRoomScreen({
           }}
         />
       )}
-      {sendError ? <Text style={styles.error}>{sendError}</Text> : null}
-      <View style={styles.composer}>
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Tulis pesan…"
-          value={draft}
-          onChangeText={setDraft}
-          onSubmitEditing={submit}
-          editable={!sending}
-        />
-        <View style={styles.gapH} />
-        {sending ? <ActivityIndicator /> : <Button title="Kirim" onPress={submit} />}
+
+      <View style={styles.foot}>
+        <UIErrorBanner message={friendlyServerError(sendError)} />
+        <View style={styles.composer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Tulis pesan…"
+            placeholderTextColor={COLORS.faint}
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={submit}
+            editable={!sending}
+            accessibilityLabel="Tulis pesan chat"
+            returnKeyType="send"
+          />
+          {sending ? (
+            <ActivityIndicator style={styles.sendSpin} accessibilityLabel="Mengirim pesan" />
+          ) : (
+            <UIButton
+              title="Kirim"
+              onPress={submit}
+              disabled={!draft.trim()}
+              accessibilityLabel="Kirim pesan"
+              testID="chat-send"
+            />
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  flex: { flex: 1 },
-  status: { fontSize: 12, color: '#555' },
-  notice: { color: '#b60', marginBottom: 8, textAlign: 'center' },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
-  list: { flex: 1 },
-  empty: { textAlign: 'center', color: '#555', marginTop: 24 },
-  more: { marginBottom: 8 },
-  bubbleRow: { flexDirection: 'row', marginBottom: 8 },
-  mine: { justifyContent: 'flex-end' },
-  theirs: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '80%', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
-  bubbleMine: { backgroundColor: '#1a73e8' },
-  bubbleTheirs: { backgroundColor: '#eee' },
-  bubbleText: { fontSize: 14, color: '#111' },
-  bubbleTextMine: { color: '#fff' },
-  composer: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  screen: { flex: 1, backgroundColor: COLORS.bgAlt },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.line,
+    paddingHorizontal: SPACING.screen,
+    paddingVertical: SPACING.sm,
+    minHeight: 56,
   },
-  gapH: { width: 8 },
+  back: { minHeight: 44, justifyContent: 'center', minWidth: 80 },
+  backText: { fontSize: 15, fontWeight: '700', color: COLORS.brand700 },
+  statusWrap: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.star, marginRight: 6 },
+  dotLive: { backgroundColor: COLORS.brand600 },
+  status: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: SPACING.screen, paddingVertical: SPACING.md },
+  more: { marginBottom: SPACING.sm },
+  bubbleRow: { flexDirection: 'row', marginBottom: SPACING.sm },
+  mineRow: { justifyContent: 'flex-end' },
+  theirsRow: { justifyContent: 'flex-start' },
+  bubble: {
+    maxWidth: '80%',
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  bubbleMine: { backgroundColor: COLORS.brand100, borderBottomRightRadius: 6 },
+  bubbleTheirs: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderBottomLeftRadius: 6,
+  },
+  senderName: { fontSize: 12, fontWeight: '700', color: COLORS.brand700, marginBottom: 2 },
+  bubbleText: { fontSize: 14, color: COLORS.ink, lineHeight: 20 },
+  bubbleTime: { fontSize: 11, color: COLORS.faint, marginTop: 4, textAlign: 'right' },
+  bubbleTimeMine: {},
+  bubbleTimeTheirs: {},
+  foot: {
+    backgroundColor: COLORS.bg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingHorizontal: SPACING.screen,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.screen,
+  },
+  composer: { flexDirection: 'row', alignItems: 'center' },
+  input: {
+    flex: 1,
+    minHeight: 48,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    fontSize: 15,
+    color: COLORS.ink,
+    backgroundColor: COLORS.bg,
+    marginRight: SPACING.sm,
+  },
+  sendSpin: { minWidth: 120, minHeight: 48 },
 });

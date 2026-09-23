@@ -84,6 +84,9 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
         <View style={styles.logoMark} accessibilityElementsHidden>
           <Text style={styles.logoMarkText}>K</Text>
         </View>
+        <View style={styles.badgePill} accessibilityLabel="Main bareng, naik level">
+          <Text style={styles.badgePillText}>🏸 Main bareng, naik level</Text>
+        </View>
         <Text style={styles.heroTitle}>Buat Akun</Text>
         <Text style={styles.heroSub}>Kenalan dulu, biar gampang diajak sparing</Text>
       </View>
@@ -144,7 +147,7 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
       />
 
       {strength ? (
-        <View style={styles.meter} accessibilityLabel={`Kekuatan password: ${strength}`}>
+        <View style={styles.meter} accessibilityLabel={`Kekuatan sandi: ${strength}`}>
           <View style={styles.meterBar}>
             <View
               style={[
@@ -155,7 +158,7 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
               ]}
             />
           </View>
-          <Text style={styles.meterLabel}>{strength}</Text>
+          <Text style={styles.meterLabel}>🛡 {strength}</Text>
         </View>
       ) : null}
 
@@ -184,6 +187,7 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
       <View style={styles.gap} />
       <UIButton
         title="Daftar"
+        variant="accent"
         onPress={submit}
         loading={loading}
         loadingTitle="Memproses pendaftaran…"
@@ -192,11 +196,14 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
       />
       <View style={styles.gap} />
       <UIButton
-        title="Sudah punya akun? Masuk"
+        title="Sudah Punya Akun? Masuk"
         variant="ghost"
         onPress={onSwitch}
         accessibilityLabel="Beralih ke masuk"
       />
+      <Text style={styles.terms}>
+        Dengan daftar, kamu menyetujui Kode Etik Sportivitas & Aturan Privasi KawanSport.
+      </Text>
     </View>
   );
 }
@@ -215,6 +222,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logoMarkText: { color: COLORS.lime, fontSize: 28, fontWeight: '800' },
+  badgePill: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 9999,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  badgePillText: { color: COLORS.bg, fontSize: 12, fontWeight: '700' },
   heroTitle: { ...TYPO.title, color: COLORS.ink },
   heroSub: { fontSize: 14, color: COLORS.muted, marginTop: SPACING.xs, textAlign: 'center' },
   peek: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
@@ -230,4 +246,5 @@ const styles = StyleSheet.create({
   rule: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.xs },
   ruleOk: { color: COLORS.brand700, fontWeight: '700' },
   gap: { height: SPACING.md },
+  terms: { fontSize: 12, color: COLORS.faint, textAlign: 'center', marginTop: SPACING.md, lineHeight: 18 },
 });

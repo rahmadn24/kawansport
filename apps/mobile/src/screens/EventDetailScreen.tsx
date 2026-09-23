@@ -1,8 +1,8 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EventDetail, EventParticipantItem, slotsLeft } from '../api/events';
-import { bookingStatusLabel, formatSlotLabel } from '../api/bookings';
-import { COLORS, SPACING, TYPO, formatWIB, friendlyServerError } from '../theme';
+import { bookingStatusLabel, formatIDR, formatSlotLabel } from '../api/bookings';
+import { COLORS, RADIUS, SPACING, TYPO, formatWIB, friendlyServerError } from '../theme';
 import {
   UIAppBar,
   UIAvatar,
@@ -14,6 +14,7 @@ import {
   UISectionTitle,
   UISkeleton,
 } from '../components/ui';
+import { sportIconOf } from '../mocks/stitch';
 
 interface Props {
   event: EventDetail | null;
@@ -32,9 +33,12 @@ interface Props {
   onBookCourt: () => void;
 }
 
+// TODO(ST-01): ganti hero gradasi dengan foto asli event.
+// TODO(ST-03): waiting list event penuh — tombolAntre DISABLED sampai API ada.
+// TODO(ST-10): fasilitas venue & sewa alat DISEMBUNYIKAN sampai API ada.
+
 /**
- * Layar Event Detail (SM-04 + SM-05): header + peserta + detail +
- * daftar peserta, sticky Join/Leave/Book Court.
+ * Layar Event Detail (SM-04 + SM-05, gaya Stitch): hero + info + peserta + sticky Join.
  */
 export function EventDetailScreen({
   event,
@@ -71,34 +75,64 @@ export function EventDetailScreen({
       ) : event ? (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            <UICard>
-              <View style={styles.row}>
-                <Text style={styles.eventTitle} accessibilityRole="header">
-                  {event.title}
-                </Text>
+            {/* Hero: gradasi + ikon olahraga (foto asli menyusul ST-01) */}
+            <View style={styles.hero} accessibilityRole="header">
+              <Text style={styles.heroIcon} accessibilityElementsHidden>
+                {sportIconOf(event.sport)}
+              </Text>
+              <View style={styles.heroBadges}>
                 <UIBadge
                   kind={event.status === 'open' ? 'open' : 'full'}
-                  label={event.status === 'open' ? 'OPEN' : 'FULL'}
+                  label={event.status === 'open' ? 'BUKA' : 'FULL'}
                   icon={event.status === 'open' ? '●' : '■'}
                 />
+                <View style={styles.sportPill}>
+                  <Text style={styles.sportPillText}>{event.sport}</Text>
+                </View>
               </View>
-              <Text style={styles.meta}>
-                {event.sport} • {formatWIB(event.datetime)}
+              <Text style={styles.heroTitle}>{event.title}</Text>
+              <Text style={styles.heroMeta}>
+                Sisa {slotsLeft(event)} dari {event.capacity} slot
               </Text>
+            </View>
+
+            <UICard>
               <View style={styles.hostRow}>
                 <UIAvatar
                   name={event.host.displayName}
                   email={event.host.email}
                   uri={event.host.avatarUrl}
-                  size={36}
+                  size={44}
                 />
-                <Text style={styles.hostText}>
-                  Host: {event.host.displayName ?? event.host.email}
-                </Text>
+                <View style={styles.hostInfo}>
+                  <Text style={styles.hostText} numberOfLines={1}>
+                    {event.host.displayName ?? event.host.email}
+                  </Text>
+                  <Text style={styles.hostSub}>Host event 👑</Text>
+                </View>
               </View>
+              <Text style={styles.meta}>🗓 {formatWIB(event.datetime)}</Text>
+              <Text style={styles.meta}>📍 Titik lokasi event sudah ditandai</Text>
+              <Text style={styles.detailSub}>Rincian alamat menyusul dari host</Text>
             </UICard>
 
-            <UISectionTitle>Peserta</UISectionTitle>
+            <UISectionTitle>Info & Aturan Mabar</UISectionTitle>
+            <UICard>
+              {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
+              {event.booking ? (
+                <Text style={styles.detailLine}>
+                  🏟 Lapangan: {formatSlotLabel(event.booking.date, event.booking.start, event.booking.end)} •{' '}
+                  {bookingStatusLabel(event.booking.status)}
+                </Text>
+              ) : null}
+              {event.booking ? (
+                <Text style={styles.detailLine}>
+                  💰 Iuran: {formatIDR(event.booking.amount)}
+                </Text>
+              ) : null}
+            </UICard>
+
+            <UISectionTitle>Peserta ({participants.length}/{event.capacity})</UISectionTitle>
             <UICard>
               <Text style={styles.slotText} accessibilityLabel={`Sisa ${slotsLeft(event)} dari ${event.capacity} slot`}>
                 Sisa {slotsLeft(event)} dari {event.capacity} slot
@@ -108,6 +142,7 @@ export function EventDetailScreen({
                   style={[
                     styles.progressFill,
                     { width: `${Math.min(100, Math.round((event.participantsCount / Math.max(1, event.capacity)) * 100))}%` },
+                    slotsLeft(event) <= 3 && styles.progressFillLow,
                   ]}
                 />
               </View>
@@ -116,20 +151,6 @@ export function EventDetailScreen({
               </Text>
             </UICard>
 
-            <UISectionTitle>Detail</UISectionTitle>
-            <UICard>
-              {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
-              <Text style={styles.detailLine}>📍 Titik lokasi event sudah ditandai</Text>
-              <Text style={styles.detailSub}>Rincian alamat menyusul dari host</Text>
-              {event.booking ? (
-                <Text style={styles.detailLine}>
-                  🏟 Lapangan: {formatSlotLabel(event.booking.date, event.booking.start, event.booking.end)} •{' '}
-                  {bookingStatusLabel(event.booking.status)}
-                </Text>
-              ) : null}
-            </UICard>
-
-            <UISectionTitle>Yang ikut ({participants.length}/{event.capacity})</UISectionTitle>
             {participantsLoading && participants.length === 0 ? (
               <UISkeleton rows={2} />
             ) : participants.length === 0 ? (
@@ -167,15 +188,22 @@ export function EventDetailScreen({
                 loadingTitle="Memproses…"
                 accessibilityLabel="Keluar dari event"
               />
+            ) : isFull ? (
+              <UIButton
+                title="Antre"
+                variant="outline"
+                onPress={() => undefined}
+                disabled
+                accessibilityLabel="Event penuh, antre segera hadir"
+              />
             ) : (
               <UIButton
-                title={isFull ? 'Penuh — Slot Habis' : 'Ikut Event'}
-                variant="primary"
+                title={`Gabung Mabar${slotsLeft(event) <= 3 ? ` — sisa ${slotsLeft(event)}!` : ''}`}
+                variant="accent"
                 onPress={onJoin}
-                disabled={isFull}
                 loading={mutating}
                 loadingTitle="Memproses…"
-                accessibilityLabel={isFull ? 'Event penuh, slot habis' : 'Ikut event ini'}
+                accessibilityLabel="Gabung event ini"
               />
             )}
             <View style={styles.gap} />
@@ -195,14 +223,36 @@ const styles = StyleSheet.create({
   padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
   body: { flex: 1 },
   bodyContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.lg },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  eventTitle: { fontSize: 18, fontWeight: '800', color: COLORS.ink, flex: 1, marginRight: SPACING.sm },
+  hero: {
+    backgroundColor: COLORS.brand900,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    alignItems: 'center',
+  },
+  heroIcon: { fontSize: 56, marginBottom: SPACING.sm },
+  heroBadges: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
+  sportPill: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.navy,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
+    marginLeft: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.lime,
+  },
+  sportPillText: { fontSize: 12, fontWeight: '700', color: COLORS.bg },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: COLORS.bg, textAlign: 'center' },
+  heroMeta: { fontSize: 14, fontWeight: '700', color: COLORS.lime, marginTop: SPACING.sm },
   meta: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.sm },
-  hostRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.md },
-  hostText: { fontSize: 14, color: COLORS.ink, fontWeight: '600', marginLeft: SPACING.sm, flex: 1 },
+  hostRow: { flexDirection: 'row', alignItems: 'center' },
+  hostInfo: { flex: 1, marginLeft: SPACING.md },
+  hostText: { fontSize: 15, color: COLORS.ink, fontWeight: '700' },
+  hostSub: { fontSize: 12, color: COLORS.faint, marginTop: 2 },
   slotText: { ...TYPO.angka, color: COLORS.ink },
   progress: { height: 8, borderRadius: 4, backgroundColor: COLORS.line, marginTop: SPACING.sm, overflow: 'hidden' },
   progressFill: { height: 8, borderRadius: 4, backgroundColor: COLORS.brand600 },
+  progressFillLow: { backgroundColor: COLORS.accent },
   desc: { fontSize: 14, color: COLORS.ink, lineHeight: 22 },
   detailLine: { fontSize: 14, color: COLORS.ink, marginTop: SPACING.sm, fontWeight: '600' },
   detailSub: { fontSize: 13, color: COLORS.faint, marginTop: 2 },

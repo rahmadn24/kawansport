@@ -8,11 +8,13 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { RatingStarsInput } from './RatingStars';
 import { CreateRatingInput } from '../api/ratings';
+import { COLORS, RADIUS, SPACING } from '../theme';
+// TODO(ST-06): form rating kaya (aspek fasilitas, tag sorotan, foto suasana)
+// DISEMBUNYIKAN sampai API review kaya ada — jangan tampilkan input palsu.
 
 export interface RatingFormModalProps {
   /** Modal visibility */
@@ -43,6 +45,7 @@ export interface RatingFormModalProps {
  * - Validasi client-side
  * - Keyboard avoiding
  * - Loading state
+ * - Ditutup via tombol X / Batal (bukan ketuk overlay).
  */
 export function RatingFormModal({
   visible,
@@ -112,17 +115,26 @@ export function RatingFormModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <TouchableOpacity onPress={onClose} style={styles.overlay} accessible={false}>
+      <View style={styles.overlay}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoiding}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
           <View style={styles.modalContainer}>
+            <View style={styles.handle} accessibilityElementsHidden />
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.title}>Rate {targetType === 'venue' ? 'Venue' : 'Lapangan'}</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.7}>
+              <Text style={styles.title}>
+                Nilai {targetType === 'venue' ? 'Venue' : 'Lapangan'}
+              </Text>
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeButton}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Tutup form rating"
+              >
                 <Text style={styles.closeText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -131,37 +143,45 @@ export function RatingFormModal({
 
             {/* Rating Stars */}
             <View style={styles.section}>
-              <Text style={styles.label}>Rating <Text style={styles.required}>*</Text></Text>
+              <Text style={styles.label}>
+                Rating <Text style={styles.required}>*</Text>
+              </Text>
               <RatingStarsInput
                 value={score}
                 onChange={setScore}
                 size={36}
-                accessibilityLabel="Pilih rating 1-5 bintang"
+                accessibilityLabel="Pilih rating 1 sampai 5 bintang"
               />
               {touched.score && score === 0 && (
-                <Text style={styles.errorText}>Rating wajib dipilih (minimal 1 bintang)</Text>
+                <Text style={styles.errorText}>Pilih dulu bintangnya, minimal 1 ya</Text>
               )}
             </View>
 
             {/* Comment */}
             <View style={styles.section}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Ulasan (opsional)</Text>
-                <Text style={styles.charCount}>{charCount}/{MAX_COMMENT_LENGTH}</Text>
+                <Text style={styles.label}>Ceritakan pengalamanmu (opsional)</Text>
+                <Text style={styles.charCount}>
+                  {charCount}/{MAX_COMMENT_LENGTH}
+                </Text>
               </View>
               <TextInput
                 style={styles.textarea}
                 value={comment}
                 onChangeText={handleCommentChange}
                 onBlur={() => handleBlur('comment')}
-                placeholder="Bagikan pengalaman Anda... (maks 1000 karakter)"
-                placeholderTextColor="#999"
+                placeholder="Lapangannya gimana? Ceritain biar kawan lain kebayang…"
+                placeholderTextColor={COLORS.faint}
                 multiline
                 maxLength={MAX_COMMENT_LENGTH}
                 autoCapitalize="sentences"
                 returnKeyType="done"
+                accessibilityLabel="Ceritakan pengalamanmu"
               />
             </View>
+
+            {/* TODO(ST-06): aspek fasilitas, tag sorotan, dan foto suasana
+                DISEMBUNYIKAN sampai API review kaya tersedia. */}
 
             {/* Error message */}
             {error && <Text style={styles.errorText}>{error}</Text>}
@@ -173,6 +193,8 @@ export function RatingFormModal({
                 style={styles.cancelButton}
                 disabled={submitting}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Batal mengisi rating"
               >
                 <Text style={styles.cancelText}>Batal</Text>
               </TouchableOpacity>
@@ -181,17 +203,19 @@ export function RatingFormModal({
                 style={[styles.submitButton, score === 0 && styles.submitButtonDisabled]}
                 disabled={submitting || score === 0}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Kirim rating"
               >
                 {submitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={COLORS.bg} />
                 ) : (
-                  <Text style={styles.submitText}>Kirim</Text>
+                  <Text style={styles.submitText}>Kirim Ulasan</Text>
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
@@ -199,114 +223,131 @@ export function RatingFormModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(11,27,51,0.5)',
     justifyContent: 'flex-end',
   },
   keyboardAvoiding: {
     flex: 1,
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
+    backgroundColor: COLORS.bg,
+    borderTopLeftRadius: RADIUS.lg,
+    borderTopRightRadius: RADIUS.lg,
+    padding: SPACING.xl,
     paddingBottom: 32,
     maxHeight: '85%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.line,
+    alignSelf: 'center',
+    marginBottom: SPACING.md,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   title: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: COLORS.ink,
   },
   closeButton: {
-    padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeText: {
-    fontSize: 24,
-    color: '#888',
+    fontSize: 22,
+    color: COLORS.muted,
     lineHeight: 24,
   },
   targetName: {
     fontSize: 15,
-    color: '#1A73E8',
-    fontWeight: '600',
-    marginBottom: 20,
+    color: COLORS.brand700,
+    fontWeight: '700',
+    marginBottom: SPACING.lg,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
   },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   label: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
+    color: COLORS.ink,
+    marginBottom: SPACING.sm,
   },
   required: {
-    color: '#C00',
+    color: COLORS.danger,
     marginLeft: 2,
   },
   charCount: {
     fontSize: 12,
-    color: '#888',
+    color: COLORS.faint,
   },
   textarea: {
     borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 12,
-    padding: 12,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
     fontSize: 15,
     minHeight: 100,
     textAlignVertical: 'top',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: COLORS.bg,
+    color: COLORS.ink,
   },
   errorText: {
-    color: '#C00',
+    color: COLORS.danger,
     fontSize: 13,
     marginTop: 6,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 8,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
   },
   cancelButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#F0F0F0',
-    marginRight: 12,
+    paddingHorizontal: SPACING.xl,
+    minHeight: 48,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgAlt,
+    marginRight: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
+    color: COLORS.muted,
   },
   submitButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#1A73E8',
-    minWidth: 100,
+    paddingHorizontal: SPACING.xl,
+    minHeight: 48,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.brand700,
+    minWidth: 140,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#A8C8E8',
+    opacity: 0.55,
   },
   submitText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: '700',
+    color: COLORS.bg,
   },
 });

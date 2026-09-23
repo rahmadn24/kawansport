@@ -60,13 +60,12 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
           ))}
           {order.snapToken ? (
             <Text style={styles.sub} numberOfLines={1}>
-              Snap token: {order.snapToken}
+              Kode pembayaran: {order.snapToken}
             </Text>
           ) : null}
           {isStub ? (
             <Text style={styles.stub}>
-              Mode stub (tanpa Midtrans server key): selesaikan pembayaran via webhook
-              settlement di server untuk menandai lunas.
+              Pesananmu dicatat. Status lunas muncul otomatis setelah server mengonfirmasi — pantau di Order Saya.
             </Text>
           ) : null}
         </UICard>

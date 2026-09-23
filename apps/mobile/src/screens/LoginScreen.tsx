@@ -59,6 +59,9 @@ export function LoginScreen({ loading, serverError, onSubmit, onSwitch, initialE
         <View style={styles.logoMark} accessibilityElementsHidden>
           <Text style={styles.logoMarkText}>K</Text>
         </View>
+        <View style={styles.badgePill} accessibilityLabel="Main bareng, naik level">
+          <Text style={styles.badgePillText}>⚽ Main bareng, naik level</Text>
+        </View>
         <Text style={styles.heroTitle}>Masuk</Text>
         <Text style={styles.heroSub}>Lanjut main bareng kawan</Text>
       </View>
@@ -111,6 +114,7 @@ export function LoginScreen({ loading, serverError, onSubmit, onSwitch, initialE
       <View style={styles.gap} />
       <UIButton
         title="Masuk"
+        variant="accent"
         onPress={submit}
         loading={loading}
         loadingTitle="Memeriksa akun…"
@@ -124,6 +128,9 @@ export function LoginScreen({ loading, serverError, onSubmit, onSwitch, initialE
         onPress={onSwitch}
         accessibilityLabel="Beralih ke pendaftaran"
       />
+      <Text style={styles.terms}>
+        Dengan masuk, kamu menyetujui Kode Etik Sportivitas & Aturan Privasi KawanSport.
+      </Text>
       <Text style={styles.footnote}>Lupa password? Hubungi admin KawanSport.</Text>
     </View>
   );
@@ -143,10 +150,20 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   logoMarkText: { color: COLORS.lime, fontSize: 28, fontWeight: '800' },
+  badgePill: {
+    backgroundColor: COLORS.navy,
+    borderRadius: 9999,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  badgePillText: { color: COLORS.bg, fontSize: 12, fontWeight: '700' },
   heroTitle: { ...TYPO.title, color: COLORS.ink },
   heroSub: { fontSize: 14, color: COLORS.muted, marginTop: SPACING.xs },
   peek: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center' },
   peekText: { fontSize: 14, fontWeight: '700', color: COLORS.brand700 },
   gap: { height: SPACING.md },
-  footnote: { fontSize: 13, color: COLORS.faint, textAlign: 'center', marginTop: SPACING.lg },
+  terms: { fontSize: 12, color: COLORS.faint, textAlign: 'center', marginTop: SPACING.md, lineHeight: 18 },
+  footnote: { fontSize: 13, color: COLORS.faint, textAlign: 'center', marginTop: SPACING.sm },
 });

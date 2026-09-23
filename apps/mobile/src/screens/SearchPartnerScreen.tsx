@@ -283,11 +283,11 @@ export function SearchPartnerScreen({
                 </Text>
                 <View style={styles.cardRow}>
                   <View style={styles.flex}>
-                    <UIButton title="Sapa 👋" onPress={() => onChat(item)} accessibilityLabel={`Sapa ${name}`} />
+                    <UIButton title="Ajak Main" variant="accent" onPress={() => onInvite(item)} accessibilityLabel={`Ajak main ${name}`} />
                   </View>
                   <View style={styles.gapH} />
                   <View style={styles.flex}>
-                    <UIButton title="Undang" variant="outline" onPress={() => onInvite(item)} accessibilityLabel={`Undang ${name}`} />
+                    <UIButton title="Chat" variant="primary" onPress={() => onChat(item)} accessibilityLabel={`Chat dengan ${name}`} />
                   </View>
                 </View>
               </View>

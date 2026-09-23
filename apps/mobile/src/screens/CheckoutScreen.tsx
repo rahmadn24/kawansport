@@ -161,15 +161,14 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
               </Text>
               {booking.snapToken ? (
                 <Text style={styles.vaSub} numberOfLines={1}>
-                  Snap: {booking.snapToken}
+                  Kode pembayaran: {booking.snapToken}
                 </Text>
               ) : null}
             </View>
           </View>
           {isStub ? (
             <Text style={styles.stub}>
-              Mode stub (tanpa Midtrans server key): selesaikan pembayaran via webhook
-              settlement di server untuk menandai lunas.
+              Pembayaranmu dicatat. Status lunas muncul otomatis setelah server mengonfirmasi — pantau di Booking Saya.
             </Text>
           ) : null}
         </UICard>

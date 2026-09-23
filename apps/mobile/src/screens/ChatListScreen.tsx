@@ -1,14 +1,9 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Button,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { ConversationItem } from '../api/chat';
+import { COLORS, RADIUS, SPACING, TYPO, friendlyServerError } from '../theme';
+import { UIAppBar, UIAvatar, UIBadge, UIEmptyState, UIErrorBanner, UISkeleton } from '../components/ui';
+import { formatRelativeTime } from '../mocks/stitch';
 
 interface Props {
   conversations: ConversationItem[];
@@ -18,76 +13,93 @@ interface Props {
   onSelect: (conv: ConversationItem) => void;
 }
 
-/** Daftar conversation + last message + unread badge (SM-07). */
+/** Daftar chat 1-1 (SM-07, gaya Stitch): avatar + waktu relatif + unread, tarik-untuk-muat-ulang. */
 export function ChatListScreen({ conversations, loading, error, onRefresh, onSelect }: Props) {
+  const firstLoad = loading && conversations.length === 0;
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>Chat</Text>
-      {loading && conversations.length === 0 ? (
-        <ActivityIndicator />
+    <View style={styles.screen}>
+      <View style={styles.padded}>
+        <UIAppBar title="Chat" />
+        <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={onRefresh} />
+      </View>
+      {firstLoad ? (
+        <View style={styles.padded}>
+          <UISkeleton rows={4} />
+        </View>
       ) : (
-        <Button title="Refresh" onPress={onRefresh} />
-      )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <FlatList
-        style={styles.list}
-        data={conversations}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          loading ? null : <Text style={styles.empty}>Belum ada percakapan.</Text>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => onSelect(item)}>
-            <View style={styles.row}>
-              <View style={styles.flex}>
-                <Text style={styles.cardTitle}>
-                  {item.partner.displayName || item.partner.email}
-                </Text>
-                <Text style={styles.cardSub} numberOfLines={1}>
-                  {item.lastMessage ? item.lastMessage.body : 'Belum ada pesan'}
-                </Text>
-              </View>
-              {item.unreadCount > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item.unreadCount > 99 ? '99+' : String(item.unreadCount)}
-                  </Text>
+        <FlatList
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          data={conversations}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <UIEmptyState
+              illustration="💬"
+              title="Belum ada chat"
+              message="Cari partner sparing lalu sapa duluan biar ramai!"
+            />
+          }
+          renderItem={({ item }) => {
+            const name = item.partner.displayName || item.partner.email;
+            const preview = item.lastMessage ? item.lastMessage.body : 'Belum ada pesan — sapa dulu!';
+            const stamp = formatRelativeTime(item.lastMessageAt ?? item.lastMessage?.createdAt ?? item.updatedAt);
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => onSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Chat dengan ${name}${item.unreadCount > 0 ? `, ${item.unreadCount} belum dibaca` : ''}`}
+              >
+                <UIAvatar name={item.partner.displayName} email={item.partner.email} uri={item.partner.avatarUrl} size={44} />
+                <View style={styles.body}>
+                  <View style={styles.topRow}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    {stamp ? (
+                      <Text style={styles.time} numberOfLines={1}>
+                        {stamp}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.bottomRow}>
+                    <Text style={styles.preview} numberOfLines={1}>
+                      {preview}
+                    </Text>
+                    {item.unreadCount > 0 ? (
+                      <UIBadge kind="unread" label={item.unreadCount > 99 ? '99+' : String(item.unreadCount)} />
+                    ) : null}
+                  </View>
                 </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        )}
-      />
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
-  list: { flex: 1, marginTop: 12 },
-  empty: { textAlign: 'center', color: '#555', marginTop: 24 },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  list: { flex: 1 },
+  listContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen },
   card: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  flex: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  cardSub: { fontSize: 13, color: '#555', marginTop: 4 },
-  badge: {
-    backgroundColor: '#c00',
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    marginLeft: 8,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  body: { flex: 1, marginLeft: SPACING.md },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { ...TYPO.cardTitle, color: COLORS.ink, flex: 1, marginRight: SPACING.sm },
+  time: { fontSize: 12, fontWeight: '600', color: COLORS.faint },
+  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  preview: { fontSize: 13, color: COLORS.muted, flex: 1, marginRight: SPACING.sm },
 });
