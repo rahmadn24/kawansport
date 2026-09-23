@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01/W03/W05..W07)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W07 + API-W02/W04)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -20,6 +20,8 @@ Ringkasan per SM:
 | BK-03 | Booking + Midtrans sandbox + webhook | `POST /bookings`, `GET /bookings/me`, `GET /bookings/:id`, `POST /bookings/:id/cancel`, `POST /payments/midtrans/notification` |
 | API-W06 | Walk-in owner + blokir slot maintenance | `POST /bookings/walk-in`, `POST/GET/DELETE /courts/:id/blocks[/:blockId]` (status availability baru: `blocked`) |
 | API-W07 | Check-in via kode booking | `GET /bookings/by-code/:code`, `POST /bookings/:id/check-in` (kode `KS-XXXXXX`) |
+| API-W04 | Activity feed admin (agregasi read-only) | `GET /admin/activity?limit=` (super_admin) |
+| API-W02 | Dispute center | `POST/GET /disputes[/me]`, `GET /disputes?status=`, `POST /disputes/:id/{investigate,resolve}` |
 | MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
 | MP-02 | Cart multiseller + checkout + orders per seller | `GET/PUT /cart`, `POST /checkout`, `GET /orders/me`, `GET /orders/:id` (webhook sama `POST /payments/midtrans/notification`, prefix `MP-`) |
 
@@ -523,3 +525,58 @@ dikenal → 404 (tanpa membocorkan keberadaan booking).
 Check-in sekali saja → 200 `BookingItem` (`checkedInAt` terisi). Ulang →
 409; non-`paid` (pending/cancelled/expired) → 409; lintas owner / tak
 ada → 404.
+
+## Activity feed admin (API-W04, auth khusus super_admin)
+
+Agregasi read-only lintas tabel, TANPA tabel baru. Tiap sumber di-query
+`ORDER BY waktu DESC LIMIT N` lalu digabung + merge-sort di memori
+(N kecil: `limit` maks 100 — sederhana + cepat, tanpa UNION SQL kompleks).
+Modul payout belum ada → di-skip (tambah satu sumber + satu tipe bila lahir).
+
+### `GET /admin/activity?limit=` (super_admin)
+- `limit?` default 20, maks 100 (>100 → 400). Tanpa token → 401; role lain → 403.
+- 200: `{ data: ActivityItem[] }`, urut waktu DESC, maks `limit` item.
+- `ActivityItem`: `{ type, at, title, detail?, refType?, refId? }`.
+- `type`: `booking_paid` ("Booking lunas", `at` = `paidAt`),
+  `booking_checkin` ("Check-in booking", `at` = `checkedInAt`),
+  `order_paid` ("Order lunas", `at` = `paidAt`),
+  `user_joined` ("User baru", `at` = `createdAt`),
+  `voucher_redeem` ("Voucher dipakai", `at` = `createdAt` redeem).
+- `refType/refId`: `booking | order | user` + id baris sumber
+  (redeem menunjuk booking/order hasil redeem).
+
+## Dispute center (API-W02, auth)
+
+Tabel `disputes` (`reporter_id` CASCADE, `target_type`
+booking|order|user|venue, `target_id` (validasi longgar: non-empty, tanpa
+FK keras karena target lintas tabel), `category`
+no_show|smurfing|refund|other, `description` ≤2000, `status`
+open|investigating|resolved|rejected default `open`, `resolution`,
+`resolved_by`, timestamps).
+TODO: resolve dengan refund otomatis di luar scope — bila dibutuhkan,
+tambah aksi refund terpisah (reversal Midtrans / poin) dengan auditnya
+sendiri, jangan implisit di resolve.
+
+### `POST /disputes` (user login)
+Body: `{ targetType, targetId (non-empty), category, description (≤2000) }`
+→ 201 item dispute (`status: "open"`, `reporterId` = user JWT).
+Tanpa token → 401; field invalid → 400.
+
+### `GET /disputes/me` (user login)
+Daftar laporan milik sendiri, terbaru dulu → `{ data: DisputeItem[] }`.
+Reporter hanya lihat miliknya (endpoint admin butuh super_admin).
+
+### `GET /disputes?status=` (khusus super_admin)
+Antrean moderasi, filter `status?`
+(open|investigating|resolved|rejected) → `{ data, meta: { total } }`.
+Tanpa token → 401; role lain → 403.
+
+### `POST /disputes/:id/investigate` (khusus super_admin)
+`open` → `investigating` → 200 item. Status lain → 409; tak ada → 404.
+
+### `POST /disputes/:id/resolve` (khusus super_admin)
+Body: `{ status: resolved|rejected, resolution? (≤2000) }` → 200 item
+(`resolvedBy` = admin).
+- `resolved` WAJIB `resolution` non-kosong (else 400); `rejected` opsional.
+- Hanya dari `open`/`investigating` (sudah terminal → 409).
+- Status selain resolved/rejected → 400; tak ada → 404.
