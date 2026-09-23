@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.screen,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.md,
     marginHorizontal: -SPACING.screen,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -100,6 +101,11 @@ import { MyBookingsScreen } from './src/screens/MyBookingsScreen';
 import { CartScreen } from './src/screens/CartScreen';
 import { MpCheckoutScreen } from './src/screens/MpCheckoutScreen';
 import { MyOrdersScreen } from './src/screens/MyOrdersScreen';
+
+// Logo K in-app (src/assets/k-logo.png, disalin dari docs/design/k-logo-192.png).
+// Dipakai splash Gate + hero auth; Metro me-resolve require statis ini saat bundling.
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const K_LOGO = require('./src/assets/k-logo.png');
 
 function Profile() {
   const { user, logout, loading, error, refreshProfile, updateProfile } = useAuth();
@@ -1367,13 +1373,14 @@ function Gate() {
     return (
       <View style={styles.gate}>
         <View style={styles.heroMini} accessibilityLabel="Memuat KawanSport">
-          <View style={styles.logoMark}>
-            <Text style={styles.logoMarkText}>K</Text>
-          </View>
+          <Image source={K_LOGO} style={styles.splashLogo} accessibilityLabel="Logo KawanSport" />
           <Text style={styles.heroName}>KawanSport</Text>
           <Text style={styles.heroSlogan}>Main bareng, naik level</Text>
         </View>
-        <ActivityIndicator accessibilityLabel="Memuat" />
+        <View style={styles.splashSpin}>
+          <ActivityIndicator size="small" color={COLORS.brand700} accessibilityLabel="Memuat" />
+          <Text style={styles.splashSpinText}>Menyiapkan arena…</Text>
+        </View>
       </View>
     );
   }
@@ -1384,9 +1391,7 @@ function Gate() {
   return (
     <ScrollView style={styles.gateScroll} contentContainerStyle={styles.gate} keyboardShouldPersistTaps="handled">
       <View style={styles.hero} accessibilityRole="header">
-        <View style={styles.logoMark}>
-          <Text style={styles.logoMarkText}>K</Text>
-        </View>
+        <Image source={K_LOGO} style={styles.heroLogo} accessibilityLabel="Logo KawanSport" />
         <Text style={styles.heroName}>KawanSport</Text>
         <Text style={styles.heroSlogan}>Cari sparing, booking lapangan, kawan main.</Text>
       </View>
@@ -1446,16 +1451,20 @@ const styles = StyleSheet.create({
   gate: { padding: SPACING.screen },
   hero: { alignItems: 'center', marginBottom: SPACING.lg },
   heroMini: { alignItems: 'center', marginBottom: SPACING.xl },
-  logoMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: COLORS.brand900,
-    alignItems: 'center',
-    justifyContent: 'center',
+  splashLogo: {
+    width: 76,
+    height: 76,
+    borderRadius: 22,
     marginBottom: SPACING.sm,
   },
-  logoMarkText: { color: COLORS.lime, fontSize: 32, fontWeight: '800' },
+  heroLogo: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    marginBottom: SPACING.sm,
+  },
+  splashSpin: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  splashSpinText: { fontSize: 13, color: COLORS.muted, marginLeft: SPACING.sm },
   heroName: { ...TYPO.display, color: COLORS.ink },
   heroSlogan: { fontSize: 14, color: COLORS.muted, marginTop: SPACING.xs, textAlign: 'center' },
   formCard: {

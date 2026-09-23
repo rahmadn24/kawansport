@@ -1,7 +1,11 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { COLORS, SPACING, TYPO, friendlyServerError } from '../theme';
 import { UIButton, UIErrorBanner, UITextInput } from '../components/ui';
+
+// Logo K in-app (disalin dari docs/design/k-logo-192.png).
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const K_LOGO = require('../assets/k-logo.png');
 
 interface Props {
   loading: boolean;
@@ -81,9 +85,7 @@ export function RegisterScreen({ loading, serverError, onSubmit, onSwitch, initi
   return (
     <View style={styles.content}>
       <View style={styles.hero} accessibilityRole="header">
-        <View style={styles.logoMark} accessibilityElementsHidden>
-          <Text style={styles.logoMarkText}>K</Text>
-        </View>
+        <Image source={K_LOGO} style={styles.logoImg} accessibilityLabel="Logo KawanSport" />
         <View style={styles.badgePill} accessibilityLabel="Main bareng, naik level">
           <Text style={styles.badgePillText}>🏸 Main bareng, naik level</Text>
         </View>
@@ -212,16 +214,12 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   content: { padding: SPACING.screen },
   hero: { alignItems: 'center', marginBottom: SPACING.lg },
-  logoMark: {
+  logoImg: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.brand900,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 16,
     marginBottom: SPACING.sm,
   },
-  logoMarkText: { color: COLORS.lime, fontSize: 28, fontWeight: '800' },
   badgePill: {
     backgroundColor: COLORS.navy,
     borderRadius: 9999,

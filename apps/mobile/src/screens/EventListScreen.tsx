@@ -101,11 +101,8 @@ export function EventListScreen({
               message={
                 q
                   ? 'Coba kata kunci lain atau ganti filter olahragamu.'
-                  : 'Jadilah yang pertama bikin keseruan. Ajak kawanmu main bareng!'
+                  : 'Jadilah yang pertama bikin keseruan. Ketuk tombol "Buat Mabar" di bawah!'
               }
-              actionLabel={q ? undefined : 'Buat Event'}
-              onAction={q ? undefined : onCreate}
-              actionA11y="Buat event pertama"
             />
           }
           renderItem={({ item }) => {
