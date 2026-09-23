@@ -23,6 +23,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { isPendingChange } from '../change-requests/change-requests.service';
 import type { UserRole } from '../users/user.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
+import { CreateVenueDocumentDto } from './dto/create-venue-document.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { ListVenuesDto } from './dto/list-venues.dto';
 import { MineVenuesQueryDto } from './dto/mine-venues-query.dto';
@@ -31,6 +32,7 @@ import { UpdateCourtDto } from './dto/update-court.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenuePhotoDto } from './dto/venue-photo.dto';
 import { VenueStatsQueryDto } from './dto/venue-stats-query.dto';
+import { VerifyVenueDocumentDto } from './dto/verify-venue-document.dto';
 import { VenueStatsService } from './venue-stats.service';
 import { VenuesService } from './venues.service';
 
@@ -210,6 +212,52 @@ export class VenuesController {
     const result = await this.venues.updateCourt(id, courtId, user, dto);
     if (isPendingChange(result)) res.status(202);
     return result;
+  }
+
+  /**
+   * Tambah dokumen legalitas venue (API-W01, owner venue / super_admin).
+   * Lintas owner → 403 (cek DB di service, pola API-W05).
+   * URL pola ST-01 (`/uploads/` atau `https`); status awal `pending`.
+   */
+  @Post(':id/documents')
+  @UseGuards(JwtAuthGuard)
+  addDocument(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateVenueDocumentDto,
+  ) {
+    return this.venues.addDocument(id, user, dto);
+  }
+
+  /**
+   * Hapus dokumen legalitas venue (API-W01, owner venue / super_admin).
+   * Lintas owner → 403; dokumen tak ada / milik venue lain → 404.
+   */
+  @Delete(':id/documents/:docId')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  async removeDocument(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('docId', new ParseUUIDPipe()) docId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<void> {
+    await this.venues.removeDocument(id, docId, user);
+  }
+
+  /**
+   * Verifikasi dokumen legalitas (API-W01, khusus super_admin).
+   * Body `{ status: verified|rejected, note? }`; status lain → 400.
+   */
+  @Post(':id/documents/:docId/verify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  verifyDocument(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('docId', new ParseUUIDPipe()) docId: string,
+    @Body() dto: VerifyVenueDocumentDto,
+  ) {
+    return this.venues.verifyDocument(id, docId, dto);
   }
 
   /**

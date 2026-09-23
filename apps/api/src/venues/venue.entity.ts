@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Court } from './court.entity';
+import { VenueDocument } from './venue-document.entity';
 
 /** Status moderasi venue (BK-01). Alur: draft -> pending -> approved | rejected. */
 export type VenueStatus = 'draft' | 'pending' | 'approved' | 'rejected';
@@ -111,6 +112,13 @@ export class Venue {
 
   @OneToMany(() => Court, (court) => court.venue)
   courts?: Court[];
+
+  /**
+   * Dokumen legalitas venue (API-W01). Hanya diserialisasi di
+   * GET /venues/:id untuk owner venue / super_admin; publik tidak.
+   */
+  @OneToMany(() => VenueDocument, (doc) => doc.venue)
+  documents?: VenueDocument[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

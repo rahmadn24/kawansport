@@ -435,3 +435,33 @@ Agregasi di DB (`COUNT/SUM/GROUP BY`); join booking↔court memakai
 `{ data: [{ id, name, status, courtsCount }], meta: { total } }`,
 urut `createdAt` DESC. Default milik sendiri; `super_admin` boleh
 `?all=true` untuk semua venue (non-admin `all=true` → 403).
+
+## Dokumen legalitas venue (API-W01, auth)
+
+Tabel `venue_documents` (`venue_id` CASCADE, `type`
+siup|nib|imb|sertifikat_tanah|mou_lainnya, `url`, `status`
+pending|verified|rejected default `pending`, `note`, timestamps).
+Langsung tanpa change request (bukan field sensitif AD-02).
+URL mengikuti aturan ST-01: hanya path `/uploads/...` atau URL `https`
+(`http`, skema lain, `..` → 400).
+
+`GET /venues/:id` menyertakan `documents: [{ id, venueId, type, url,
+status, note, createdAt, updatedAt }]` + status turunan
+`legalitas: 'lengkap'|'parsial'|'kosong'` HANYA untuk owner venue /
+super_admin; publik (termasuk `GET /venues` list) tidak memuat kedua
+field tersebut. Definisi: `lengkap` bila >= 2 dokumen `verified`,
+`parsial` bila >= 1 dokumen apa pun statusnya, selain itu `kosong`.
+
+### `POST /venues/:id/documents` (owner venue / super_admin)
+Body: `{ type (salah satu dari 5 di atas), url }` → 201 item dokumen
+(status `pending`). Lintas owner → 403; venue tak ada → 404;
+type/URL invalid → 400. Tanpa token → 401; role lain → 403.
+
+### `DELETE /venues/:id/documents/:docId` (owner venue / super_admin)
+→ 204 (tanpa body). Lintas owner → 403; dokumen tak ada / milik venue
+lain → 404.
+
+### `POST /venues/:id/documents/:docId/verify` (khusus super_admin)
+Body: `{ status: verified|rejected, note? (≤1000) }` → 200 item dokumen.
+Status selain itu (termasuk `pending`) → 400; non-admin → 403;
+dokumen tak ada / milik venue lain → 404.

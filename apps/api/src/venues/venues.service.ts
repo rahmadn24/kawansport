@@ -23,14 +23,20 @@ import {
 } from '../change-requests/change-requests.service';
 import { normalizeSports } from '../users/users.service';
 import { UsersService } from '../users/users.service';
-import { assertPhotoUrls } from '../uploads/photo-url';
+import { assertPhotoUrls, isAllowedPhotoUrl } from '../uploads/photo-url';
 import { Court, CourtStatus } from './court.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
+import { CreateVenueDocumentDto } from './dto/create-venue-document.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { ListVenuesDto } from './dto/list-venues.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { Venue } from './venue.entity';
+import {
+  VenueDocument,
+  VenueDocumentStatus,
+} from './venue-document.entity';
+import { VerifyVenueDocumentDto } from './dto/verify-venue-document.dto';
 
 const DEFAULT_RADIUS_M = 10000;
 
@@ -50,6 +56,12 @@ export interface VenueItem {
   courts: CourtItem[];
   /** Meter dari titik query; hanya ada saat filter lat/lng dipakai. */
   distanceMeters?: number;
+  /**
+   * Dokumen legalitas + status turunan (API-W01). HANYA ada bila detail
+   * dibuka owner venue / super_admin; publik (termasuk list) tidak memuatnya.
+   */
+  documents?: VenueDocumentItem[];
+  legalitas?: VenueLegalitas;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -68,6 +80,32 @@ export interface CourtItem {
   updatedAt: Date;
 }
 
+export interface VenueDocumentItem {
+  id: string;
+  venueId: string;
+  type: VenueDocument['type'];
+  url: string;
+  status: VenueDocumentStatus;
+  note: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Status legalitas turunan (API-W01, hanya di detail owner/admin):
+ * `lengkap` bila >= 2 dokumen `verified`; `parsial` bila >= 1 dokumen
+ * apa pun statusnya; selain itu `kosong`.
+ */
+export type VenueLegalitas = 'lengkap' | 'parsial' | 'kosong';
+
+export function computeLegalitas(
+  docs: ReadonlyArray<{ status: VenueDocumentStatus }>,
+): VenueLegalitas {
+  if (docs.filter((d) => d.status === 'verified').length >= 2) return 'lengkap';
+  if (docs.length >= 1) return 'parsial';
+  return 'kosong';
+}
+
 @Injectable()
 export class VenuesService implements OnModuleInit {
   constructor(
@@ -75,6 +113,8 @@ export class VenuesService implements OnModuleInit {
     private readonly venues: Repository<Venue>,
     @InjectRepository(Court)
     private readonly courts: Repository<Court>,
+    @InjectRepository(VenueDocument)
+    private readonly documents: Repository<VenueDocument>,
     private readonly users: UsersService,
     private readonly changeRequests: ChangeRequestsService,
   ) {}
@@ -239,6 +279,89 @@ export class VenuesService implements OnModuleInit {
     venue.updatedBy = actor.id;
     await this.venues.save(venue);
     return this.mustDetail(id, actor);
+  }
+
+  /**
+   * POST /venues/:id/documents — tambah dokumen legalitas (API-W01).
+   * Hanya owner venue / super_admin (403 lintas owner). URL mengikuti
+   * aturan ST-01 (`/uploads/` atau `https`); status awal selalu `pending`.
+   */
+  async addDocument(
+    id: string,
+    actor: ActorInput,
+    dto: CreateVenueDocumentDto,
+  ): Promise<VenueDocumentItem> {
+    const venue = await this.venues.findOne({ where: { id } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const url = dto.url.trim();
+    if (!isAllowedPhotoUrl(url)) {
+      throw new BadRequestException(
+        'Venue document must be /uploads/ paths or https URLs',
+      );
+    }
+    const doc = this.documents.create({
+      venueId: id,
+      type: dto.type,
+      url,
+      status: 'pending',
+      note: null,
+    });
+    return this.toDocumentPublic(await this.documents.save(doc));
+  }
+
+  /**
+   * DELETE /venues/:id/documents/:docId — hapus dokumen (API-W01).
+   * Hanya owner venue / super_admin (403 lintas owner).
+   * Dokumen tak ada / milik venue lain → 404.
+   */
+  async removeDocument(
+    id: string,
+    docId: string,
+    actor: ActorInput,
+  ): Promise<void> {
+    const venue = await this.venues.findOne({ where: { id } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const doc = await this.documents.findOne({ where: { id: docId } });
+    if (!doc || doc.venueId !== id) {
+      throw new NotFoundException('Document not found');
+    }
+    await this.documents.remove(doc);
+  }
+
+  /**
+   * POST /venues/:id/documents/:docId/verify — verifikasi admin (API-W01).
+   * Khusus super_admin (guard di controller). Dokumen tak ada / milik
+   * venue lain → 404.
+   */
+  async verifyDocument(
+    id: string,
+    docId: string,
+    dto: VerifyVenueDocumentDto,
+  ): Promise<VenueDocumentItem> {
+    const venue = await this.venues.findOne({ where: { id } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    const doc = await this.documents.findOne({ where: { id: docId } });
+    if (!doc || doc.venueId !== id) {
+      throw new NotFoundException('Document not found');
+    }
+    doc.status = dto.status;
+    doc.note = dto.note?.trim() ? dto.note.trim() : null;
+    return this.toDocumentPublic(await this.documents.save(doc));
+  }
+
+  toDocumentPublic(d: VenueDocument): VenueDocumentItem {
+    return {
+      id: d.id,
+      venueId: d.venueId,
+      type: d.type,
+      url: d.url,
+      status: d.status,
+      note: d.note ?? null,
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+    };
   }
 
   /** POST /venues/:id/approve — pending -> approved (khusus super_admin). */
@@ -479,11 +602,13 @@ export class VenuesService implements OnModuleInit {
   /**
    * GET /venues/:id — publik untuk venue approved; venue non-approved
    * disembunyikan (404) kecuali dilihat owner-nya / super_admin.
+   * API-W01: `documents` + `legalitas` hanya disertakan untuk owner /
+   * super_admin; publik tidak memuat kedua field tersebut.
    */
   async detail(id: string, actor?: ActorInput | null): Promise<VenueItem> {
     const venue = await this.venues.findOne({
       where: { id },
-      relations: { owner: true, courts: true },
+      relations: { owner: true, courts: true, documents: true },
     });
     if (!venue) throw new NotFoundException('Venue not found');
     if (venue.status !== 'approved') {
@@ -491,31 +616,33 @@ export class VenuesService implements OnModuleInit {
         throw new NotFoundException('Venue not found');
       }
     }
-    return this.toPublic(venue);
+    const includeDocs = !!actor && isOwnerOrAdmin(actor, venue.ownerId);
+    return this.toPublic(venue, undefined, includeDocs);
   }
 
   /** Baca ulang venue apa pun statusnya dengan relasi (hasil approve/reject). */
   private async mustLoad(id: string): Promise<VenueItem> {
     const venue = await this.venues.findOne({
       where: { id },
-      relations: { owner: true, courts: true },
+      relations: { owner: true, courts: true, documents: true },
     });
     if (!venue) throw new NotFoundException('Venue not found');
-    return this.toPublic(venue);
+    return this.toPublic(venue, undefined, true);
   }
 
   /** Baca ulang venue milik owner/admin apa pun statusnya (hasil create/update). */
   private async mustDetail(id: string, actor: ActorInput): Promise<VenueItem> {
     const venue = await this.venues.findOne({
       where: { id },
-      relations: { owner: true, courts: true },
+      relations: { owner: true, courts: true, documents: true },
     });
     if (!venue) throw new NotFoundException('Venue not found');
     assertOwnerOrAdmin(actor, venue.ownerId);
-    return this.toPublic(venue);
+    return this.toPublic(venue, undefined, true);
   }
 
-  toPublic(v: Venue, distanceMeters?: number): VenueItem {
+  toPublic(v: Venue, distanceMeters?: number, includeDocs = false): VenueItem {
+    const docs = includeDocs ? (v.documents ?? []) : undefined;
     return {
       id: v.id,
       name: v.name,
@@ -534,6 +661,12 @@ export class VenuesService implements OnModuleInit {
       updatedBy: v.updatedBy ?? null,
       courts: (v.courts ?? []).map((c) => this.toCourtPublic(c)),
       ...(distanceMeters !== undefined ? { distanceMeters } : {}),
+      ...(docs !== undefined
+        ? {
+            documents: docs.map((d) => this.toDocumentPublic(d)),
+            legalitas: computeLegalitas(docs),
+          }
+        : {}),
       createdAt: v.createdAt,
       updatedAt: v.updatedAt,
     };

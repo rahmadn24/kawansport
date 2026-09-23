@@ -10,13 +10,14 @@ import { SlotClaim } from './slot-claim.entity';
 import { SlotsController } from './slots.controller';
 import { SlotsService } from './slots.service';
 import { Venue } from './venue.entity';
+import { VenueDocument } from './venue-document.entity';
 import { VenueStatsService } from './venue-stats.service';
 import { VenuesController } from './venues.controller';
 import { VenuesService } from './venues.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Venue, Court, SlotClaim, Booking, Rating]),
+    TypeOrmModule.forFeature([Venue, Court, SlotClaim, Booking, Rating, VenueDocument]),
     UsersModule,
     ChangeRequestsModule,
     SettingsModule,
