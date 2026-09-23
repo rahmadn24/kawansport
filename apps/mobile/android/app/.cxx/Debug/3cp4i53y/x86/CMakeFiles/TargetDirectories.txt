@@ -1,3 +1,0 @@
-/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/x86/CMakeFiles/appmodules.dir
-/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/x86/CMakeFiles/edit_cache.dir
-/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/x86/CMakeFiles/rebuild_cache.dir

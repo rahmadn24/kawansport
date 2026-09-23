@@ -9,7 +9,9 @@ build/
 # RN
 apps/mobile/android/.gradle/
 apps/mobile/android/app/build/
+apps/mobile/android/app/.cxx/
 apps/mobile/android/build/
+apps/mobile/android/app/src/main/assets/index.android.bundle
 apps/mobile/ios/build/
 apps/mobile/ios/Pods/
 *.xcworkspace/xcuserdata/
