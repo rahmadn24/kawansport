@@ -19,6 +19,10 @@ import {
 } from 'react-native';
 import { COLORS, RADIUS, SPACING, TYPO, initialsOf } from '../theme';
 
+// Logo resmi KawanSport (src/assets/logo.png — master: docs/design/logo.png).
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+const HEADER_LOGO = require('../assets/logo.png');
+
 // ---------- Button ----------
 
 type ButtonVariant = 'primary' | 'accent' | 'outline' | 'ghost' | 'danger';
@@ -513,12 +517,20 @@ export function UIHeader({
   return (
     <View style={styles.header}>
       <View style={styles.headerBrand}>
-        <View style={styles.headerLogo} accessibilityElementsHidden>
-          <Text style={styles.headerLogoText}>K</Text>
-        </View>
+        <Image
+          source={HEADER_LOGO}
+          style={styles.headerLogo}
+          accessibilityLabel="Logo KawanSport"
+          accessibilityElementsHidden
+        />
         <View style={styles.headerBrandCol}>
           <Text style={styles.headerName}>KawanSport</Text>
-          <Text style={styles.headerLoc} accessibilityLabel={locLabel} numberOfLines={1}>
+          <Text
+            style={styles.headerLoc}
+            accessibilityLabel={locLabel}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             📍 {locationText} ▾
           </Text>
         </View>
@@ -835,20 +847,16 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.md,
     marginHorizontal: -SPACING.screen,
   },
-  headerBrand: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  headerBrand: { flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 40 },
   headerLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: COLORS.lime,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
-  headerLogoText: { fontSize: 20, fontWeight: '800', color: COLORS.navy },
-  headerBrandCol: { marginLeft: SPACING.sm, flex: 1 },
+  headerBrandCol: { marginLeft: SPACING.sm, flex: 1, justifyContent: 'center' },
   headerName: { fontSize: 16, fontWeight: '800', color: COLORS.bg },
   headerLoc: { fontSize: 12, fontWeight: '600', color: COLORS.bg, opacity: 0.85, marginTop: 2 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   headerBell: {
     width: 40,
     height: 40,

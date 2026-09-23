@@ -102,10 +102,10 @@ import { CartScreen } from './src/screens/CartScreen';
 import { MpCheckoutScreen } from './src/screens/MpCheckoutScreen';
 import { MyOrdersScreen } from './src/screens/MyOrdersScreen';
 
-// Logo K in-app (src/assets/k-logo.png, disalin dari docs/design/k-logo-192.png).
+// Logo resmi KawanSport (src/assets/logo.png, master: docs/design/logo.png).
 // Dipakai splash Gate + hero auth; Metro me-resolve require statis ini saat bundling.
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const K_LOGO = require('./src/assets/k-logo.png');
+const K_LOGO = require('./src/assets/logo.png');
 
 function Profile() {
   const { user, logout, loading, error, refreshProfile, updateProfile } = useAuth();

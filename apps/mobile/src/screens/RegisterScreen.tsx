@@ -3,9 +3,9 @@ import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import { COLORS, SPACING, TYPO, friendlyServerError } from '../theme';
 import { UIButton, UIErrorBanner, UITextInput } from '../components/ui';
 
-// Logo K in-app (disalin dari docs/design/k-logo-192.png).
+// Logo resmi KawanSport (master: docs/design/logo.png).
 // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
-const K_LOGO = require('../assets/k-logo.png');
+const K_LOGO = require('../assets/logo.png');
 
 interface Props {
   loading: boolean;
