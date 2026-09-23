@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>KawanSport - Operations Core</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary-fixed-variant":"#005323","on-surface-variant":"#3f493f","secondary":"#9d4300","on-background":"#131b2e","on-error":"#ffffff","surface-container":"#eaedff","on-tertiary":"#ffffff","surface-container-low":"#f2f3ff","on-primary-fixed":"#00210a","on-secondary-fixed-variant":"#783200","secondary-fixed":"#ffdbca","on-tertiary-container":"#deffab","on-primary-container":"#d3ffd5","primary-fixed-dim":"#79db8d","inverse-surface":"#283044","outline":"#6f7a6e","inverse-on-surface":"#eef0ff","secondary-fixed-dim":"#ffb690","error":"#ba1a1a","on-error-container":"#93000a","surface-dim":"#d2d9f4","surface":"#faf8ff","surface-container-high":"#e2e7ff","tertiary-container":"#517b00","primary":"#00652c","tertiary-fixed":"#b2f746","on-secondary":"#ffffff","surface-tint":"#006d30","tertiary":"#3f6000","background":"#faf8ff","on-secondary-fixed":"#341100","primary-container":"#15803d","on-primary":"#ffffff","outline-variant":"#becabc","error-container":"#ffdad6","surface-container-lowest":"#ffffff","tertiary-fixed-dim":"#98da27","inverse-primary":"#79db8d","primary-fixed":"#95f8a7","on-surface":"#131b2e","surface-variant":"#dae2fd","on-secondary-container":"#5c2400","on-tertiary-fixed-variant":"#334f00","surface-container-highest":"#dae2fd","on-tertiary-fixed":"#121f00","surface-bright":"#faf8ff","secondary-container":"#fd761a"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-lg":"1.5rem","space-md":"1rem","space-xs":"0.25rem","margin":"1rem","space-xl":"2rem","space-sm":"0.5rem","gutter":"1rem"},fontFamily:{"headline-sm":["Inter"],"label-sm":["Inter"],"label-md":["Inter"],"headline-md":["Inter"],"body-lg":["Inter"],"headline-lg":["Inter"],"display-hero":["Inter"],"label-lg":["Inter"],"body-sm":["Inter"],"stat-counter":["Inter"],"body-md":["Inter"]},fontSize:{"headline-sm":["18px",{"lineHeight":"24px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-sm":["10px",{"lineHeight":"12px","letterSpacing":"0.05em","fontWeight":"700"}],"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-md":["22px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"24px","letterSpacing":"0em","fontWeight":"400"}],"headline-lg":["28px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"display-hero":["36px",{"lineHeight":"44px","letterSpacing":"-0.03em","fontWeight":"800"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"stat-counter":["24px",{"lineHeight":"28px","letterSpacing":"-0.03em","fontWeight":"800"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] z-50 flex flex-col justify-between pt-6 pb-6"><div class="flex flex-col"><div class="px-6 mb-8 flex items-center gap-space-sm"><img alt="Brand logo. - Primary color: #15803d
+- Font: inter
+- Mode: light
+- Roundness: rounded-md
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AOf_eGZ5i4z6zO1pZl7L3mR9J90a5x3O441qZgZ7dI3B=s120"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight leading-tight">KawanSport</span><span class="font-label-sm text-label-sm text-primary font-bold tracking-wider uppercase">CMS Control Center</span></div></div><div class="px-6 mb-4"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Navigasi Utama</span></div><nav class="px-4 flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold rounded-xl"><a aria-current="page" class="flex items-center gap-space-sm px-4 py-3 transition-all bg-primary-container text-on-primary font-bold rounded-xl" data-path="superadmin-overview" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-lg text-label-lg">Dashboard Overview</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="manajemen-venue-approval" href="#"><span class="material-symbols-outlined text-[20px]">stadium</span><span class="font-label-lg text-label-lg">Manajemen Venue &amp; Approval</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pengguna-komunitas" href="#"><span class="material-symbols-outlined text-[20px]">groups</span><span class="font-label-lg text-label-lg">Pengguna &amp; Komunitas</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="transaksi-keuangan" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span class="font-label-lg text-label-lg">Transaksi &amp; Keuangan</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="fee-platform-voucher" href="#"><span class="material-symbols-outlined text-[20px]">loyalty</span><span class="font-label-lg text-label-lg">Fee Platform &amp; Voucher</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pengaturan-sistem" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span class="font-label-lg text-label-lg">Pengaturan Sistem</span></a></nav><div class="px-6 mt-8 mb-4"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Mitra Pengelola</span></div><nav class="px-4 flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold rounded-xl"><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="overview-lapangan" href="#"><span class="material-symbols-outlined text-[20px]">sports_soccer</span><span class="font-label-lg text-label-lg">Overview Lapangan</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="jadwal-slot-kalender" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span class="font-label-lg text-label-lg">Jadwal &amp; Slot Kalender</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="reservasi-checkin-qr" href="#"><span class="material-symbols-outlined text-[20px]">qr_code_scanner</span><span class="font-label-lg text-label-lg">Reservasi &amp; Check-in QR</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="harga-jam-operasional" href="#"><span class="material-symbols-outlined text-[20px]">schedule</span><span class="font-label-lg text-label-lg">Harga &amp; Operasional</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pendapatan-payout" href="#"><span class="material-symbols-outlined text-[20px]">payments</span><span class="font-label-lg text-label-lg">Pendapatan &amp; Payout</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="ulasan-pemain" href="#"><span class="material-symbols-outlined text-[20px]">reviews</span><span class="font-label-lg text-label-lg">Ulasan Pemain</span></a></nav></div><div class="px-6 pt-4"><div class="p-4 rounded-xl bg-surface-container-low flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface font-bold">Server Core ID</span><span class="font-body-sm text-body-sm text-on-surface-variant">v2.4.1 Active</span></div><span class="w-3 h-3 rounded-full bg-primary-container"></span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-8 flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md flex-1 max-w-lg"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input class="w-full h-11 pl-11 pr-4 rounded-xl bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant/70 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari venue, id booking, tim sparing, atau transaksi..." type="search"/></div></div><div class="flex items-center gap-space-md"><div class="hidden lg:flex items-center gap-space-xs px-3.5 py-1.5 rounded-full bg-surface-container-low"><span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface font-semibold">Gateway Operasional Stabil</span></div><button class="relative p-2.5 rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-secondary-container"></span></button><div class="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AOf_eGbuw3N4J842d0b-CjO3g5rU8vEa-RzB2vVvF944=s64-c"/><div class="hidden sm:flex flex-col text-left"><span class="font-label-md text-label-md text-on-surface font-bold leading-tight">Arya Pratama</span><span class="font-body-sm text-body-sm text-on-surface-variant">Super Administrator</span></div></div></div></header><main class="w-full pt-20 px-8 bg-surface"><div class="flex flex-col w-full pb-16">
+<!-- Top Command & Control Strip -->
+<section class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md py-6 border-b border-surface-container">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm uppercase tracking-wider">Superadmin Panel</span>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+          Live Sync
+        </span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight font-bold">
+        Superadmin Ecosystem Overview &amp; Control Hub
+      </h1>
+<p class="font-body-md text-body-md text-on-surface-variant">
+        Sentralisasi pemantauan multi-venue, kepatuhan legalitas, arus transaksi GMV, dan sportivitas komunitas.
+      </p>
+</div>
+<!-- Right Controls -->
+<div class="flex flex-wrap items-center gap-space-sm">
+<div class="flex items-center bg-surface-container-lowest p-1 rounded-xl shadow-sm">
+<button class="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md transition-colors" type="button">
+          7 Hari Terakhir
+        </button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label-md font-bold shadow-xs" type="button">
+          Bulan Ini (Mei 2025)
+        </button>
+</div>
+<button class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-lowest hover:bg-surface-container-high text-on-surface font-label-md font-semibold shadow-sm transition-all" type="button">
+<span class="material-symbols-outlined text-[18px] text-primary">download</span>
+        Audit CSV
+      </button>
+<!-- Platform Health Micro Badge -->
+<div class="hidden xl:flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-surface-container-low shadow-sm">
+<div class="relative flex items-center justify-center">
+<span class="w-2.5 h-2.5 rounded-full bg-primary animate-ping absolute opacity-75"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container relative"></span>
+</div>
+<div class="flex flex-col leading-tight">
+<span class="font-label-sm text-on-surface font-bold">Sistem Normal • 99.98%</span>
+<span class="font-label-sm text-on-surface-variant">Latency 24ms (JKT-DC)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- 4 Core Performance KPI Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md mt-6">
+<!-- GMV Card -->
+<div class="relative overflow-hidden p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Total Gross Merchandise Value</span>
+<span class="font-stat-counter text-stat-counter text-on-surface font-extrabold mt-1">Rp 1.428.650.000</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-surface-container flex items-center justify-between">
+<div class="flex items-center gap-1 text-primary font-label-md font-bold">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+          +18.4%
+        </div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">vs. periode April 2025</span>
+</div>
+</div>
+<!-- Booking Volume Card -->
+<div class="relative overflow-hidden p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Total Booking Berhasil</span>
+<span class="font-stat-counter text-stat-counter text-on-surface font-extrabold mt-1">18.940 Reservasi</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-secondary-container/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">confirmation_number</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-surface-container flex items-center justify-between">
+<div class="flex items-center gap-1 text-on-surface font-label-md font-semibold">
+<span class="material-symbols-outlined text-[16px] text-primary">speed</span>
+          631 booking/hari
+        </div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Konversi 92.4%</span>
+</div>
+</div>
+<!-- Active Athletes & Communities -->
+<div class="relative overflow-hidden p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Atlet &amp; Komunitas Aktif</span>
+<span class="font-stat-counter text-stat-counter text-on-surface font-extrabold mt-1">38.450 Akun</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[22px]">sports_handball</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-surface-container flex items-center justify-between">
+<div class="flex items-center gap-1 text-primary font-label-md font-bold">
+<span class="material-symbols-outlined text-[16px]">person_add</span>
+          +2.120 baru
+        </div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">420 tim sparing aktif</span>
+</div>
+</div>
+<!-- Platform Fee & Net Revenue -->
+<div class="relative overflow-hidden p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Platform Fee (Take Rate 5%)</span>
+<span class="font-stat-counter text-stat-counter text-primary font-extrabold mt-1">Rp 71.432.500</span>
+</div>
+<div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">account_balance</span>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-surface-container flex items-center justify-between">
+<div class="flex items-center gap-1 text-primary font-label-md font-bold">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+          Settlement Real-time
+        </div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Nett aman di Escrow</span>
+</div>
+</div>
+</section>
+<!-- Dual Column Operational Hub -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg mt-8">
+<!-- Left Column (approx 60-65%): Approvals & Moderation -->
+<div class="lg:col-span-7 xl:col-span-8 flex flex-col gap-space-lg">
+<!-- Table 1: Approval Mitra Venue Baru -->
+<div class="p-6 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)]">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-5 pb-4 border-b border-surface-container">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[20px]">domain_verification</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+                Verifikasi &amp; Approval Venue Baru
+              </h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">3 permohonan kemitraan menunggu tinjauan legalitas</span>
+</div>
+</div>
+<span class="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm font-bold w-fit">
+            3 Menunggu Tindakan
+          </span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant font-label-sm uppercase tracking-wider rounded-xl">
+<th class="py-3 px-4 rounded-l-xl">Nama Fasilitas &amp; Lokasi</th>
+<th class="py-3 px-3">Fasilitas / Tipe</th>
+<th class="py-3 px-3">Legalitas Dokumen</th>
+<th class="py-3 px-4 rounded-r-xl text-right">Tindakan Admin</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<tr class="hover:bg-surface transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<img class="w-12 h-12 rounded-xl object-cover shadow-sm flex-shrink-0" data-alt="Indoor badminton court with vibrant green synthetic courts, professional high bay LED lighting, clear line markings, and high tournament rafters." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw186uunnE9V6Io3D2PQHq3cBvlAj_h78as-yEEjDb3xdgdQipu0dHz9US_N5N0ilELJjkTLJ2J9TTmCbr6YTjlBZckL5xuQ9cN1lAlpxmJmhDRM5Gi4Zh6LwoVKNZX3Wn7FKhYgcfxOUi_x9KfoNmByY3AoVgFFKcRUv6UrDEFbxT8R9KDQ5FjpI5odFo7qEpKN0d0rcMhR086iPr50EjP4eL2iZLk9Xd5poMDE44Qxay9a-VGA0x"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-bold truncate">GOR Bulutangkis Pancoran Jaya</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                        Jakarta Selatan
+                      </span>
+</div>
+</div>
+</td>
+<td class="py-4 px-3">
+<span class="font-label-md text-label-md text-on-surface font-semibold">6 Lapangan Karpet</span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant">Yonex Standard</span>
+</td>
+<td class="py-4 px-3">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-label-sm font-bold">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+                    Lengkap &amp; Valid
+                  </span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all" type="button">
+                      Setujui Mitra
+                    </button>
+<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high text-on-surface-variant hover:text-error font-label-md transition-colors" title="Tolak / Permintaan Revisi" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<img class="w-12 h-12 rounded-xl object-cover shadow-sm flex-shrink-0" data-alt="Modern indoor mini soccer and futsal arena with lush artificial turf, bright stadium floodlights, side netting, and sleek spectator benches." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBizpxg5LuOlbiixL-QfB8TTKggRyrpFDCslAo0fwSEJm8HFuy0F-MzwEDEn5IfoxzmByT6--I4NyqEBjWIm-aIMY8x4WUAxCVVzBXBc6EMYqqaHtcnAt9YJPIN8qkOZDWOOHveet2c1GxsHfeyOGpNoS7O2ASTfi_Fnng-QR0vX7XCiHZWA9ujixtdoUEh0oaifH7uw27G12g54qrTfYINxyxVE4JatWne2X3kNBZIJGVhoac4VnzT"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-bold truncate">Epic Futsal &amp; Mini Soccer Park</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                        Bekasi Barat
+                      </span>
+</div>
+</div>
+</td>
+<td class="py-4 px-3">
+<span class="font-label-md text-label-md text-on-surface font-semibold">3 Lapangan Sintetis</span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant">Rumput Monofilamen</span>
+</td>
+<td class="py-4 px-3">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm font-bold">
+<span class="material-symbols-outlined text-[14px]">hourglass_top</span>
+                    Verifikasi IMB
+                  </span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all" type="button">
+                      Setujui Mitra
+                    </button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors" type="button">
+                      Tinjau Detail
+                    </button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface transition-colors group">
+<td class="py-4 px-4">
+<div class="flex items-center gap-3">
+<img class="w-12 h-12 rounded-xl object-cover shadow-sm flex-shrink-0" data-alt="Luxurious outdoor padel tennis court enclosure with glass panoramic walls, blue turf court, overhead warm evening lights, and lounge club seating." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAhaD4U1VFSC0xV1ejdi-zbOYYuRboM7XoBB0nJPFeIt7KGpeNpwYiR5X9R2Q8Avy6Fhbs7uSXd7vyd0sVnAhbYhqq-uNvisZpXFxrg211tDZXIF0Qvmrh9UqOucuh-JVl_osRotw3YcsvzX8Z87XyV8A8QZb96GgHIrNoEPu44AcHlDu-9JWj9Ps005poq8iiJApDd2hb12gHpmX4ns7TUZp1Zav__xvuqfTpv8X3AqGdmO00E12a"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-bold truncate">Padel Club Kemang Elite</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                        Jakarta Selatan
+                      </span>
+</div>
+</div>
+</td>
+<td class="py-4 px-3">
+<span class="font-label-md text-label-md text-on-surface font-semibold">4 Lapangan Panoramik</span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant">Kaca Tempered 12mm</span>
+</td>
+<td class="py-4 px-3">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary font-label-sm font-bold">
+<span class="material-symbols-outlined text-[14px]">verified</span>
+                    Lengkap &amp; Valid
+                  </span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="inline-flex items-center gap-2">
+<button class="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md font-bold shadow-sm hover:brightness-105 active:scale-95 transition-all" type="button">
+                      Setujui Mitra
+                    </button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors" type="button">
+                      Tinjau Detail
+                    </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Table 2: Pusat Moderasi Sparing & Laporan Komunitas -->
+<div class="p-6 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)]">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-5 pb-4 border-b border-surface-container">
+<div class="flex items-center gap-2.5">
+<div class="w-9 h-9 rounded-xl bg-error/10 flex items-center justify-center text-error">
+<span class="material-symbols-outlined text-[20px]">shield</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+                Pusat Moderasi Sparing &amp; Laporan Sportivitas
+              </h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Laporan perselisihan slot, no-show mabar, dan klaim garansi lapangan</span>
+</div>
+</div>
+<span class="text-on-surface-variant font-label-sm font-medium">Resolusi SLA &lt; 2 Jam</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Dispute Item 1 -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center font-bold flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">person_cancel</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Dispute No-Show Tim Lawan</span>
+<span class="px-2 py-0.5 rounded-full bg-error text-on-error font-label-sm font-bold">Tiket #DSP-891</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">• 12 menit yang lalu</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                  Klub <strong class="text-on-surface font-semibold">Tebet FC</strong> melaporkan tim tamu <strong class="text-on-surface font-semibold">Garuda Petamburan</strong> tidak hadir setelah menyepakati slot sparing Mini Soccer jam 20:00 WIB (Tarif Rp 450.000).
+                </p>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end md:self-center flex-shrink-0">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md font-semibold hover:bg-surface-container-high transition-colors" type="button">
+                Investigasi Chat
+              </button>
+<button class="px-3 py-1.5 rounded-lg bg-secondary-container text-on-primary font-label-md font-bold shadow-xs hover:brightness-105 transition-all" type="button">
+                Refund Penuh Host
+              </button>
+</div>
+</div>
+<!-- Dispute Item 2 -->
+<div class="p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center font-bold flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">sports_score</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Smurfing / Unverified Skill Level</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-fixed-dim text-on-secondary-fixed font-label-sm font-bold">Tiket #DSP-887</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">• 45 menit yang lalu</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                  Komunitas Mabar Badminton "Casual Fun" memprotes 2 pemain berkategori Semi-Pro yang join di room Beginner Friendly. 4 komplain rating diterima.
+                </p>
+</div>
+</div>
+<div class="flex items-center gap-2 self-end md:self-center flex-shrink-0">
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-md font-semibold hover:bg-surface-container-high transition-colors" type="button">
+                Riwayat Match
+              </button>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-high text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors" type="button">
+                Peringatan Akun
+              </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (approx 35-40%): Analytics & Revenue Configuration -->
+<div class="lg:col-span-5 xl:col-span-4 flex flex-col gap-space-lg">
+<!-- Widget: Breakdown Transaksi Cabor -->
+<div class="p-6 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">pie_chart</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+                Transaksi per Olahraga
+              </h3>
+</div>
+<span class="font-label-sm text-on-surface-variant">Bulan Ini</span>
+</div>
+<!-- Inline Visual Bar Breakdown -->
+<div class="h-3 w-full rounded-full bg-surface-container flex overflow-hidden gap-0.5 mb-5">
+<div class="h-full bg-primary-container rounded-l-full" style="width: 44%" title="Badminton 44%"></div>
+<div class="h-full bg-secondary-container" style="width: 31%" title="Futsal &amp; Mini Soccer 31%"></div>
+<div class="h-full bg-tertiary-container" style="width: 16%" title="Padel 16%"></div>
+<div class="h-full bg-surface-dim rounded-r-full" style="width: 9%" title="Basket &amp; Tenis 9%"></div>
+</div>
+<!-- List Metrics -->
+<div class="space-y-3.5">
+<!-- Badminton -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-primary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Badminton</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">8.330 jam lapangan</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-lg text-label-lg text-on-surface font-extrabold">Rp 628.600.000</span>
+<span class="block font-label-sm text-primary font-bold">44% Share</span>
+</div>
+</div>
+<!-- Futsal & Mini Soccer -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-secondary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Futsal &amp; Mini Soccer</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">5.870 jam lapangan</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-lg text-label-lg text-on-surface font-extrabold">Rp 442.880.000</span>
+<span class="block font-label-sm text-secondary font-bold">31% Share</span>
+</div>
+</div>
+<!-- Padel Tennis -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-tertiary-container"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Padel Tennis (Tren +48%)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">3.030 jam lapangan</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-lg text-label-lg text-on-surface font-extrabold">Rp 228.580.000</span>
+<span class="block font-label-sm text-tertiary font-bold">16% Share</span>
+</div>
+</div>
+<!-- Basket & Lainnya -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-surface-dim"></span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Basket, Tenis &amp; Squash</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">1.710 jam lapangan</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-lg text-label-lg text-on-surface font-extrabold">Rp 128.590.000</span>
+<span class="block font-label-sm text-on-surface-variant font-bold">9% Share</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Widget: Konfigurasi Fee & Komisi Platform -->
+<div class="p-6 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)]">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-lg bg-secondary-container/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+              Konfigurasi Fee Platform
+            </h3>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm font-bold">Live Monetization</span>
+</div>
+<div class="flex flex-col gap-4">
+<!-- Item 1: App Convenience Fee -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Biaya Layanan Pemain</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Dikenakan saat checkout booking per transaksi</span>
+<span class="font-label-lg text-label-lg text-primary font-extrabold mt-1">Rp 2.500 / order</span>
+</div>
+<!-- Custom Toggle -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+<!-- Item 2: Venue Rekanan Commission -->
+<div class="p-4 rounded-xl bg-surface-container-low flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-bold">Komisi Venue Rekanan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Dipotong otomatis saat payout settlement</span>
+<span class="font-label-lg text-label-lg text-secondary font-extrabold mt-1">4.5% (Promo Q2: 3.0%)</span>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-surface-container-highest text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors" type="button">
+              Edit Margin
+            </button>
+</div>
+<!-- Action CTA: Campaign Voucher -->
+<button class="w-full py-3 px-4 rounded-xl bg-secondary-container hover:bg-secondary text-on-primary font-label-lg font-bold flex items-center justify-center gap-2 shadow-[0_8px_20px_-4px_rgba(249,115,22,0.35)] transition-all active:scale-[0.99]" type="button">
+<span class="material-symbols-outlined text-[20px]">local_offer</span>
+            Buat Voucher Flash Promo Mabar
+          </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Real-time Live Activity Feed Strip (Bottom Strip) -->
+<section class="mt-8 p-5 rounded-2xl bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)]">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary animate-pulse"></span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+          Aktivitas Ekosistem Real-Time
+        </h4>
+<span class="font-body-sm text-body-sm text-on-surface-variant ml-2 hidden sm:inline">
+          (Streaming live dari server wilayah Jabodetabek, Surabaya, dan Bandung)
+        </span>
+</div>
+<button class="text-primary hover:underline font-label-md font-bold flex items-center gap-1" type="button">
+        Lihat Semua Log Transaksi
+        <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Activity 1 -->
+<div class="flex items-start gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center flex-shrink-0 text-xs">
+<span class="material-symbols-outlined text-[16px]">qr_code_2</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-1">
+<span class="font-label-md text-label-md text-on-surface font-bold truncate">Check-In QR Berhasil</span>
+<span class="font-label-sm text-on-surface-variant flex-shrink-0">Baru saja</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Bambang S. di Lapangan 2 GOR Sudirman, Surabaya</span>
+</div>
+</div>
+<!-- Activity 2 -->
+<div class="flex items-start gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-primary flex items-center justify-center flex-shrink-0 text-xs">
+<span class="material-symbols-outlined text-[16px]">payments</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-1">
+<span class="font-label-md text-label-md text-on-surface font-bold truncate">Booking Lunas (Rp 320.000)</span>
+<span class="font-label-sm text-on-surface-variant flex-shrink-0">2m lalu</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Sparing Futsal @ Siliwangi Sports Center, Bandung</span>
+</div>
+</div>
+<!-- Activity 3 -->
+<div class="flex items-start gap-3 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center flex-shrink-0 text-xs">
+<span class="material-symbols-outlined text-[16px]">lock_reset</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center justify-between gap-1">
+<span class="font-label-md text-label-md text-on-surface font-bold truncate">Escrow Released</span>
+<span class="font-label-sm text-on-surface-variant flex-shrink-0">5m lalu</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Payout otomatis 14 sesi tuntas ke Mitra Smash Arena</span>
+</div>
+</div>
+</div>
+</section>
+</div></main></div></body></html>

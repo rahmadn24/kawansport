@@ -5,19 +5,27 @@ export function CTA() {
     <section className="section" id="download" aria-labelledby="cta-title">
       <div className="container">
         <div className="final-cta reveal">
-          <h2 id="cta-title" style={{ color: '#fff' }}>Siap main bareng akhir pekan ini?</h2>
-          <p>Unduh KawanSport, cari lawan selevel dalam 1 menit, dan rasakan bedanya: {BRAND.tagline}.</p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href={STORE_LINKS.android} className="btn btn--primary btn--lg" target="_blank" rel="noopener noreferrer">
-              ⬇ Google Play
-            </a>
-            <a href={STORE_LINKS.ios} className="btn btn--outline-light btn--lg" target="_blank" rel="noopener noreferrer">
-              App Store
-            </a>
+          <div>
+            <span className="eyebrow">Gabung revolusi olahraga komunitas</span>
+            <h2 id="cta-title" style={{ color: '#fff' }}>Siap keringetan &amp; main bareng akhir pekan ini?</h2>
+            <p>Unduh KawanSport gratis. Temukan partner baru, sewa lapangan tanpa ribet, dan rasakan atmosfer kompetisi sehat di kotamu — {BRAND.tagline}.</p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <a href={STORE_LINKS.ios} className="btn btn--accent btn--lg" target="_blank" rel="noopener noreferrer">
+                📱 Download di App Store
+              </a>
+              <a href={STORE_LINKS.android} className="btn btn--outline-light btn--lg" target="_blank" rel="noopener noreferrer">
+                ▶ Download di Google Play
+              </a>
+            </div>
+            <p style={{ fontSize: '0.82rem', marginTop: 16, marginBottom: 0 }}>
+              TODO-WEB link store: setel env NEXT_PUBLIC_IOS_APP_STORE_URL / NEXT_PUBLIC_ANDROID_PLAY_STORE_URL saat app live.
+            </p>
           </div>
-          <p style={{ fontSize: '0.82rem', marginTop: 16 }}>
-            PLACEHOLDER link store: setel env NEXT_PUBLIC_ANDROID_PLAY_STORE_URL / NEXT_PUBLIC_IOS_APP_STORE_URL saat app live.
-          </p>
+          <div className="final-cta__qr" aria-label="Kode QR unduhan aplikasi (ilustrasi)">
+            <div className="qr-mock" aria-hidden="true"><b>K</b></div>
+            <strong>Scan untuk unduh</strong>
+            <span>Buka kamera ponselmu</span>
+          </div>
         </div>
       </div>
     </section>
@@ -35,43 +43,45 @@ export function Footer() {
               <span>{BRAND.name}</span>
             </a>
             <p style={{ marginTop: 12, fontSize: '0.92rem' }}>
-              {BRAND.tagline} — cari lawan, booking lapangan, ikut event & liga, dan belanja gear. Buatan Indonesia,
-              untuk komunitas Indonesia.
+              {BRAND.tagline} — platform pencocokan sparing dan reservasi lapangan untuk komunitas olahraga aktif di
+              Indonesia.
             </p>
             <p style={{ marginTop: 12, fontSize: '0.92rem' }}>
               📧 <a href={`mailto:${BRAND.email}`}>{BRAND.email}</a>
               <br />🌐 {BRAND.domain}
             </p>
           </div>
-          <nav aria-label="Produk">
-            <h3>Produk</h3>
+          <nav aria-label="Eksplorasi">
+            <h3>Eksplorasi</h3>
             <ul>
-              <li><a href="#fitur">Cari Lawan ELO</a></li>
-              <li><a href="#fitur">Booking Real-time</a></li>
-              <li><a href="#fitur">Event & Liga</a></li>
-              <li><a href="#fitur">Marketplace</a></li>
+              <li><a href="#fitur">Cari Lawan Sparing</a></li>
+              <li><a href="#fitur">Booking Lapangan</a></li>
+              <li><a href="#komunitas">Jadwal Main Bareng</a></li>
+              <li><a href="#komunitas">Turnamen Komunitas</a></li>
             </ul>
           </nav>
-          <nav aria-label="Venue">
-            <h3>Venue</h3>
+          <nav aria-label="Mitra Lapangan">
+            <h3>Mitra Lapangan</h3>
             <ul>
-              <li><a href="#venue-b2b">Daftarkan Venue</a></li>
-              <li><a href="#faq">Komisi & FAQ</a></li>
-              <li><a href="#cara-kerja">Cara Kerja</a></li>
+              <li><a href="#venue-b2b">Gabung Mitra Venue</a></li>
+              <li><a href="#venue-b2b">CMS Pengelola Lapangan</a></li>
+              <li><a href="#faq">Komisi &amp; FAQ</a></li>
+              <li><a href={STORE_LINKS.whatsapp} target="_blank" rel="noopener noreferrer">Pusat Bantuan Mitra</a></li>
             </ul>
           </nav>
-          <nav aria-label="Perusahaan">
-            <h3>Ikuti kami</h3>
+          <nav aria-label="Unduh Aplikasi">
+            <h3>Unduh Aplikasi</h3>
             <ul>
+              <li><a href={STORE_LINKS.ios} target="_blank" rel="noopener noreferrer">📱 App Store</a></li>
+              <li><a href={STORE_LINKS.android} target="_blank" rel="noopener noreferrer">▶ Google Play</a></li>
               <li><a href="https://instagram.com/kawansport.id" target="_blank" rel="noopener noreferrer">Instagram</a></li>
               <li><a href="https://tiktok.com/@kawansport.id" target="_blank" rel="noopener noreferrer">TikTok</a></li>
-              <li><a href="https://youtube.com/@kawansport" target="_blank" rel="noopener noreferrer">YouTube</a></li>
             </ul>
           </nav>
         </div>
         <div className="footer__bottom">
-          <span>© {new Date().getFullYear()} {BRAND.name} · {BRAND.domain} · Hak cipta dilindungi.</span>
-          <span><a href="#faq">Syarat & Ketentuan</a> · <a href="#faq">Kebijakan Privasi</a></span>
+          <span>© {new Date().getFullYear()} PT Kawan Olahraga Indonesia · {BRAND.domain} · Hak cipta dilindungi.</span>
+          <span><a href="#faq">Syarat &amp; Ketentuan</a> · <a href="#faq">Kebijakan Privasi</a> · <a href="#faq">Bantuan CS</a></span>
         </div>
       </div>
     </footer>

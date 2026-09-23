@@ -32,8 +32,8 @@ export function Header() {
           <a href={STORE_LINKS.webLogin} className="btn btn--ghost btn--sm">
             Masuk
           </a>
-          <a href={STORE_LINKS.venueRegister} className="btn btn--primary btn--sm">
-            Daftarkan Venue
+          <a href="#download" className="btn btn--accent btn--sm">
+            Unduh
           </a>
         </div>
         <button
@@ -58,8 +58,8 @@ export function Header() {
               <a href={STORE_LINKS.webLogin} className="btn btn--ghost btn--sm">
                 Masuk
               </a>
-              <a href={STORE_LINKS.venueRegister} className="btn btn--primary btn--sm" onClick={() => setOpen(false)}>
-                Daftarkan Venue
+              <a href="#download" className="btn btn--accent btn--sm" onClick={() => setOpen(false)}>
+                Unduh
               </a>
             </div>
           </div>

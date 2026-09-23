@@ -3,8 +3,19 @@
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Hero } from '@/components/Hero';
-import { B2BBand, Faq, Features, HowItWorks, Marquee, PainPoints, Testimonials } from '@/components/Sections';
+import { B2BBand, Faq, Features, HowItWorks, Testimonials } from '@/components/Sections';
 import { CTA, Footer } from '@/components/CTA';
+import { BRAND, FAQS } from '@/lib/content';
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+};
 
 export default function HomePage() {
   useEffect(() => {
@@ -30,19 +41,19 @@ export default function HomePage() {
   return (
     <>
       <a href="#main" className="skip-link">Lewati ke konten utama</a>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <Header />
       <main id="main">
         <Hero />
-        <Marquee />
-        <PainPoints />
         <Features />
         <HowItWorks />
-        <Testimonials />
         <B2BBand />
+        <Testimonials />
         <Faq />
         <CTA />
       </main>
       <Footer />
+      <p className="visually-hidden">{BRAND.name} — {BRAND.tagline}.</p>
     </>
   );
 }

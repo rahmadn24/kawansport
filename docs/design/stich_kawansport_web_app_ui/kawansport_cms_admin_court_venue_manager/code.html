@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><title>KawanSport - Operations Core</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary-fixed-variant":"#005323","on-surface-variant":"#3f493f","secondary":"#9d4300","on-background":"#131b2e","on-error":"#ffffff","surface-container":"#eaedff","on-tertiary":"#ffffff","surface-container-low":"#f2f3ff","on-primary-fixed":"#00210a","on-secondary-fixed-variant":"#783200","secondary-fixed":"#ffdbca","on-tertiary-container":"#deffab","on-primary-container":"#d3ffd5","primary-fixed-dim":"#79db8d","inverse-surface":"#283044","outline":"#6f7a6e","inverse-on-surface":"#eef0ff","secondary-fixed-dim":"#ffb690","error":"#ba1a1a","on-error-container":"#93000a","surface-dim":"#d2d9f4","surface":"#faf8ff","surface-container-high":"#e2e7ff","tertiary-container":"#517b00","primary":"#00652c","tertiary-fixed":"#b2f746","on-secondary":"#ffffff","surface-tint":"#006d30","tertiary":"#3f6000","background":"#faf8ff","on-secondary-fixed":"#341100","primary-container":"#15803d","on-primary":"#ffffff","outline-variant":"#becabc","error-container":"#ffdad6","surface-container-lowest":"#ffffff","tertiary-fixed-dim":"#98da27","inverse-primary":"#79db8d","primary-fixed":"#95f8a7","on-surface":"#131b2e","surface-variant":"#dae2fd","on-secondary-container":"#5c2400","on-tertiary-fixed-variant":"#334f00","surface-container-highest":"#dae2fd","on-tertiary-fixed":"#121f00","surface-bright":"#faf8ff","secondary-container":"#fd761a"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-lg":"1.5rem","space-md":"1rem","space-xs":"0.25rem","margin":"1rem","space-xl":"2rem","space-sm":"0.5rem","gutter":"1rem"},fontFamily:{"headline-sm":["Inter"],"label-sm":["Inter"],"label-md":["Inter"],"headline-md":["Inter"],"body-lg":["Inter"],"headline-lg":["Inter"],"display-hero":["Inter"],"label-lg":["Inter"],"body-sm":["Inter"],"stat-counter":["Inter"],"body-md":["Inter"]},fontSize:{"headline-sm":["18px",{"lineHeight":"24px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-sm":["10px",{"lineHeight":"12px","letterSpacing":"0.05em","fontWeight":"700"}],"label-md":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-md":["22px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["16px",{"lineHeight":"24px","letterSpacing":"0em","fontWeight":"400"}],"headline-lg":["28px",{"lineHeight":"36px","letterSpacing":"-0.02em","fontWeight":"700"}],"display-hero":["36px",{"lineHeight":"44px","letterSpacing":"-0.03em","fontWeight":"800"}],"label-lg":["14px",{"lineHeight":"20px","letterSpacing":"0.01em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"16px","letterSpacing":"0.01em","fontWeight":"400"}],"stat-counter":["24px",{"lineHeight":"28px","letterSpacing":"-0.03em","fontWeight":"800"}],"body-md":["14px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}]}}}};</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_4px_16px_-2px_rgba(11,27,51,0.06)] z-50 flex flex-col justify-between pt-6 pb-6"><div class="flex flex-col"><div class="px-6 mb-8 flex items-center gap-space-sm"><img alt="Brand logo. - Primary color: #15803d
+- Font: inter
+- Mode: light
+- Roundness: rounded-md
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AOf_eGZ5i4z6zO1pZl7L3mR9J90a5x3O441qZgZ7dI3B=s120"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight leading-tight">KawanSport</span><span class="font-label-sm text-label-sm text-primary font-bold tracking-wider uppercase">CMS Control Center</span></div></div><div class="px-6 mb-4"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Navigasi Utama</span></div><nav class="px-4 flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold rounded-xl"><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="superadmin-overview" href="#"><span class="material-symbols-outlined text-[20px]">grid_view</span><span class="font-label-lg text-label-lg">Dashboard Overview</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="manajemen-venue-approval" href="#"><span class="material-symbols-outlined text-[20px]">stadium</span><span class="font-label-lg text-label-lg">Manajemen Venue &amp; Approval</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pengguna-komunitas" href="#"><span class="material-symbols-outlined text-[20px]">groups</span><span class="font-label-lg text-label-lg">Pengguna &amp; Komunitas</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="transaksi-keuangan" href="#"><span class="material-symbols-outlined text-[20px]">account_balance_wallet</span><span class="font-label-lg text-label-lg">Transaksi &amp; Keuangan</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="fee-platform-voucher" href="#"><span class="material-symbols-outlined text-[20px]">loyalty</span><span class="font-label-lg text-label-lg">Fee Platform &amp; Voucher</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pengaturan-sistem" href="#"><span class="material-symbols-outlined text-[20px]">settings</span><span class="font-label-lg text-label-lg">Pengaturan Sistem</span></a></nav><div class="px-6 mt-8 mb-4"><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Mitra Pengelola</span></div><nav class="px-4 flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold rounded-xl"><a aria-current="page" class="flex items-center gap-space-sm px-4 py-3 transition-all bg-primary-container text-on-primary font-bold rounded-xl" data-path="overview-lapangan" href="#"><span class="material-symbols-outlined text-[20px]">sports_soccer</span><span class="font-label-lg text-label-lg">Overview Lapangan</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="jadwal-slot-kalender" href="#"><span class="material-symbols-outlined text-[20px]">calendar_month</span><span class="font-label-lg text-label-lg">Jadwal &amp; Slot Kalender</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="reservasi-checkin-qr" href="#"><span class="material-symbols-outlined text-[20px]">qr_code_scanner</span><span class="font-label-lg text-label-lg">Reservasi &amp; Check-in QR</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="harga-jam-operasional" href="#"><span class="material-symbols-outlined text-[20px]">schedule</span><span class="font-label-lg text-label-lg">Harga &amp; Operasional</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="pendapatan-payout" href="#"><span class="material-symbols-outlined text-[20px]">payments</span><span class="font-label-lg text-label-lg">Pendapatan &amp; Payout</span></a><a class="flex items-center gap-space-sm px-4 py-3 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="ulasan-pemain" href="#"><span class="material-symbols-outlined text-[20px]">reviews</span><span class="font-label-lg text-label-lg">Ulasan Pemain</span></a></nav></div><div class="px-6 pt-4"><div class="p-4 rounded-xl bg-surface-container-low flex items-center justify-between"><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface font-bold">Server Core ID</span><span class="font-body-sm text-body-sm text-on-surface-variant">v2.4.1 Active</span></div><span class="w-3 h-3 rounded-full bg-primary-container"></span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-8 flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md flex-1 max-w-lg"><div class="relative w-full"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span><input class="w-full h-11 pl-11 pr-4 rounded-xl bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant/70 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari venue, id booking, tim sparing, atau transaksi..." type="search"/></div></div><div class="flex items-center gap-space-md"><div class="hidden lg:flex items-center gap-space-xs px-3.5 py-1.5 rounded-full bg-surface-container-low"><span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface font-semibold">Gateway Operasional Stabil</span></div><button class="relative p-2.5 rounded-xl bg-surface-container-low text-on-surface hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-secondary-container"></span></button><div class="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AOf_eGbuw3N4J842d0b-CjO3g5rU8vEa-RzB2vVvF944=s64-c"/><div class="hidden sm:flex flex-col text-left"><span class="font-label-md text-label-md text-on-surface font-bold leading-tight">Arya Pratama</span><span class="font-body-sm text-body-sm text-on-surface-variant">Super Administrator</span></div></div></div></header><main class="w-full pt-20 px-8 bg-surface"><div class="flex flex-col w-full pb-16 space-y-8">
+<!-- Top Venue Operational Hub Header -->
+<section class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-surface-container-lowest p-6 sm:p-8 rounded-2xl shadow-[0_4px_20px_-4px_rgba(11,27,51,0.05)]">
+<div class="flex flex-col sm:flex-row sm:items-center gap-5">
+<div class="relative w-16 h-16 rounded-2xl overflow-hidden shadow-md flex-shrink-0 bg-primary-container/10">
+<img class="w-full h-full object-cover" data-alt="Modern indoor sports center showing professional wooden badminton courts with bright LED stadium lights and fresh green spectator seats, professional architectural photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBz--VACnqIIM3iqZguuXIwgqZlFIURpyuFttYRUUrO_Hr6Cyd-yP5Kl8OPnXnrDQxIWtxWTCMm9wbqOjIfzVouSi774RVtCFxFsKiboz4RxWeIByr6FsMXHo1yvReXtjMn3kl15nkv4yQB3Q3Pp2N77kQVV8etONaFXpG9DNVACZrEmgmaGnMpm68IgvNzk2abq6k2uQMrWsEiPuhV84HUVcg_AAzybHW-M2y1UZRTJfscQapeJ2Kv"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+<span class="material-symbols-outlined absolute bottom-1 right-1 text-on-primary text-[18px]">verified</span>
+</div>
+<div class="flex flex-col">
+<div class="flex flex-wrap items-center gap-3">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">GBK Arena Senayan</h1>
+<span class="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-label-md text-label-md font-bold tracking-wide">Badminton &amp; Futsal Hall</span>
+</div>
+<div class="flex flex-wrap items-center gap-4 mt-2">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Buka • 07:00 - 23:00 WIB</span>
+</div>
+<span class="text-outline-variant text-sm">•</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">location_on</span>
+            Jl. Asia Afrika No.12, Senayan, Jakarta Pusat
+          </span>
+<label class="relative inline-flex items-center cursor-pointer ml-1" title="Ubah status operasional venue secara instan">
+<input checked="" class="sr-only peer" id="venue-status-toggle" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Quick Action Launchers -->
+<div class="flex flex-wrap items-center gap-3">
+<button class="flex items-center gap-2 px-5 py-3 rounded-full bg-secondary-container hover:bg-secondary text-on-primary font-label-lg text-label-lg font-bold shadow-[0_8px_20px_-4px_rgba(249,115,22,0.35)] transition-all transform active:scale-95" onclick="openQuickBookingModal()" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>+ Buat Booking Walk-in</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors" onclick="document.getElementById('ticket-scanner-input').focus()" type="button">
+<span class="material-symbols-outlined text-[20px] text-primary">qr_code_scanner</span>
+<span>Scan QR Tiket</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant">account_balance</span>
+<span>Cairkan Payout</span>
+</button>
+</div>
+</section>
+<!-- Metric KPI Cards -->
+<section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+<!-- Occupancy Rate -->
+<div class="relative overflow-hidden bg-surface-container-lowest p-6 rounded-2xl shadow-[0_4px_16px_-2px_rgba(11,27,51,0.04)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">Okupansi Hari Ini</span>
+<span class="font-display-hero text-display-hero text-on-surface font-extrabold mt-1 tracking-tight">91.6%</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[26px]">pie_chart</span>
+</div>
+</div>
+<div class="mt-4 flex flex-col gap-2">
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-700" style="width: 91.6%"></div>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-body-sm text-body-sm">
+<span>Terisi: <strong class="text-on-surface">44</strong> / 48 Jam Slot</span>
+<span class="text-primary font-bold">Sisa 4 Slot</span>
+</div>
+</div>
+</div>
+<!-- Total Daily Bookings -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_4px_16px_-2px_rgba(11,27,51,0.04)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">Total Reservasi</span>
+<span class="font-display-hero text-display-hero text-on-surface font-extrabold mt-1 tracking-tight">38 Sesi</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed/50 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[26px]">sports_tennis</span>
+</div>
+</div>
+<div class="mt-4 flex items-center gap-3 pt-3 bg-surface-container-low/60 p-2.5 rounded-xl">
+<div class="flex items-center gap-1.5 font-label-md text-label-md text-on-surface font-semibold">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+          24 Badminton
+        </div>
+<span class="text-outline-variant">•</span>
+<div class="flex items-center gap-1.5 font-label-md text-label-md text-on-surface font-semibold">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+          14 Futsal
+        </div>
+</div>
+</div>
+<!-- Net Revenue -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_4px_16px_-2px_rgba(11,27,51,0.04)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">Pendapatan Bersih</span>
+<span class="font-display-hero text-display-hero text-primary font-extrabold mt-1 tracking-tight">Rp 6.450k</span>
+</div>
+<div class="w-12 h-12 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[26px]">payments</span>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">trending_up</span>
+          +14.2% vs kemarin
+        </span>
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold">BCA Otomatis</span>
+</div>
+</div>
+<!-- Rating & Satisfaction -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_4px_16px_-2px_rgba(11,27,51,0.04)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">Rating Pemain</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-display-hero text-display-hero text-on-surface font-extrabold tracking-tight">4.9</span>
+<span class="font-headline-sm text-headline-sm text-on-surface-variant font-semibold">/ 5.0</span>
+</div>
+</div>
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed/60 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[26px]">star</span>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span class="font-bold text-on-surface">340 Ulasan Terverifikasi</span>
+<span class="text-primary font-bold">98% Positif</span>
+</div>
+</div>
+</section>
+<!-- Interactive Daily Timetable / Grid Court Matrix -->
+<section class="bg-surface-container-lowest p-6 sm:p-8 rounded-2xl shadow-[0_4px_20px_-4px_rgba(11,27,51,0.05)] flex flex-col gap-6">
+<!-- Schedule Controls Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">calendar_today</span>
+</div>
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Jadwal &amp; Slot Lapangan</span>
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold">Hari Ini, Jumat 24 Mei 2025</h2>
+</div>
+</div>
+<!-- Quick Day Switches & View Mode -->
+<div class="flex flex-wrap items-center gap-2">
+<div class="flex items-center p-1 bg-surface-container rounded-xl">
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" type="button">Kemarin</button>
+<button class="px-4 py-1.5 rounded-lg bg-surface-container-lowest text-primary font-bold font-label-md text-label-md shadow-sm" type="button">Hari Ini</button>
+<button class="px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors" type="button">Besok</button>
+<button class="px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-md text-label-md flex items-center gap-1" type="button">
+<span class="material-symbols-outlined text-[16px]">calendar_month</span>
+            Pilih Tanggal
+          </button>
+</div>
+<button class="p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface flex items-center justify-center" title="Refresh Live Slot" type="button">
+<span class="material-symbols-outlined text-[20px]">sync</span>
+</button>
+</div>
+</div>
+<!-- Visual Legend -->
+<div class="flex flex-wrap items-center gap-4 pt-1 pb-2 font-label-sm text-label-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded bg-primary-container"></span>
+<span class="font-medium text-on-surface">Booked (KawanSport App)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded bg-surface-container-highest"></span>
+<span class="font-medium text-on-surface">Booked (Walk-in/Kasir)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded bg-surface-container-low"></span>
+<span class="font-medium text-on-surface">Tersedia (Bisa Dipesan)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3.5 h-3.5 rounded bg-inverse-surface/20"></span>
+<span class="font-medium text-on-surface">Maintenance Lapangan</span>
+</div>
+</div>
+<!-- Timetable Matrix Table -->
+<div class="overflow-x-auto w-full">
+<div class="min-w-[860px]">
+<!-- Court Headers -->
+<div class="grid grid-cols-12 gap-3 mb-3 font-label-md text-label-md">
+<div class="col-span-2 p-3 text-center text-on-surface-variant font-bold">JAM / WAKTU</div>
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low flex flex-col text-center">
+<span class="font-bold text-on-surface">Court 1 (Yonex Pro)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Badminton Karpet Hijau</span>
+</div>
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low flex flex-col text-center">
+<span class="font-bold text-on-surface">Court 2 (Enlio Vinyl)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Badminton Standar BWF</span>
+</div>
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low flex flex-col text-center">
+<span class="font-bold text-on-surface">Court 3 (Olympic Blue)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Badminton Premium</span>
+</div>
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low flex flex-col text-center">
+<span class="font-bold text-on-surface">Court 4 (Interlock)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Futsal Vinyl Shockpad</span>
+</div>
+</div>
+<!-- Timetable Rows -->
+<div class="space-y-2.5">
+<!-- 08:00 - 10:00 -->
+<div class="grid grid-cols-12 gap-3 items-center">
+<div class="col-span-2 px-3 py-4 rounded-xl bg-surface-container-low text-center flex flex-col">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">08:00 - 10:00</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Pagi Hari</span>
+</div>
+<!-- C1 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm hover:opacity-95 transition-opacity flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-712</span>
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Rizky Alamsyah (Sparing)</span>
+</div>
+<!-- C2 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-highest text-on-surface shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-white px-2 py-0.5 rounded uppercase font-bold text-on-surface-variant">Walk-in</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">receipt_long</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Bpk. Hendra S.</span>
+</div>
+<!-- C3 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex flex-col items-center justify-center h-20 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">add_circle_outline</span>
+<span class="font-label-md text-label-md mt-1 font-semibold group-hover:text-primary">Tersedia • Rp 90k/jam</span>
+</div>
+<!-- C4 Futsal -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-804</span>
+<span class="material-symbols-outlined text-[16px]">sports_soccer</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Komunitas FC Tebet</span>
+</div>
+</div>
+<!-- 10:00 - 12:00 -->
+<div class="grid grid-cols-12 gap-3 items-center">
+<div class="col-span-2 px-3 py-4 rounded-xl bg-surface-container-low text-center flex flex-col">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">10:00 - 12:00</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Siang</span>
+</div>
+<!-- C1 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-831</span>
+<span class="material-symbols-outlined text-[16px]">sports_tennis</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Farhan K - Mabar Santai</span>
+</div>
+<!-- C2 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-899</span>
+<span class="material-symbols-outlined text-[16px]">sports_tennis</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">PB Djarum Alumni</span>
+</div>
+<!-- C3 Maintenance -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-dim/40 text-on-surface-variant flex flex-col justify-between h-20">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-surface-container px-2 py-0.5 rounded uppercase font-bold">Blokir</span>
+<span class="material-symbols-outlined text-[16px]">build</span>
+</div>
+<span class="font-label-md text-label-md font-semibold text-on-surface-variant truncate">Maintenance Karpet Net</span>
+</div>
+<!-- C4 Futsal -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-highest text-on-surface shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-white px-2 py-0.5 rounded uppercase font-bold text-on-surface-variant">Walk-in</span>
+<span class="material-symbols-outlined text-[16px]">receipt_long</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Member Bulanan Tim Smash</span>
+</div>
+</div>
+<!-- 14:00 - 16:00 -->
+<div class="grid grid-cols-12 gap-3 items-center">
+<div class="col-span-2 px-3 py-4 rounded-xl bg-surface-container-low text-center flex flex-col">
+<span class="font-label-lg text-label-lg font-bold text-on-surface">14:00 - 16:00</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Sore Hari</span>
+</div>
+<!-- C1 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex flex-col items-center justify-center h-20 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">add_circle_outline</span>
+<span class="font-label-md text-label-md mt-1 font-semibold group-hover:text-primary">Tersedia • Rp 90k/jam</span>
+</div>
+<!-- C2 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-911</span>
+<span class="material-symbols-outlined text-[16px]">groups</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Liga Antar Kantor BUMN</span>
+</div>
+<!-- C3 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-923</span>
+<span class="material-symbols-outlined text-[16px]">sports_tennis</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Dian Sastro &amp; Tim</span>
+</div>
+<!-- C4 Futsal -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-black/20 px-2 py-0.5 rounded uppercase font-bold">App • KS-955</span>
+<span class="material-symbols-outlined text-[16px]">sports_soccer</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Sparing Senayan FC vs Kuningan</span>
+</div>
+</div>
+<!-- 18:00 - 20:00 (Prime Time) -->
+<div class="grid grid-cols-12 gap-3 items-center">
+<div class="col-span-2 px-3 py-4 rounded-xl bg-primary/5 text-center flex flex-col border-l-4 border-secondary-container">
+<span class="font-label-lg text-label-lg font-bold text-secondary">18:00 - 20:00</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">Prime Time</span>
+</div>
+<!-- C1 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container text-on-primary px-2 py-0.5 rounded uppercase font-bold">Prime • KS-980</span>
+<span class="material-symbols-outlined text-[16px]">verified</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Anugrah Pratama (Lunas)</span>
+</div>
+<!-- C2 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container text-on-primary px-2 py-0.5 rounded uppercase font-bold">Prime • KS-982</span>
+<span class="material-symbols-outlined text-[16px]">verified</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Badminton Community Club</span>
+</div>
+<!-- C3 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-highest text-on-surface shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-white px-2 py-0.5 rounded uppercase font-bold text-on-surface-variant">Walk-in Tetap</span>
+<span class="material-symbols-outlined text-[16px]">event_repeat</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Klub Senayan Tangkas</span>
+</div>
+<!-- C4 Futsal -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container text-on-primary px-2 py-0.5 rounded uppercase font-bold">Prime • KS-991</span>
+<span class="material-symbols-outlined text-[16px]">sports_soccer</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Futsal Finansial Jakarta</span>
+</div>
+</div>
+<!-- 20:00 - 22:00 (Night Prime) -->
+<div class="grid grid-cols-12 gap-3 items-center">
+<div class="col-span-2 px-3 py-4 rounded-xl bg-primary/5 text-center flex flex-col border-l-4 border-secondary-container">
+<span class="font-label-lg text-label-lg font-bold text-secondary">20:00 - 22:00</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">Prime Time</span>
+</div>
+<!-- C1 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container px-2 py-0.5 rounded uppercase font-bold">Prime • KS-994</span>
+<span class="material-symbols-outlined text-[16px]">sports_tennis</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Kevin Sanjaya Fans Club</span>
+</div>
+<!-- C2 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex flex-col items-center justify-center h-20 cursor-pointer transition-colors group">
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">add_circle_outline</span>
+<span class="font-label-md text-label-md mt-1 font-semibold group-hover:text-primary">Tersedia • Rp 130k/jam</span>
+</div>
+<!-- C3 -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container px-2 py-0.5 rounded uppercase font-bold">Prime • KS-997</span>
+<span class="material-symbols-outlined text-[16px]">groups</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Sparing Ganda Campuran</span>
+</div>
+<!-- C4 Futsal -->
+<div class="col-span-2.5 p-3 rounded-xl bg-primary-container text-on-primary shadow-sm flex flex-col justify-between h-20 cursor-pointer">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm bg-secondary-container px-2 py-0.5 rounded uppercase font-bold">Prime • KS-998</span>
+<span class="material-symbols-outlined text-[16px]">sports_soccer</span>
+</div>
+<span class="font-label-md text-label-md font-bold truncate">Anak Kantor SCBD Futsal</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Lower Split Deck: Check-in Station, Equipment Tracker & Financial Payout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Left Col: Check-in & Scanner Station -->
+<div class="lg:col-span-7 flex flex-col gap-6">
+<div class="bg-surface-container-lowest p-6 sm:p-7 rounded-2xl shadow-[0_4px_20px_-4px_rgba(11,27,51,0.05)] flex flex-col">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">qr_code_scanner</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Validasi Tiket &amp; Check-In Pemain</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cepat verifikasi kehadiran pemain saat tiba di venue</p>
+</div>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold">Auto-Sync</span>
+</div>
+<!-- Scan Input Box -->
+<div class="relative w-full mb-6">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary text-[24px]">barcode_scanner</span>
+<input class="w-full h-14 pl-14 pr-32 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all" id="ticket-scanner-input" placeholder="Ketik Kode Booking (contoh: KS-88219) atau scan QR pemain..." type="text"/>
+<button class="absolute right-2.5 top-1/2 -translate-y-1/2 px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md font-bold hover:bg-on-primary-fixed-variant transition-colors" type="button">
+            Validasi
+          </button>
+</div>
+<!-- Recent Check-ins List -->
+<div class="flex flex-col">
+<div class="flex items-center justify-between mb-3">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider font-bold">Aktivitas Check-In Terkini</span>
+<span class="font-label-sm text-label-sm text-primary font-semibold">12 Pemain Hadir Sesi Ini</span>
+</div>
+<div class="space-y-3">
+<!-- Row 1 -->
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-sm">
+                  RA
+                </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Rizky Alamsyah</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-primary/10 text-primary font-bold">KS-712</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Court 1 (Yonex Pro) • 08:00 WIB</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex items-center gap-1 font-label-md text-label-md text-primary font-bold">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+                  Telah Masuk
+                </span>
+<span class="text-on-surface-variant text-xs">07:54</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-primary flex items-center justify-center font-bold text-sm">
+                  FC
+                </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Komunitas FC Tebet</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-primary/10 text-primary font-bold">KS-804</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Court 4 (Interlock Futsal) • 08:00 WIB</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex items-center gap-1 font-label-md text-label-md text-primary font-bold">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+                  Telah Masuk
+                </span>
+<span class="text-on-surface-variant text-xs">07:58</span>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="p-3.5 rounded-xl bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3.5">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center font-bold text-sm">
+                  FK
+                </div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Farhan Kurniawan</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 rounded bg-surface-container-high text-on-surface font-bold">KS-831</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Court 1 (Yonex Pro) • 10:00 WIB</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm font-bold hover:bg-on-primary-fixed-variant transition-colors" type="button">
+                  Tap Check-In
+                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Col: Equipment Rentals & Payout Summary -->
+<div class="lg:col-span-5 flex flex-col gap-6">
+<!-- Equipment & Add-on Rental Tracker -->
+<div class="bg-surface-container-lowest p-6 rounded-2xl shadow-[0_4px_20px_-4px_rgba(11,27,51,0.05)] flex flex-col">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-primary text-[22px]">sports</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Rental &amp; Gear Add-On</h3>
+</div>
+<button class="font-label-sm text-label-sm text-primary font-bold hover:underline" type="button">+ Tambah Item</button>
+</div>
+<div class="space-y-4">
+<!-- Item 1: Rackets -->
+<div class="flex flex-col gap-1.5 p-3 rounded-xl bg-surface-container-low">
+<div class="flex justify-between items-center">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Raket Yonex Astrox Pro</span>
+<span class="font-label-md text-label-md text-primary font-bold">12 / 16 Tersewa</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 75%"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Biaya: Rp 25.000 / unit • Sisa 4 unit tersedia</span>
+</div>
+<!-- Item 2: Shuttlecock -->
+<div class="flex flex-col gap-1.5 p-3 rounded-xl bg-surface-container-low">
+<div class="flex justify-between items-center">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Kok Yonex Aerosensa 50</span>
+<span class="font-label-md text-label-md text-secondary font-bold">8 Slop Terjual</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full rounded-full" style="width: 53%"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Stok Kasir: Sisa 7 Slop dari 15 Slop</span>
+</div>
+<!-- Item 3: Court Shoes -->
+<div class="flex flex-col gap-1.5 p-3 rounded-xl bg-surface-container-low">
+<div class="flex justify-between items-center">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Sepatu Badminton Non-Marking</span>
+<span class="font-label-md text-label-md text-primary font-bold">6 Pasang Terpakai</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 60%"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ukuran 40, 41, 42 ready di resepsionis</span>
+</div>
+</div>
+</div>
+<!-- Financial Settlement Card -->
+<div class="relative overflow-hidden bg-gradient-to-br from-on-background via-inverse-surface to-on-background text-inverse-on-surface p-6 sm:p-7 rounded-2xl shadow-[0_8px_24px_-4px_rgba(19,27,46,0.25)] flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-primary-fixed uppercase tracking-wider font-bold">Saldo Penghasilan Mitra</span>
+<div class="mt-2 font-display-hero text-display-hero text-inverse-on-surface font-black tracking-tight">
+              Rp 28.920.000
+            </div>
+</div>
+<div class="p-2.5 rounded-xl bg-white/10 backdrop-blur-md">
+<span class="material-symbols-outlined text-tertiary-fixed text-[24px]">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-6 pt-5 border-t border-white/10 flex flex-col gap-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center font-bold text-xs text-white">
+              BCA
+            </div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold text-white">BCA 880192831</span>
+<span class="font-body-sm text-body-sm text-white/70">PT Gelora Kreasi Olahraga (Jadwal: Senin &amp; Kamis)</span>
+</div>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<button class="flex-1 py-3 px-4 rounded-xl bg-secondary-container hover:bg-secondary text-on-primary font-label-lg text-label-lg font-bold shadow-[0_8px_20px_-4px_rgba(249,115,22,0.4)] transition-all text-center" type="button">
+              Tarik Dana Instan
+            </button>
+<button class="p-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors" title="Rincian Pembukuan Transaksi" type="button">
+<span class="material-symbols-outlined text-[20px]">receipt</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Quick Booking Walk-In (Hidden by default, triggered via Vanilla JS) -->
+<div class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4" id="quick-booking-modal">
+<div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 flex flex-col gap-5">
+<div class="flex items-center justify-between border-b border-surface-container-high pb-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[24px]">add_task</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-bold">Buat Booking Walk-in / Kasir</h4>
+</div>
+<button class="p-1 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors" onclick="closeQuickBookingModal()" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form class="flex flex-col gap-4" onsubmit="event.preventDefault(); alert('Booking Walk-in berhasil dicatat ke sistem!'); closeQuickBookingModal();">
+<div>
+<label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-1">Nama Pemesan / Komunitas</label>
+<input class="w-full h-11 px-3.5 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Contoh: Pak Budi (Klub Smash)" required="" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-1">Pilih Lapangan</label>
+<select class="w-full h-11 px-3 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30">
+<option>Court 1 (Yonex Pro)</option>
+<option>Court 2 (Enlio Vinyl)</option>
+<option>Court 3 (Olympic Blue)</option>
+<option>Court 4 (Interlock Futsal)</option>
+</select>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-1">Slot Jam</label>
+<select class="w-full h-11 px-3 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30">
+<option>14:00 - 16:00 (2 Jam)</option>
+<option>16:00 - 18:00 (2 Jam)</option>
+<option>20:00 - 22:00 (2 Jam)</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-1">Metode Bayar</label>
+<select class="w-full h-11 px-3 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/30">
+<option>Tunai / Cash di Kasir</option>
+<option>QRIS Standar (BCA/GoPay)</option>
+<option>Debit Card EDC</option>
+</select>
+</div>
+<div>
+<label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-1">Total Tagihan</label>
+<input class="w-full h-11 px-3.5 rounded-xl bg-surface-container font-label-lg text-label-lg font-bold text-primary" readonly="" type="text" value="Rp 180.000"/>
+</div>
+</div>
+<div class="pt-3 flex items-center justify-end gap-3 border-t border-surface-container-high">
+<button class="px-4 py-2.5 rounded-xl text-on-surface-variant font-label-md text-label-md font-semibold hover:bg-surface-container transition-colors" onclick="closeQuickBookingModal()" type="button">
+          Batal
+        </button>
+<button class="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-label-md text-label-md font-bold shadow-md hover:bg-on-primary-fixed-variant transition-all" type="submit">
+          Konfirmasi &amp; Cetak Tiket
+        </button>
+</div>
+</form>
+</div>
+</div>
+<script>
+  function openQuickBookingModal() {
+    const modal = document.getElementById('quick-booking-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+  }
+
+  function closeQuickBookingModal() {
+    const modal = document.getElementById('quick-booking-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  // Active status toggle behavior
+  const statusToggle = document.getElementById('venue-status-toggle');
+  if (statusToggle) {
+    statusToggle.addEventListener('change', function(e) {
+      const isChecked = e.target.checked;
+      const statusText = isChecked ? 'Buka • 07:00 - 23:00 WIB' : 'Tutup Sementara (Maintenance)';
+      // Visual feedback
+      const label = e.target.closest('div').previousElementSibling;
+      if (label && label.classList.contains('font-body-md')) {
+        label.innerHTML = isChecked 
+          ? '<span class="w-2.5 h-2.5 rounded-full bg-primary-container animate-pulse"></span> Buka &bull; 07:00 - 23:00 WIB'
+          : '<span class="w-2.5 h-2.5 rounded-full bg-error"></span> Tutup Sementara';
+      }
+    });
+  }
+</script></main></div></body></html>

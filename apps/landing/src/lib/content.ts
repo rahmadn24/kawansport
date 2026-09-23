@@ -1,11 +1,15 @@
 /**
- * KAWANSPORT — Single source of truth untuk copy, angka, dan link landing.
+ * KAWANSPORT landing — single source of truth untuk copy, angka placeholder, dan link.
  *
- * PLACEHOLDER YANG PERLU DIGANTI USER:
- *  - SOCIAL_PROOF stats (venue/pemain/kota) → angka realistis diawali "~", update berkala
- *  - B2B_COMMISSION_TEXT → teks komisi venue owner (masih draft, konfirmasi bisnis)
- *  - STORE_LINKS via env NEXT_PUBLIC_IOS_APP_STORE_URL / NEXT_PUBLIC_ANDROID_PLAY_STORE_URL
- *  - CONTACT email halo@kawansport.id bila berubah
+ * ATURAN PLACEHOLDER (TODO-WEB):
+ * - SEMUA angka/metrik (stats, okupansi, rating, harga contoh) = ilustrasi statis,
+ *   BUKAN data produksi. Ditandai `TODO-WEB` + diawali "~" bila berupa angka.
+ * - SEMUA testimoni = naskah ilustrasi, bukan ulasan terverifikasi. Ditandai `TODO-WEB`.
+ * - 100% STATIS: file ini hanya berisi konstanta + process.env (build-time).
+ *   DILARANG fetch API / data dinamis dari file ini maupun komponen landing.
+ *
+ * Yang FINAL (bukan placeholder):
+ * - B2B_COMMISSION_TEXT: komisi flat 5% per booking lunas (keputusan bisnis 2026-09-23).
  */
 
 export const BRAND = {
@@ -17,19 +21,22 @@ export const BRAND = {
 };
 
 export const STORE_LINKS = {
-  // GANTI via env saat store live. Default "#" agar tidak 404.
+  // TODO-WEB: ganti via env saat listing store live. Default "#" agar tidak 404.
   ios: process.env.NEXT_PUBLIC_IOS_APP_STORE_URL ?? '#',
   android: process.env.NEXT_PUBLIC_ANDROID_PLAY_STORE_URL ?? '#',
   webRegister: 'https://kawansport.id/register',
   webLogin: 'https://kawansport.id/login',
   venueRegister: '#venue-b2b',
+  // TODO-WEB: ganti nomor CS resmi sebelum tayang.
+  whatsapp: 'https://wa.me/6281234567890?text=Halo%20KawanSport%2C%20saya%20mau%20tanya%20soal%20venue.',
 };
 
-/** PLACEHOLDER — ganti angka setelah data produksi tersedia. Semua diawali "~". */
+/* TODO-WEB: angka social proof ilustrasi — ganti setelah data produksi tersedia. */
 export const SOCIAL_PROOF = [
-  { value: '~1.200+', label: 'Venue mitra', note: 'futsal · badminton · basket · tenis' },
-  { value: '~48.000+', label: 'Pemain terdaftar', note: 'komunitas aktif mingguan' },
-  { value: '~24', label: 'Kota/kabupaten', note: 'Jawa · Sumatera · Bali' },
+  { value: '~14.800+', label: 'Pemain aktif & sparing', note: 'TODO-WEB · ilustrasi' },
+  { value: '~520+', label: 'Lapangan terverifikasi', note: 'TODO-WEB · ilustrasi' },
+  { value: '~98%', label: 'Matchmaking berhasil', note: 'TODO-WEB · ilustrasi' },
+  { value: '~4,9/5', label: 'Rating Play Store & iOS', note: 'TODO-WEB · ilustrasi' },
 ] as const;
 
 export const SPORTS_MARQUEE = [
@@ -45,113 +52,108 @@ export const SPORTS_MARQUEE = [
   'Renang',
 ] as const;
 
-export const PAIN_POINTS = [
-  {
-    pain: 'Susah cari lawan yang sepadan',
-    solution: 'Cari Lawan ELO — difilter level, lokasi, dan jadwal. Lawan setara, main makin seru.',
-  },
-  {
-    pain: 'Booking lapangan ribet & double-book',
-    solution: 'Booking real-time — slot live, bayar digital, konfirmasi instan. Anti antre, anti PHP.',
-  },
-  {
-    pain: 'Venue sepi di jam off-peak',
-    solution: 'Dashboard venue — atur harga peak/off-peak, pantau okupansi, isi slot kosong otomatis.',
-  },
-] as const;
-
+/** 4 pilar fitur sesuai Stitch (matchmaking, booking, komunitas, marketplace). */
 export const FEATURES = [
   {
     icon: 'elo',
-    title: 'Cari Lawan setara ELO',
-    desc: 'Matchmaking adil berbasis rating. Menang naik level, kalah tetap dapat lawan seimbang.',
+    eyebrow: 'Algoritma ELO & GPS Proximity',
+    title: 'Cari Lawan & Sparing Partner Akurat',
+    desc: 'Nggak perlu pusing lawan jomplang. Matchmaking menyeleksi lawan berdasar level (Beginner, Intermediate, Pro), cabor pilihanmu, dan radius terdekat. Menang naik level, kalah tetap dapat lawan seimbang.',
+    visual: 'radar' as const,
   },
   {
     icon: 'booking',
-    title: 'Booking real-time',
-    desc: 'Lihat slot live, booking & bayar dalam 1 menit. Notifikasi pengingat H-1 otomatis.',
+    eyebrow: 'Real-time Sync & Split Bill',
+    title: 'Booking Lapangan Instan 24/7',
+    desc: 'Lihat slot live, booking & bayar dalam 1 menit — tanpa telepon penjaga lapang. Sistem otomatis kunci slot, anti double-booking, plus split-bill patungan via QRIS ke grup WhatsApp.',
+    visual: 'slots' as const,
   },
   {
     icon: 'event',
-    title: 'Event & Liga',
-    desc: 'Ikut sparing rutin, fun match, sampai liga komunitas. Bikin event sendiri juga bisa.',
-  },
-  {
-    icon: 'chat',
-    title: 'Chat tim & lawan',
-    desc: 'Koordinasi jadwal, share lokasi venue, dan atur formasi tanpa pindah aplikasi.',
-  },
-  {
-    icon: 'rating',
-    title: 'Rating venue transparan',
-    desc: 'Review jujur soal karpet, lampu, parkir, dan wasit. Pilih venue tanpa zonk.',
+    eyebrow: 'Komunitas Verified & Ramah Pemula',
+    title: 'Komunitas Mabar & Open Play',
+    desc: 'Teman tongkrongan sering wacana? Gabung sesi Open Play mulai ~Rp35rb/orang (TODO-WEB · harga ilustrasi). Host terverifikasi, kok & air mineral transparan, sistem rotasi adil.',
+    visual: 'mabar' as const,
   },
   {
     icon: 'market',
-    title: 'Marketplace gear',
-    desc: 'Raket, sepatu, jersey original dari seller terverifikasi. Ada cicilan & garansi.',
+    eyebrow: 'Gear Locker On-Site',
+    title: 'Marketplace Gear & Pick-up di Venue',
+    desc: 'Kok habis di tengah game atau butuh rompi baru? Pesan apparel, grip, dan bola via Gear Hub dari seller terverifikasi, ambil langsung di resepsionis venue rekanan.',
+    visual: 'gear' as const,
   },
 ] as const;
 
 export const HOW_IT_WORKS = [
   {
-    step: '1',
-    title: 'Unduh & pilih gayamu',
-    desc: 'Daftar 30 detik, pilih olahraga favorit dan levelmu — santai, aktif, atau kompetitif.',
+    step: '01',
+    title: 'Pilih Cabor & Lapangan',
+    desc: 'Cari lapangan terdekat berdasar jenis lantai (rumput sintetis, vinyl, parket) dan filter fasilitas seperti shower atau kantin.',
   },
   {
-    step: '2',
-    title: 'Cari lawan & booking',
-    desc: 'Filter lawan setara ELO, pilih venue terdekat, booking slot real-time.',
+    step: '02',
+    title: 'Cocokkan Partner / Slot',
+    desc: 'Buat jadwal bareng kawan sendiri, ajak tim luar untuk sparing, atau beli 1 tiket slot mabar terbuka.',
   },
   {
-    step: '3',
-    title: 'Main bareng, naik level',
-    desc: 'Main, kasih rating, kumpulkan XP. Menang terus? Masuk papan liga kotamu.',
+    step: '03',
+    title: 'Scan QR & Main Sehat!',
+    desc: 'Tunjukkan kode booking QR di resepsionis, main, lalu beri rating sportivitas partner bermainmu.',
   },
 ] as const;
 
+/* TODO-WEB: seluruh testimoni di bawah ini naskah ilustrasi — ganti dengan ulasan terverifikasi sebelum launch. */
 export const TESTIMONIALS = [
   {
-    name: 'Rizky Pratama',
-    meta: 'Pemain badminton · Jakarta Selatan',
-    venue: 'Main rutin di Jaya Raya Hall',
+    // TODO-WEB: testimoni ilustrasi.
+    name: 'Dimas Setiawan',
+    meta: 'Kapten PB Smash Tebet · Jakarta',
     quote:
-      'Biasanya susah cari lawan selevel. Di KawanSport sekali tap langsung dapat 3 ajakan sparing. ELO-nya akurat!',
+      'Dulu cari lawan sparing badminton seimbang susahnya setengah mati di grup WA. Sekarang set filter Intermediate, 10 menit langsung dapat lawan yang klop dan sportif!',
   },
   {
-    name: 'Sinta Maharani',
-    meta: 'Kapten tim futsal putri · Bandung',
-    venue: 'Langganan Prime Futsal Bandung',
+    // TODO-WEB: testimoni ilustrasi.
+    name: 'Annisa Putri',
+    meta: 'Koordinator futsal · Bandung',
     quote:
-      'Booking buat satu tim nggak pakai drama lagi. Slot live, bayar patungan, semua terima notif. Hemat 1 jam tiap minggu.',
+      'Split-bill otomatis nyelametin saya dari momen nagih uang kas yang canggung. Semua anak bayar via QRIS sebelum turun lapangan, venue selalu tepat waktu.',
   },
   {
-    name: 'Andi Wijaya',
+    // TODO-WEB: testimoni ilustrasi.
+    name: 'Bambang Wicaksono',
     meta: 'Pemilik venue · Surabaya',
-    venue: 'AW Sport Center, 4 court',
     quote:
-      'Slot weekday siang yang dulu kosong sekarang keisi komunitas lari & padel. Okupansi naik tanpa pasang iklan.',
-  },
-  {
-    name: 'Dewi Lestari',
-    meta: 'Pelari & EO mini-race · Yogyakarta',
-    venue: 'Event lari 5K & 10K',
-    quote: 'Bikin event lari 200 peserta tanpa spreadsheet. Pendaftaran, pembayaran, dan pengumuman dalam satu link.',
+      'Slot weekday siang yang dulu kosong sekarang keisi komunitas. Okupansi naik tanpa pasang iklan, pencairan masuk rekening tanpa potongan tersembunyi.',
   },
 ] as const;
 
-/** Komisi resmi venue owner (keputusan bisnis 2026-09-23): flat 5%. */
+/** Komisi resmi venue owner — FINAL (keputusan bisnis 2026-09-23): flat 5%. */
 export const B2B_COMMISSION_TEXT =
   'Komisi flat 5% per booking lunas — tanpa biaya pendaftaran, tanpa biaya bulanan.';
 
+/* TODO-WEB: angka okupansi/pendapatan dashboard B2B = ilustrasi. */
+export const B2B_OCCUPANCY_TEXT = '~94% okupansi (TODO-WEB · ilustrasi)';
+
 export const B2B_PERKS = [
-  'Dashboard okupansi & pendapatan real-time',
-  'Atur harga peak / off-peak per lapangan',
-  'Promosi slot kosong ke komunitas sekitar',
-  'Pencairan D+1 ke rekening venue',
+  { title: 'Auto Dynamic Pricing', desc: 'Isi jam sepi (pagi/siang) dengan promo otomatis.' },
+  { title: 'Pencairan Harian Instan', desc: 'Pendapatan sewa cair tiap hari kerja ke rekening.' },
+  { title: 'Nol Double Booking', desc: 'Kalender terpadu sinkron online & walk-in.' },
+  { title: 'Pemasaran Komunitas', desc: 'Promosikan turnamen ke komunitas target.' },
 ] as const;
 
+/* TODO-WEB: metrik panel dashboard B2B = ilustrasi. */
+export const B2B_DASHBOARD = {
+  venue: 'GOR Cempaka Putih (Minggu Ini)',
+  growth: '+28% YoY',
+  avgFill: 'Rata-rata ~94% terisi',
+  revenueToday: '~Rp4.650.000',
+  matchesDone: '18 Laga',
+} as const;
+
+/**
+ * FAQ gabungan — PERTAHANKAN semua pertanyaan yang sudah tayang (6 existing)
+ * + 2 tambahan dari Stitch (cuaca/proteksi, split-bill). JANGAN hapus item existing.
+ */
 export const FAQS = [
   {
     q: 'Apakah KawanSport gratis?',
@@ -164,6 +166,14 @@ export const FAQS = [
   {
     q: 'Metode pembayaran apa saja yang didukung?',
     a: 'QRIS, transfer bank (VA), e-wallet (GoPay, OVO, DANA, ShopeePay), dan kartu kredit/debit. Semua pembayaran diproses gateway berlisensi.',
+  },
+  {
+    q: 'Bagaimana jika jadwal bentrok atau cuaca buruk (Proteksi 100%)?',
+    a: 'Pemesanan lapangan outdoor dan semi-outdoor dilindungi Garansi Cuaca: hujan lebat atau kendala teknis venue bisa dijadwalkan ulang gratis atau saldo kembali 100%.',
+  },
+  {
+    q: 'Bagaimana cara split bill (patungan bayar lapang)?',
+    a: "Saat booking, pilih 'Split Bill Otomatis', tentukan jumlah anggota, lalu sistem membuat link patungan berisi QRIS dan Virtual Account. Status pembayaran terpantau live di layar panitia.",
   },
   {
     q: 'Saya pemilik venue — bagaimana cara bergabung?',
@@ -179,10 +189,11 @@ export const FAQS = [
   },
 ] as const;
 
+/** Nav sesuai screenshot: Fitur / Cara / Komunitas / Venue / FAQ. */
 export const NAV_LINKS = [
   { href: '#fitur', label: 'Fitur' },
-  { href: '#cara-kerja', label: 'Cara Kerja' },
-  { href: '#testimoni', label: 'Testimoni' },
-  { href: '#venue-b2b', label: 'Untuk Venue' },
+  { href: '#cara-kerja', label: 'Cara' },
+  { href: '#komunitas', label: 'Komunitas' },
+  { href: '#venue-b2b', label: 'Venue' },
   { href: '#faq', label: 'FAQ' },
 ] as const;
