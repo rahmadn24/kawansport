@@ -132,7 +132,7 @@ describe('Admin Stats (e2e)', () => {
       .set(authUser())
       .send({ courtId: court.body.id, date: DATE, start: '08:00' })
       .expect(201);
-    expect(booking.body.amount).toBe(100000);
+    expect(booking.body.amount).toBe(102500);
     await bookings.update(
       { id: booking.body.id },
       { status: 'paid', paidAt: new Date() },

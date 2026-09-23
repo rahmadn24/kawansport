@@ -153,7 +153,8 @@ describe('Bookings BK-03 (e2e)', () => {
       .send({ courtId, date: DATE, start: '08:00' })
       .expect(201);
     expect(res.body.status).toBe('pending');
-    expect(res.body.amount).toBe(100000);
+    expect(res.body.amount).toBe(102500);
+    expect(res.body.serviceFee).toBe(2500);
     expect(res.body.paymentRef).toMatch(/^BK-/);
     expect(res.body.snapToken).toMatch(/^stub-snap-/);
     expect(res.body.redirectUrl).toContain(res.body.paymentRef);

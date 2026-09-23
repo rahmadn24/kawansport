@@ -352,10 +352,50 @@ Parsial; ganti `code` setelah dipakai → 409.
 
 ### `POST /bookings` (+ `voucherCode?`, `usePoints?`)
 Field lama utuh; response/detail `BookingItem` tambah
-`subtotal, discount, voucherCode, pointsUsed`.
+`subtotal, discount, voucherCode, pointsUsed` + `serviceFee` (API-W03,
+snapshot fee; `amount` sudah termasuk fee bila enabled).
 
 ### `POST /checkout` (body opsional `{ voucherCode?, usePoints? }`)
 Tanpa body = checkout normal MP-02. Response/detail `OrderDetail` tambah
 `subtotal, discount, voucherCode, pointsUsed`.
 Gagal Snap → kompensasi: stok kembali + redeem dibatalkan + poin kembali
 + order `cancelled` (booking: slot dilepas + kompensasi sama).
+
+## Pengaturan platform — service fee + komisi (API-W03, auth)
+
+Tabel `platform_settings` (`key` unik, `value` string nullable,
+`updatedAt`). Seed-on-boot di `SettingsService.onModuleInit` (satu-satunya
+tempat seeding — tidak di `seed.ts`): bila tabel kosong, insert defaults.
+Kunci dikenal (allowlist):
+
+| key | tipe | default | aturan PUT |
+|-----|------|---------|------------|
+| `service_fee_enabled` | boolean-ish | `true` | `true/false`, `"true"/"false"`, `1/0` |
+| `service_fee_amount` | integer rupiah | `2500` | integer `>= 0` |
+| `commission_percent` | persen margin | `5` | number `0..100` |
+| `commission_promo_percent` | persen promo (opsional) | `null` | number `0..100` atau `null`/`""` (clear) |
+| `commission_promo_until` | akhir promo ISO (opsional) | `null` | ISO date atau `null`/`""` (clear) |
+
+Efek ke booking flow: `serviceFee = enabled ? service_fee_amount : 0`
+(dibaca langsung per booking, tanpa cache). Urutan akuntansi booking:
+`amount = max(0, subtotal − discount − pointsUsed) + serviceFee`
+(voucher + poin menutup subtotal dulu — fee TIDAK bisa dibayar poin).
+`BookingItem` tambah `serviceFee` (snapshot, `0` bila fee off).
+`amount` tetap TOTAL FINAL — Snap `gross_amount` + webhook
+`assertAmountMatches` memakai nilai final tersebut (fee off → total tanpa
+fee). Marketplace/checkout TIDAK kena fee. Komisi (`commission_*`) saat ini
+hanya tersimpan (margin untuk kebutuhan mendatang; promo efektif bila
+`commission_promo_percent` ter-set DAN `commission_promo_until` kosong /
+masih di masa depan).
+
+### `GET /admin/settings` (super_admin)
+`{ data: [{ key, value (ter-parse: boolean | number | string | null),
+raw (string | null), updatedAt }], meta: { total: 5 } }`.
+Tanpa token → 401; role lain → 403.
+
+### `PUT /admin/settings` (super_admin)
+Body parsial Record key→value, mis.
+`{ "service_fee_enabled": false }` atau
+`{ "service_fee_amount": 3000, "commission_percent": 7 }` → 200 shape sama
+dengan GET. Kunci asing → 400; tipe/rentang salah (fee negatif,
+percent >100, tanggal invalid) → 400; body kosong → 400.

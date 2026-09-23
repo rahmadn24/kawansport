@@ -154,7 +154,7 @@ describe('Event->Booking BK-04 (e2e)', () => {
     expect(res.body.courtId).toBe(courtId);
     expect(res.body.date).toBe(EVENT_DAY);
     expect(res.body.start).toBe('09:00');
-    expect(res.body.amount).toBe(120000);
+    expect(res.body.amount).toBe(122500);
     expect(res.body.snapToken).toMatch(/^stub-snap-/);
   });
 

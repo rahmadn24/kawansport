@@ -30,6 +30,7 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 import { MidtransNotificationDto } from './dto/midtrans-notification.dto';
 import { MidtransService } from './midtrans.service';
 import { VouchersService } from '../vouchers/vouchers.service';
+import { SettingsService } from '../settings/settings.service';
 
 /** Booking pending kedaluwarsa 30 menit setelah dibuat (keputusan PO, BK-03). */
 export const BOOKING_TTL_MS = 30 * 60 * 1000;
@@ -54,6 +55,8 @@ export interface BookingItem {
   voucherCode: string | null;
   /** Poin Kawan terpakai (ST-04, snapshot, 1 poin = Rp1). */
   pointsUsed: number;
+  /** Service fee snapshot rupiah (API-W03; 0 bila fee dinonaktifkan). */
+  serviceFee: number;
   snapToken: string | null;
   redirectUrl: string | null;
   /** Id event asal (BK-04); null bila booking langsung via POST /bookings. */
@@ -80,6 +83,7 @@ export class BookingsService {
     private readonly slots: SlotsService,
     private readonly midtrans: MidtransService,
     private readonly vouchers: VouchersService,
+    private readonly settings: SettingsService,
     // DataSource untuk cabang marketplace (MP-): repo ShopOrder/Product
     // diakses langsung agar tidak ada dependensi modul sirkular
     // Bookings <-> Marketplace (MidtransService dipakai ulang satu arah).
@@ -90,7 +94,8 @@ export class BookingsService {
    * POST /bookings — buat booking pending + Snap transaction.
    * Slot langsung di-confirmed (anti-race via SlotsService.confirmSlot → 409
    * bila sudah booked/held orang lain); webhook/jobo expiry yang melepasnya.
-   * Amount = snapshot `court.price_per_hour` prorata durasi.
+   * Amount = snapshot `court.price_per_hour` prorata durasi − diskon voucher
+   * − poin (ST-04) + service fee platform (API-W03; 0 bila dinonaktifkan).
    */
   async create(actor: ActorInput, dto: CreateBookingDto): Promise<BookingItem> {
     return this.createInternal(actor, dto, null);
@@ -211,6 +216,10 @@ export class BookingsService {
     );
 
     const paymentRef = generatePaymentRef();
+    // Service fee platform (API-W03): dibaca langsung per booking (tanpa
+    // cache — tidak ada pola cache existing di codebase). Disabled -> 0.
+    const fee = await this.settings.getServiceFee();
+    const serviceFee = fee.enabled ? fee.amount : 0;
     // Redeem voucher + potong poin + buat booking dalam SATU transaksi
     // (ST-04): validasi-sebelum-mutasi + mutasi atomik (usedCount++,
     // loyaltyPoints--, baris booking + redemption). Snap dibuat SETELAH
@@ -248,7 +257,9 @@ export class BookingsService {
             cap: subtotal - discount,
           },
         );
-        const amount = Math.max(0, subtotal - discount - pointsUsed);
+        // Urutan akuntansi (API-W03): voucher + poin menutup subtotal dulu
+        // (fee TIDAK bisa dibayar poin), lalu fee ditambahkan di atasnya.
+        const amount = Math.max(0, subtotal - discount - pointsUsed) + serviceFee;
         const booking = await bookingRepo.save(
           bookingRepo.create({
             userId: actor.id,
@@ -263,6 +274,7 @@ export class BookingsService {
             discount,
             voucherCode,
             pointsUsed,
+            serviceFee,
             slotClaimId: claim.id,
             eventId,
           }),
@@ -439,8 +451,9 @@ export class BookingsService {
     }
     // SEC-01 High: gross_amount wajib sama dengan amount booking — tolak
     // 409 (status tetap pending) bila beda agar paid palsu via nominal
-    // kecil tidak mungkin. `amount` = TOTAL SETELAH diskon voucher + poin
-    // (ST-04), jadi webhook wajib mengirim gross_amount final tersebut.
+    // kecil tidak mungkin. `amount` = TOTAL FINAL SETELAH diskon voucher +
+    // poin (ST-04) + service fee (API-W03), jadi webhook wajib mengirim
+    // gross_amount final tersebut.
     assertAmountMatches(dto.gross_amount, booking.amount);
 
     const tx = dto.transaction_status;
@@ -687,6 +700,7 @@ function toBookingItem(b: Booking): BookingItem {
     discount: b.discount ?? 0,
     voucherCode: b.voucherCode ?? null,
     pointsUsed: b.pointsUsed ?? 0,
+    serviceFee: b.serviceFee ?? 0,
     snapToken: b.snapToken ?? null,
     redirectUrl: b.redirectUrl ?? null,
     eventId: b.eventId ?? null,

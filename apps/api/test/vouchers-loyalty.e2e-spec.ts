@@ -242,7 +242,7 @@ describe('Voucher + Poin Kawan ST-04 (e2e)', () => {
     expect(res.body.discount).toBe(10000);
     expect(res.body.voucherCode).toBe('V10PCT');
     expect(res.body.pointsUsed).toBe(0);
-    expect(res.body.amount).toBe(90000);
+    expect(res.body.amount).toBe(92500);
   });
 
   it('booking percent capped maxDiscount -> 30000 (bukan 50000)', async () => {
@@ -252,7 +252,7 @@ describe('Voucher + Poin Kawan ST-04 (e2e)', () => {
       .send({ courtId, date: DATE, start: '09:00', voucherCode: 'V50MAX' })
       .expect(201);
     expect(res.body.discount).toBe(30000);
-    expect(res.body.amount).toBe(70000);
+    expect(res.body.amount).toBe(72500);
   });
 
   it('booking voucher invalid: unknown/expired/min/scope -> 400', async () => {
@@ -285,7 +285,7 @@ describe('Voucher + Poin Kawan ST-04 (e2e)', () => {
       .send({ courtId, date: DATE, start: '10:00', voucherCode: 'VQ1' })
       .expect(201);
     expect(first.body.discount).toBe(5000);
-    expect(first.body.amount).toBe(95000);
+    expect(first.body.amount).toBe(97500);
 
     await request(app.getHttpServer())
       .post('/bookings')
@@ -379,7 +379,7 @@ describe('Voucher + Poin Kawan ST-04 (e2e)', () => {
     expect(res.body.subtotal).toBe(100000);
     expect(res.body.discount).toBe(25000);
     expect(res.body.pointsUsed).toBe(50);
-    expect(res.body.amount).toBe(74950);
+    expect(res.body.amount).toBe(77450);
     expect(await mePoints(authBuyer())).toBe(0);
 
     // Webhook dgn nominal lama (pre-diskon) -> 409, tetap pending.

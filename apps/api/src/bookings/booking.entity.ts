@@ -90,6 +90,16 @@ export class Booking {
   @Column({ name: 'points_used', type: 'int', default: 0 })
   pointsUsed!: number;
 
+  /**
+   * Service fee snapshot rupiah (API-W03). Diambil dari pengaturan platform
+   * `service_fee_enabled` + `service_fee_amount` saat booking dibuat;
+   * 0 bila fee dinonaktifkan. Poin/voucher TIDAK menutup fee (cap poin =
+   * subtotal - diskon); `amount` = max(0, subtotal - discount - pointsUsed)
+   * + serviceFee.
+   */
+  @Column({ name: 'service_fee', type: 'int', default: 0 })
+  serviceFee!: number;
+
   /** Token Snap Midtrans (atau stub bila tanpa server key). */
   @Column({ name: 'snap_token', type: 'varchar', length: 255, nullable: true })
   snapToken?: string | null;
