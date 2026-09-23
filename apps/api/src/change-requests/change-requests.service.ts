@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { normalizeSports } from '../users/users.service';
+import { assertPhotoUrls } from '../uploads/photo-url';
 import { Court } from '../venues/court.entity';
 import { Venue } from '../venues/venue.entity';
 import { Product } from '../marketplace/product.entity';
@@ -257,7 +258,9 @@ export class ChangeRequestsService {
       venue.sports = normalizeSports(patch.sports);
     }
     if (patch.photos !== undefined) {
-      venue.photos = normalizePhotoList(patch.photos);
+      const photos = normalizePhotoList(patch.photos);
+      assertPhotoUrls(photos, 5, 'Venue photos');
+      venue.photos = photos;
     }
   }
 
@@ -281,7 +284,9 @@ export class ChangeRequestsService {
     if (patch.price !== undefined) product.price = patch.price;
     if (patch.stock !== undefined) product.stock = patch.stock;
     if (patch.photos !== undefined) {
-      product.photos = normalizePhotoList(patch.photos);
+      const photos = normalizePhotoList(patch.photos);
+      assertPhotoUrls(photos, 5, 'Product photos');
+      product.photos = photos;
     }
   }
 

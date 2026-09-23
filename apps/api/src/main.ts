@@ -14,7 +14,8 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, transform: true }),
   );
-  // Serve lokal hasil upload avatar (SM-03 MVP): GET /uploads/avatars/<file>.
+  // Serve lokal hasil upload (SM-03 avatar + ST-01 images):
+  // GET /uploads/avatars/<file> dan /uploads/images/<file>.
   // nosniff (SEC-01 Medium) agar browser tidak menebak konten file upload.
   const uploadDir = getUploadDir();
   if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true });

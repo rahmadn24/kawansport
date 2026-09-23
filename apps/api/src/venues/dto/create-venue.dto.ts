@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsLatitude,
   IsLongitude,
@@ -8,6 +9,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { IsPhotoUrl } from '../../uploads/photo-url';
 
 /** POST /venues — owner otomatis = current user (JWT). */
 export class CreateVenueDto {
@@ -33,8 +35,11 @@ export class CreateVenueDto {
   @IsString({ each: true })
   sports!: string[];
 
+  /** Foto venue (ST-01): path /uploads/... atau https, maks 5. */
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsString({ each: true })
+  @IsPhotoUrl({ each: true })
   photos?: string[];
 }

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsInt,
   IsOptional,
@@ -7,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsPhotoUrl } from '../../uploads/photo-url';
 
 /** PATCH /products/:id — semua field opsional. */
 export class UpdateProductDto {
@@ -39,6 +41,8 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsString({ each: true })
+  @IsPhotoUrl({ each: true })
   photos?: string[];
 }

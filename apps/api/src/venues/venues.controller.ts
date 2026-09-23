@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -11,8 +12,7 @@ import {
   Req,
   Res,
   UseGuards,
-} from '@nestjs/common';
-import type { Request, Response } from 'express';
+} from '@nestjs/common';import type { Request, Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AccessPayload } from '../auth/jwt-auth.guard';
@@ -28,6 +28,7 @@ import { ListVenuesDto } from './dto/list-venues.dto';
 import { RejectVenueDto } from './dto/reject-venue.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
+import { VenuePhotoDto } from './dto/venue-photo.dto';
 import { VenuesService } from './venues.service';
 
 @Controller('venues')
@@ -131,6 +132,35 @@ export class VenuesController {
     @Body() dto: CreateCourtDto,
   ) {
     return this.venues.createCourt(id, user, dto);
+  }
+
+  /**
+   * Tambah satu foto venue (ST-01, owner / super_admin).
+   * Langsung disimpan tanpa change request (maks 5, URL /uploads/ atau
+   * https); venue tetap harus `approved` agar tampil publik.
+   */
+  @Post(':id/photos')
+  @UseGuards(JwtAuthGuard)
+  addPhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: VenuePhotoDto,
+  ) {
+    return this.venues.addPhoto(id, user, dto.url);
+  }
+
+  /**
+   * Hapus satu foto venue (ST-01, owner / super_admin).
+   * Langsung disimpan tanpa change request; foto tidak ada → 404.
+   */
+  @Delete(':id/photos')
+  @UseGuards(JwtAuthGuard)
+  removePhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: VenuePhotoDto,
+  ) {
+    return this.venues.removePhoto(id, user, dto.url);
   }
 
   /**

@@ -19,11 +19,15 @@ import {
   toPendingChange,
 } from '../change-requests/change-requests.service';
 import { normalizePhotos } from '../venues/venues.service';
+import { assertPhotoUrls } from '../uploads/photo-url';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './product.entity';
 import { Seller } from './seller.entity';
+
+/** Batas foto produk (ST-01). */
+export const MAX_PRODUCT_PHOTOS = 5;
 
 export interface ProductItem {
   id: string;
@@ -69,7 +73,7 @@ export class ProductsService {
       description: dto.description?.trim() ? dto.description.trim() : null,
       price: dto.price,
       stock: dto.stock,
-      photos: normalizePhotos(dto.photos ?? []),
+      photos: validateProductPhotos(normalizePhotos(dto.photos ?? [])),
       status: 'pending',
       rejectionReason: null,
     });
@@ -135,7 +139,7 @@ export class ProductsService {
     if (patch.price !== undefined) product.price = patch.price;
     if (patch.stock !== undefined) product.stock = patch.stock;
     if (patch.photos !== undefined) {
-      product.photos = normalizePhotos(patch.photos);
+      product.photos = validateProductPhotos(normalizePhotos(patch.photos));
     }
     product.updatedBy = actor.id;
 
@@ -311,4 +315,10 @@ export class ProductsService {
       updatedAt: p.updatedAt,
     };
   }
+}
+
+/** Normalisasi + validasi URL foto produk (maks 5, /uploads/ atau https). */
+export function validateProductPhotos(input: string[]): string[] {
+  assertPhotoUrls(input, MAX_PRODUCT_PHOTOS, 'Product photos');
+  return input;
 }

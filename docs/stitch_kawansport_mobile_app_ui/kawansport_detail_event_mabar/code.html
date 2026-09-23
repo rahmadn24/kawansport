@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#faf8ff;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "background": "#faf8ff", "tertiary-fixed": "#b2f746", "surface-container-low": "#f2f3ff", "on-tertiary-fixed-variant": "#334f00", "surface-variant": "#dae2fd", "on-tertiary": "#ffffff", "primary-container": "#15803d", "on-error": "#ffffff", "on-background": "#131b2e", "tertiary-fixed-dim": "#98da27", "surface-container-lowest": "#ffffff", "surface-container-highest": "#dae2fd", "secondary": "#9d4300", "tertiary-container": "#517b00", "on-primary-container": "#d3ffd5", "secondary-container": "#fd761a", "on-tertiary-container": "#deffab", "surface-dim": "#d2d9f4", "secondary-fixed": "#ffdbca", "primary-fixed": "#95f8a7", "surface-tint": "#006d30", "surface-container-high": "#e2e7ff", "secondary-fixed-dim": "#ffb690", "on-secondary-fixed": "#341100", "outline": "#6f7a6e", "primary": "#00652c", "on-error-container": "#93000a", "on-primary-fixed-variant": "#005323", "error": "#ba1a1a", "error-container": "#ffdad6", "on-secondary-container": "#5c2400", "on-secondary": "#ffffff", "inverse-on-surface": "#eef0ff", "on-primary": "#ffffff", "outline-variant": "#becabc", "inverse-primary": "#79db8d", "tertiary": "#3f6000", "on-surface": "#131b2e", "primary-fixed-dim": "#79db8d", "on-secondary-fixed-variant": "#783200", "on-primary-fixed": "#00210a", "on-tertiary-fixed": "#121f00", "inverse-surface": "#283044", "surface": "#faf8ff", "surface-bright": "#faf8ff", "on-surface-variant": "#3f493f", "surface-container": "#eaedff" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-xl": "2rem", "space-xs": "0.25rem", "space-md": "1rem", "space-sm": "0.5rem", "space-lg": "1.5rem", "margin": "1rem", "gutter": "1rem" }, fontFamily: { "body-sm": ["Inter"], "headline-lg": ["Inter"], "display-hero": ["Inter"], "headline-md": ["Inter"], "label-sm": ["Inter"], "label-md": ["Inter"], "label-lg": ["Inter"], "stat-counter": ["Inter"], "body-md": ["Inter"], "headline-sm": ["Inter"], "body-lg": ["Inter"] }, fontSize: { "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "display-hero": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "800"}], "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "label-sm": ["10px", {"lineHeight": "12px", "letterSpacing": "0.05em", "fontWeight": "700"}], "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}], "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}], "stat-counter": ["24px", {"lineHeight": "28px", "letterSpacing": "-0.03em", "fontWeight": "800"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}], "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col min-h-screen selection:bg-tertiary-fixed selection:text-on-tertiary-fixed"><header class="fixed top-0 w-full z-50 pt-safe bg-surface-container-lowest/85 backdrop-blur-xl shadow-[0_1px_12px_rgba(19,27,46,0.04)]"><div class="h-16 px-4 flex items-center justify-between gap-3"><div class="flex items-center gap-2"><button aria-label="Kembali" class="w-11 h-11 -ml-2 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container-low transition-colors" onclick="history.back()"><span class="material-symbols-outlined text-[24px]">arrow_back</span></button><img alt="Brand logo. - Primary color: #15803d
+- Font: inter
+- Mode: light
+- Roundness: rounded-md
+" class="h-7 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1W6SdzX_vh5D_b4lld0NViL0cMFH9XBwM3dR0vis5UzqbnJxD4zF0VmjhBXMiwHETtSL7SSXQgTBMM8e0qMTE0pTcFH6C9DoosHn5CrkQOKMQhPmL-sFgA_4pBBPAxsaDqq-O5iQ2-2dMe61o2YHLLF9YakUbvrakkqqDweFUntoQQdPg0cs4dmGCGN7_4ITK-Bc_ysOHiUB16z5COkieecTXAhydOxVicIausSnzWXqdZNIWCq-WV8oQ"/><h1 class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">Detail Event</h1></div><div class="flex items-center gap-2"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VuWpjsvdLkHIqiiHqiy7dYI4KFYFxMePaty_FzP749YFy1vb28h2X88DjUHy6juGZtsVF007tWaO561Y2Wt2bW-cy46NzNUvPvJWf1x8uHrXQJ-ug_du6jC7U7tCtd1gXGuTf2mjGtmVrpegmAx_Nc0bv-mUKlItfhOR9z48VrvI3DlOU-LrBMuVTYhJSNv2jvoBTDbNGc2-dX2RPIqP8ofDzhZoZFrY3IOuSimTGDQzvuTogDAJi0PdM"/></div></div></header><main class="flex flex-col relative w-full pt-16 pb-safe bg-surface min-h-screen"><div class="flex flex-col w-full pb-32">
+<!-- Hero Banner Visual -->
+<div class="relative w-full h-56 bg-surface-container-high overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A brightly lit indoor professional badminton court with green tournament mats, crisp white court lines, high overhead LED stadium lights, and modern architectural wooden ceiling beams with subtle lens flare in deep green and orange energetic tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-xF-iOitZ-k17CUnWShmAyxD6LKWm2u2IQjNVhnY-T-G4ttbl8fBn23GpXukK8cbePwGJczGaMulMKwDWNL30HalUs1zn4WmB_OOrN_OtNF1Ot02-4kN-PwEHFej-Bg85j7MWtwD5wX1Cv343vTcLDB1xSwA0e9Lzu1C3-FjGNOMEwkIL06G0RV1Y9rpbTdCjZfJTiq4vXOPX304kk_1NIwDciakO12Gaz8A8L_JGQhqileZNJEQB"/>
+<div class="absolute inset-0 bg-gradient-to-t from-on-background/90 via-on-background/30 to-transparent"></div>
+<!-- Top Floating Actions & Badges -->
+<div class="absolute top-4 left-4 right-4 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md shadow-md backdrop-blur-md">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed animate-pulse"></span>
+          Mabar Terbuka
+        </span>
+<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm">
+          🏸 Badminton Ganda
+        </span>
+</div>
+<div class="flex items-center gap-1.5">
+<button aria-label="Simpan Event" class="w-9 h-9 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center text-on-surface hover:bg-surface-container-lowest transition-transform active:scale-90" id="bookmarkBtn" onclick="toggleBookmark()">
+<span class="material-symbols-outlined text-[20px]" id="bookmarkIcon">bookmark_border</span>
+</button>
+<button aria-label="Bagikan Event" class="w-9 h-9 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center text-on-surface hover:bg-surface-container-lowest transition-transform active:scale-90" onclick="navigator.share ? navigator.share({title: 'Mabar Badminton', url: window.location.href}) : alert('Tautan disalin!')">
+<span class="material-symbols-outlined text-[20px]">share</span>
+</button>
+</div>
+</div>
+<!-- Hero Bottom Bar Inside Visual -->
+<div class="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-highest/90 backdrop-blur-md font-label-sm text-label-sm text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-primary">verified</span>
+        Karpet Yonex Original
+      </span>
+<span class="font-label-sm text-label-sm text-surface-container-lowest bg-on-background/60 backdrop-blur-sm px-2 py-0.5 rounded">
+        Sisa 2 Slot
+      </span>
+</div>
+</div>
+<!-- Event Title & Host Summary Section -->
+<div class="px-4 pt-4 flex flex-col gap-3">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm uppercase tracking-wider">Komunitas</span>
+<span class="font-body-sm text-body-sm text-outline">Pekan Ini</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-on-surface leading-tight">
+        Mabar Badminton Santai & Keringetan Bareng #Vol.14
+      </h2>
+</div>
+<!-- Host Card -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-lowest shadow-sm">
+<div class="flex items-center gap-3 min-w-0">
+<div class="relative w-11 h-11 shrink-0">
+<img class="w-11 h-11 rounded-full object-cover shadow-sm" data-alt="Close up athletic portrait of a friendly Indonesian male badminton player wearing a green sports jersey smiling outdoors with soft natural lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5F5x8JU4OWTGzBNuuy_P6WrYLDdtbaoAYFuNZuWo7Y4j92q-r5G5rvNlYXw8qUIhV0aMdx7QmILW8u-E8pNlrhjb_N5cN4ZlhTpShDOwRoVw7DDJZvo2I2p43aysDjIVGwXhmHRv0oNdbxLrW_EGEyt9541zjLrhwEESbHiH-Jd5i5mrtv9Y4P_9qJ31AMTvsYAiC63uiGAPxCX3ygIV0OWjA1OMc9ywqaqDMSL5x4QC3jTgLDk8Q"/>
+<span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-[10px]">
+<span class="material-symbols-outlined text-[10px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-lg text-label-lg text-on-surface truncate">Farhan Kurniawan</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-label-sm bg-secondary-fixed text-on-secondary-fixed">Host</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 truncate">
+<span class="material-symbols-outlined text-[14px] text-secondary" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-sm text-label-sm text-on-surface">4.9</span>
+<span>• 28 Mabar dipimpin</span>
+</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-full bg-surface-container-low text-primary hover:bg-surface-container font-label-md text-label-md transition-colors shrink-0">
+        Profil Host
+      </button>
+</div>
+</div>
+<!-- Key Info Cards: Date, Venue, Fee -->
+<div class="px-4 mt-4 flex flex-col gap-2.5">
+<!-- Schedule -->
+<div class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-container-lowest shadow-sm">
+<div class="w-10 h-10 rounded-xl bg-primary-fixed/50 text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">calendar_today</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg text-on-surface">Jumat, 24 Mei 2025</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">19:00 - 21:00 WIB • Durasi 2 Jam</span>
+</div>
+</div>
+<!-- Location Card with Interactive CTA -->
+<div class="flex flex-col p-3.5 rounded-xl bg-surface-container-lowest shadow-sm gap-2">
+<div class="flex items-start justify-between gap-2">
+<div class="flex items-start gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-secondary-fixed/50 text-secondary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">location_on</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface leading-tight">GBK Arena Senayan</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Lapangan 3 & 4 (Karpet Yonex)</span>
+<span class="font-label-sm text-label-sm text-primary mt-0.5">2.4 km dari lokasimu saat ini</span>
+</div>
+</div>
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm hover:opacity-90 active:scale-95 transition-all shrink-0">
+<span class="material-symbols-outlined text-[16px]">navigation</span>
+          Buka Maps
+        </button>
+</div>
+<!-- Mini Map Snippet -->
+<div class="w-full h-24 rounded-lg bg-surface-container overflow-hidden relative" data-location="GBK Arena Senayan, Jakarta" style="">
+<div class="absolute bottom-2 left-2 px-2 py-1 rounded bg-on-background/70 backdrop-blur-md text-[10px] text-surface-container-lowest flex items-center gap-1 font-label-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed"></span>
+          Jl. Gerbang Pemuda No.3, Jakarta Pusat
+        </div>
+</div>
+</div>
+<!-- Fee & Inclusions -->
+<div class="flex items-start gap-3 p-3.5 rounded-xl bg-surface-container-lowest shadow-sm">
+<div class="w-10 h-10 rounded-xl bg-tertiary-fixed/60 text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">payments</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-baseline gap-1.5">
+<span class="font-headline-sm text-headline-sm text-primary font-bold">Rp35.000</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/ orang</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+          Sudah termasuk kok Yonex Aerosensa 50 & sewa lapangan full 2 jam.
+        </p>
+</div>
+</div>
+</div>
+<!-- Segmented Tabs Switcher -->
+<div class="px-4 mt-6">
+<div class="flex p-1 rounded-xl bg-surface-container-low gap-1">
+<button class="flex-1 py-2 rounded-lg font-label-md text-label-md transition-all bg-surface-container-lowest text-on-surface shadow-sm text-center" id="tabBtnInfo" onclick="switchTab('info')">
+        Info & Aturan Mabar
+      </button>
+<button class="flex-1 py-2 rounded-lg font-label-md text-label-md transition-all text-on-surface-variant hover:text-on-surface text-center flex items-center justify-center gap-1.5" id="tabBtnPeserta" onclick="switchTab('peserta')">
+<span>Peserta</span>
+<span class="px-1.5 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm">6/8</span>
+</button>
+</div>
+</div>
+<!-- TAB PANE 1: Info & Aturan -->
+<div class="px-4 mt-4 flex flex-col gap-4" id="paneInfo">
+<!-- Skill Level Indicator -->
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-lg text-label-lg text-on-surface">Kategori & Level Skill</span>
+<span class="px-2.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm">Beginner Friendly</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">
+        Pemula sampai Menengah (Semua gender diterima). Yang terpenting mau main sportif, rotasi tertib, dan seru-seruan bareng!
+      </p>
+</div>
+<!-- Facilities Chip Grid -->
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-3">
+<span class="font-label-lg text-label-lg text-on-surface">Fasilitas Venue</span>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">ac_unit</span>
+<span>AC & Exhaust Fan</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">local_cafe</span>
+<span>Kantin / Warung</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">local_parking</span>
+<span>Parkir Mobil & Motor</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">shower</span>
+<span>Shower Air Hangat</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">lock</span>
+<span>Loker Barang Pribadi</span>
+</div>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-on-surface font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">mosque</span>
+<span>Musholla Bersih</span>
+</div>
+</div>
+</div>
+<!-- Rules Card -->
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">sports</span>
+<span class="font-label-lg text-label-lg text-on-surface">Aturan Main & Kebijakan</span>
+</div>
+<ul class="flex flex-col gap-2.5 font-body-sm text-body-sm text-on-surface-variant">
+<li class="flex items-start gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span>Format game <strong>Rally point 21</strong> (tanpa deuce panjang jika antrean penuh).</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span>Rotasi adil tiap game maksimal 15 menit agar semua anggota dapat jatah seimbang.</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span>Peserta wajib membawa raket pribadi (tersedia sewa di kantin bila perlu).</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></span>
+<span><strong>Wajib</strong> memakai sepatu khusus badminton/court non-marking demi keselamatan karpet.</span>
+</li>
+</ul>
+</div>
+</div>
+<!-- TAB PANE 2: Daftar Peserta (Hidden by default or switchable) -->
+<div class="px-4 mt-4 hidden flex-col gap-3" id="panePeserta">
+<div class="p-4 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg text-on-surface">Kapasitas Skuad</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Max 8 Pemain</span>
+</div>
+<span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm">
+          2 Slot Terbuka
+        </span>
+</div>
+<!-- Capacity Meter -->
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full rounded-full w-3/4 transition-all duration-500"></div>
+</div>
+<!-- Player List Tiles -->
+<div class="flex flex-col gap-2.5 mt-2">
+<!-- Host item -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Small circular avatar profile of young athletic Asian man wearing black headband and smiling." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfg9V6w_mWogGqtaA2q1hM6-d1xsoP9Y7ekszcy5VHghPXu_8AHjffrkeY_TNjzuJ1vqs70U8BTIO4yAP6ss57ycD2Y23j7A5xD0GcXHoWscGFwtz4LIb4frGnnLoVTkZQH8kRJ_Fnu431Z1r7fNSdkHBUsOyLBLdfK4Dkj4dvttY3LnVaHJq1vpzrDoD_754ZlPQSdLMcPycu8CUc9GxvNXshPoQBGFV5FZatBzUgpC_NVweAC-Sk"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Farhan K. (Host)</span>
+<span class="font-label-sm text-label-sm text-primary">Inter / Intermediate</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[18px]">sports_tennis</span>
+</div>
+<!-- Participant 2 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Profile photo of Indonesian female badminton player with ponytail in vibrant sportswear smiling on court." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbh72fsvoyAaA0Pee9fZO_iSpUI2O5qp28qy6OzzcLT30Pt8-B-3yRTGQo3OqLNYo2x51oixV744WbCR1SklJJMJKIGdvWrvggAY0I8c8DrTHN_2DAqWz1BJJ7Pi4plWj7xhSr9Ee0REf8kjyAa3RIecO_Bab0rJws6UvJjg1jzeucBiYm8SZKHHejr2tZ-f3AlZY0Co9R0zU4aGs-2crytzxUP_Ntpcz7mDFp9n1-u1ha4ejVjyOl"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Dinda Sarah</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Beginner Friendly</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Pemain #2</span>
+</div>
+<!-- Participant 3 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Portrait of young Indonesian man wearing sporty yellow shirt with badminton racket towel on shoulders." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtn8KdxDaDtzItxuCVoC9JgezVJmHBBX2capNiWgU4pZjvT6CBzdgGIP-sDb1F_lOao7SV5bzhzF8iPHz7ClxIATl3C4Pkr3ZfQbcnqXpd0xwn2dcUa_vfmtslEB7sebwJh2_Hq-oJZxr3R9joy_I_3eFFaYmvor4BMKR6OfiW0WEmU3ZNafNgbz4zgSLXDS9YekDQWPiuzHooP7Vcm8MRLoozs_CxvkFpvFvvJiFdv3GlkFk_UkNU"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Bagus Triadi</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Beginner+</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Pemain #3</span>
+</div>
+<!-- Participant 4 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Profile photo of an energetic male player in red sports jersey in gym setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3y9yyiOjXK8cZOOM8s_CVuJJeqP3LucMWD0h9GiqyXcmptl_dCPEoU26e7pUsEGdp5cQYqm3m9qt5cZ7A3vxrBwaFjSADCdWDvBfh-WoK_69TeiaW9bu82fZshPDxhM89_jhJcFGcRvfg3ATOa2PW1i2QYZDxI_QDcRfaRXBUmXlJTEukKuevBbiT2xRatG_KTbeDfpSI9szyepBwXJayWO9OqSIe1p4i9Hmazv-tTW1YTWALIxa5"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Reza Rahardian</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Intermediate</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Pemain #4</span>
+</div>
+<!-- Participant 5 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Headshot of cheerful young woman wearing blue badminton athletic shirt." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5hWXwGQVv6NtXK8vElCPKnMwwl_e8gdvH9_QqM7ZN5QEL_jqeNeAPyOvrcnvK8hcn5H6FV-wmYevnB2os8YqUlkGv_KF_WCT5fuBwpSPKPaxF1zPI8UPu8LYlLMoMuSH9d0eBqQ_ixQgWmQuIKTRq5a4MOroUX54Xe-q8SyyFOAzsKLyUEa9KvzQJqnLg1K8g8rvnB2aY7vbCZ-wEKkk4zXANZtXe2lKH7jtGcPVQlALykQkvHsWM"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Maya Kartika</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Beginner Friendly</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Pemain #5</span>
+</div>
+<!-- Participant 6 -->
+<div class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low">
+<div class="flex items-center gap-2.5 min-w-0">
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Portrait photo of a friendly young sports enthusiast with glasses and athletic polo shirt." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2tc_wECzHLBDbxhLEuyROl1amZNgAmA0aveefqlHOQ2izvV4kOIPUXyk-Xx9EBmsxDQ2t-q_I5mcOMCorZRRqttHPtw0_VxYRVuN8WONQTn8rnFK8-NzZwNf2C-HiEeJAq2upW_5H7-t3PI6vQu2Qtns2NIwGZlYPyzUq20WcEMkYxRjjgsPZW3woASEf5MwJnSisOcPLVLTmveU9ldppBhCTkVZn-d2859NJmVHpkLpXJi2GrlxJ"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Andi Pratama</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Beginner+</span>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Pemain #6</span>
+</div>
+<!-- Empty Slots -->
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-high/40 border border-dashed border-outline-variant">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Slot Terbuka #7</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Tersedia</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg bg-surface-container-high/40 border border-dashed border-outline-variant">
+<div class="flex items-center gap-2.5">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Slot Terbuka #8</span>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Tersedia</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Preview Peserta Quick Strip (Always visible below tabs for delight) -->
+<div class="px-4 mt-4">
+<div class="p-3.5 rounded-xl bg-surface-container-lowest shadow-sm flex flex-col gap-2.5">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Skuad Terdaftar (6/8)</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">2 Kursi Kosong</span>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto pb-1">
+<!-- 6 Avatars -->
+<div class="flex -space-x-2 shrink-0">
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of Asian male athlete with headband" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxw4KvurDj47Tg2QdjYpP6GXjBINncn8nOtu8Q7N3d7DlJoTSrpnq0sTiCliChJ1mS2iCnL8SSB4W48zNpfpzRHtK0gFRSS1bUAcfV8jVz21ikpSkNIaOH6BwOgPrS7-Es2XPE4htQc_nixFYl3KbSQs2_yyg-f8J3ZSGDzXhg1zBgd4c2EzeFQtuTIQpwyHKEVr3jrzl-OVcU3nm4IDYqvqCxbX0oxJk5m3o4kD6mzZ5GP9eVTBUr"/>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of woman smiling in sportswear" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3r7Qm62pJSw-LGC6-cSU7yMWADS8LV1xe0zvVzHbXJg1nepSYPrbGT-ORqRAr82Mx5PkqkGDdPS75cKNFdWHRCQchLI6ZH0LiZ__5iwFkEzugSaoG89yM9mFww71on65wJ_LZv3TKFfdtgGNuyfHBHGg0SVEvL8J7hw5p3z2MIVDI5b6dbNqmizeMgH2qYD7HkYlI52oP4sNiPTJtAtgUyQqalbqBXzduMEL7MW15jB8zIzCmkJHm"/>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of young active man with sports jersey" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB30e8Y9fRKwR34n2a50M37NKcmDvfYwN6jWi99gMmqEtsEC7k1Gc_FwqIhRMtCzaO0nPERzte7mWxR7yOf2nyVAFOAkN80jnvuVZj74FADqox-m9VyXIoxMAZ7url1QbOV2GLbFBVnsxM66E5CgllFqdv4MatY0xTWor3iLfkydCivf2AEMTuJgy9qfTmPn6GrmGEIqoeUNI04qcaCI08U6UYt9Ho4PxarkTN0YaGi-RIO1xQg8jUC"/>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of athletic man in red apparel" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT55iFxAi9HggNtGzC11yD_G4jpcLIiImyiB6SabsYOvckXbml8sLnGG-Q0lS73ritUBGAVjqjsgWOdAe0wH4vHe5fT_PL7BqyNKrSuyoB2A5ewHz06yFCresgV27ovso6Gk9AOMLwoQulbAcekKg_W6SsIuPHPF3bYMoJPi1O8LVWMkJug_7P2h-lX-FGJlQv0tT3RVY1KPvG6psWiIlS3YKz82ZZ9PuZSDL9SxV2WADEYBKVlzqF"/>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of cheerful athletic female player" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQrX099tOPOigmRVYXPOiIPMVVv9rwozXRWyDafRUlFafL5TEUe__zXE0wzPYPOQyPRs05CVvFDnYRKT_dJAWdX64vNGhnfjop7kbtdw3qmskkgFYIPviWcyIGfdi4KWVJo_8F968fn6E3O0FAgCeUpMA2qgeniMkScMwDfi-TJawXIMujY9xBj9QoU5-Tn3oZAStn3UiZaasRdgS_tODSG0KD4v4FNZnKUs9NG3q2f5XxnNJwRq90"/>
+<img class="w-8 h-8 rounded-full object-cover shadow-sm" data-alt="Micro avatar of friendly guy with glasses in badminton outfit" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCY0nYYbNNyIFcJdLYlIbFiSEp7XNPz1pSQ0P9Pq17JGJDjqKu2YVLeSkE2QMBvREESInPqYEYGbM2Zggd_beXjuxYi4Z_xX5GhdgfL14ztTM65lFohQH-u2vbfi_Q_NJdzgThksvzeC-lbbRPN-ffwxb8PkYBAtHsUUN-wJcRf-mZfGKXK40M1dwbNzQfgLlgLBeEUp-Ni46Em8SapccsscMsXyn8nxr-MzxI3O2_i6N_qih1wCwTX"/>
+</div>
+<!-- 2 Empty Dashed Slots -->
+<div class="flex items-center gap-1.5 shrink-0 ml-1">
+<div class="w-8 h-8 rounded-full border border-dashed border-secondary flex items-center justify-center bg-secondary-fixed/30 text-secondary">
+<span class="font-label-sm text-label-sm font-bold">+1</span>
+</div>
+<div class="w-8 h-8 rounded-full border border-dashed border-secondary flex items-center justify-center bg-secondary-fixed/30 text-secondary">
+<span class="font-label-sm text-label-sm font-bold">+1</span>
+</div>
+</div>
+<button class="ml-auto text-primary font-label-sm text-label-sm shrink-0 pl-2" onclick="switchTab('peserta')">
+          Lihat Semua
+        </button>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom Conversion Sheet -->
+<div class="fixed bottom-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-lg pb-safe shadow-[0_-8px_24px_-2px_rgba(19,27,46,0.08)]">
+<div class="px-4 py-3 max-w-[480px] mx-auto flex items-center justify-between gap-4">
+<!-- Price & Slot Urgency Info -->
+<div class="flex flex-col min-w-0">
+<div class="flex items-baseline gap-1">
+<span class="font-stat-counter text-stat-counter text-on-surface">Rp35rb</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">/org</span>
+</div>
+<div class="flex items-center gap-1 text-secondary">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-ping"></span>
+<span class="font-label-sm text-label-sm font-bold">Tersisa 2 Slot!</span>
+</div>
+</div>
+<!-- Action Button with Kinetic Glow -->
+<button class="flex-1 h-12 px-5 rounded-full bg-secondary-container text-on-secondary font-label-lg text-label-lg shadow-[0_8px_20px_-4px_rgba(249,115,22,0.45)] hover:bg-secondary active:scale-95 transition-all flex items-center justify-center gap-2 tracking-wide font-bold" id="btnJoinMabar" onclick="handleJoin()">
+<span>Gabung Mabar Sekarang</span>
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+  function switchTab(tab) {
+    const paneInfo = document.getElementById('paneInfo');
+    const panePeserta = document.getElementById('panePeserta');
+    const tabBtnInfo = document.getElementById('tabBtnInfo');
+    const tabBtnPeserta = document.getElementById('tabBtnPeserta');
+
+    if (tab === 'info') {
+      paneInfo.classList.remove('hidden');
+      paneInfo.classList.add('flex');
+      panePeserta.classList.add('hidden');
+      panePeserta.classList.remove('flex');
+
+      tabBtnInfo.className = "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all bg-surface-container-lowest text-on-surface shadow-sm text-center";
+      tabBtnPeserta.className = "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all text-on-surface-variant hover:text-on-surface text-center flex items-center justify-center gap-1.5";
+    } else {
+      paneInfo.classList.add('hidden');
+      paneInfo.classList.remove('flex');
+      panePeserta.classList.remove('hidden');
+      panePeserta.classList.add('flex');
+
+      tabBtnPeserta.className = "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all bg-surface-container-lowest text-on-surface shadow-sm text-center flex items-center justify-center gap-1.5";
+      tabBtnInfo.className = "flex-1 py-2 rounded-lg font-label-md text-label-md transition-all text-on-surface-variant hover:text-on-surface text-center";
+    }
+  }
+
+  let isBookmarked = false;
+  function toggleBookmark() {
+    isBookmarked = !isBookmarked;
+    const icon = document.getElementById('bookmarkIcon');
+    if (isBookmarked) {
+      icon.innerText = 'bookmark';
+      icon.style.fontVariationSettings = "'FILL' 1";
+      icon.classList.add('text-secondary');
+    } else {
+      icon.innerText = 'bookmark_border';
+      icon.style.fontVariationSettings = "'FILL' 0";
+      icon.classList.remove('text-secondary');
+    }
+  }
+
+  function handleJoin() {
+    const btn = document.getElementById('btnJoinMabar');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `
+      <span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+      <span>Mengamankan Slot...</span>
+    `;
+    setTimeout(() => {
+      btn.innerHTML = `
+        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+        <span>Slot Kamu Terpesan!</span>
+      `;
+      btn.classList.remove('bg-secondary-container');
+      btn.classList.add('bg-primary-container', 'text-on-primary-container');
+    }, 900);
+  }
+</script></main></body></html>

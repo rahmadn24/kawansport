@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -14,6 +15,7 @@ import type { RequestUser } from '../auth/jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BookingsService } from '../bookings/bookings.service';
 import { CreateEventDto } from './dto/create-event.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
 import { BookEventDto } from './dto/book-event.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { EventsService } from './events.service';
@@ -51,6 +53,19 @@ export class EventsController {
     @CurrentUser() user: { id: string },
   ) {
     return this.detailWithBooking(id, user.id);
+  }
+
+  /**
+   * Ubah event (ST-01) — hanya host atau super_admin (403 bila bukan).
+   * Title/deskripsi/foto; kapasitas & jadwal tidak bisa diubah di sini.
+   */
+  @Patch(':id')
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UpdateEventDto,
+  ) {
+    return this.events.update(id, user, dto);
   }
 
   /** Daftar peserta event (SM-05), urut waktu join. */

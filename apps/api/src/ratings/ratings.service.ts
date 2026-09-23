@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { assertOwnerOrAdmin, type ActorInput } from '../auth/ownership';
+import { normalizePhotos } from '../venues/venues.service';
+import { assertPhotoUrls } from '../uploads/photo-url';
 import { Court } from '../venues/court.entity';
 import { Venue } from '../venues/venue.entity';
 import { CreateRatingDto } from './dto/create-rating.dto';
@@ -15,6 +17,9 @@ import { UpdateRatingDto } from './dto/update-rating.dto';
 import { Rating } from './rating.entity';
 import { Review } from './review.entity';
 
+/** Batas foto review (ST-01). */
+export const MAX_REVIEW_PHOTOS = 3;
+
 export interface RatingItem {
   id: string;
   userId: string;
@@ -22,7 +27,13 @@ export interface RatingItem {
   venueId: string;
   courtId: string | null;
   score: number;
-  review: { id: string; comment: string | null; createdAt: Date; updatedAt: Date } | null;
+  review: {
+    id: string;
+    comment: string | null;
+    photos: string[];
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,12 +92,15 @@ export class RatingsService {
     });
     const savedRating = await this.ratings.save(rating);
 
-    // Buat review jika ada comment
+    // Buat review jika ada comment atau foto (ST-01).
     let review: Review | null = null;
-    if (dto.comment?.trim()) {
+    const comment = dto.comment?.trim() ? dto.comment.trim() : null;
+    const photos = validateReviewPhotos(normalizePhotos(dto.photos ?? []));
+    if (comment || photos.length > 0) {
       review = this.reviews.create({
         ratingId: savedRating.id,
-        comment: dto.comment.trim(),
+        comment,
+        photos,
       });
       await this.reviews.save(review);
     }
@@ -137,25 +151,36 @@ export class RatingsService {
       rating.score = dto.score;
     }
 
-    // Update review
-    if (dto.comment !== undefined) {
-      if (dto.comment.trim()) {
-        if (rating.review) {
-          rating.review.comment = dto.comment.trim();
-          await this.reviews.save(rating.review);
-        } else {
-          const review = this.reviews.create({
-            ratingId: rating.id,
-            comment: dto.comment.trim(),
-          });
-          rating.review = await this.reviews.save(review);
-        }
-      } else {
-        // Comment dihapus (empty string)
+    // Update review (comment dan/atau foto ST-01). Review dibuat bila
+    // belum ada dan payload menyisakan comment/foto; review dihapus bila
+    // keduanya kosong (mis. comment dikosongkan tanpa foto tersisa).
+    if (dto.comment !== undefined || dto.photos !== undefined) {
+      const nextComment =
+        dto.comment !== undefined
+          ? dto.comment.trim()
+            ? dto.comment.trim()
+            : null
+          : (rating.review?.comment ?? null);
+      const nextPhotos =
+        dto.photos !== undefined
+          ? validateReviewPhotos(normalizePhotos(dto.photos))
+          : (rating.review?.photos ?? []);
+      if (!nextComment && nextPhotos.length === 0) {
         if (rating.review) {
           await this.reviews.remove(rating.review);
           rating.review = null;
         }
+      } else if (rating.review) {
+        rating.review.comment = nextComment;
+        rating.review.photos = nextPhotos;
+        await this.reviews.save(rating.review);
+      } else {
+        const review = this.reviews.create({
+          ratingId: rating.id,
+          comment: nextComment,
+          photos: nextPhotos,
+        });
+        rating.review = await this.reviews.save(review);
       }
     }
 
@@ -231,6 +256,7 @@ export class RatingsService {
         ? {
             id: review.id,
             comment: review.comment ?? null,
+            photos: review.photos ?? [],
             createdAt: review.createdAt,
             updatedAt: review.updatedAt,
           }
@@ -239,4 +265,10 @@ export class RatingsService {
       updatedAt: rating.updatedAt,
     };
   }
+}
+
+/** Normalisasi + validasi URL foto review (maks 3, /uploads/ atau https). */
+export function validateReviewPhotos(input: string[]): string[] {
+  assertPhotoUrls(input, MAX_REVIEW_PHOTOS, 'Review photos');
+  return input;
 }

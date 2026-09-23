@@ -72,7 +72,7 @@ export class RatingsController {
 
   /**
    * PUT /api/ratings/:id — Update rating/review (auth, owner only).
-   * Body: { score?, comment? }
+   * Body: { score?, comment?, photos? }
    */
   @Put(':id')
   @UseGuards(JwtAuthGuard)

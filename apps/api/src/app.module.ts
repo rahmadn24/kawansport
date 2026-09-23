@@ -35,6 +35,7 @@ import { SlotClaim } from './venues/slot-claim.entity';
 import { Venue } from './venues/venue.entity';
 import { VenuesModule } from './venues/venues.module';
 import { RatingsModule } from './ratings/ratings.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { RatingsModule } from './ratings/ratings.module';
     UsersModule,
     AuthModule,
     AdminModule,
+    UploadsModule,
     ChangeRequestsModule,
     EventsModule,
     VenuesModule,

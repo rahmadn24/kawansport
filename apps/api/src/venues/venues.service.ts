@@ -23,6 +23,7 @@ import {
 } from '../change-requests/change-requests.service';
 import { normalizeSports } from '../users/users.service';
 import { UsersService } from '../users/users.service';
+import { assertPhotoUrls } from '../uploads/photo-url';
 import { Court, CourtStatus } from './court.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
@@ -121,7 +122,7 @@ export class VenuesService implements OnModuleInit {
       lat: dto.lat,
       lng: dto.lng,
       sports: normalizeSports(dto.sports ?? []),
-      photos: normalizePhotos(dto.photos ?? []),
+      photos: validateVenuePhotos(normalizePhotos(dto.photos ?? [])),
       ownerId: actor.id,
       status: actor.role === 'super_admin' ? 'draft' : 'pending',
       rejectionReason: null,
@@ -134,9 +135,10 @@ export class VenuesService implements OnModuleInit {
   /**
    * PATCH /venues/:id — hanya owner venue atau super_admin.
    * AD-02: bila editor BUKAN admin dan venue sudah `approved` serta payload
-   * menyentuh field sensitif (name, photos) → TIDAK langsung diubah,
+   * menyentuh field sensitif (name) → TIDAK langsung diubah,
    * melainkan dicatat sebagai change request `pending` (202 + CR id, publik
-   * tetap data lama). Admin / entity non-approved → langsung ubah.
+   * tetap data lama). ST-01: foto dikecualikan — selalu langsung disimpan.
+   * Admin / entity non-approved → langsung ubah.
    */
   async update(
     id: string,
@@ -176,7 +178,9 @@ export class VenuesService implements OnModuleInit {
       venue.lng = patch.lng as number;
     }
     if (patch.sports !== undefined) venue.sports = normalizeSports(patch.sports);
-    if (patch.photos !== undefined) venue.photos = normalizePhotos(patch.photos);
+    if (patch.photos !== undefined) {
+      venue.photos = validateVenuePhotos(normalizePhotos(patch.photos));
+    }
     venue.updatedBy = actor.id;
 
     const saved = await this.venues.save(venue);
@@ -193,6 +197,46 @@ export class VenuesService implements OnModuleInit {
       throw new ConflictException('Only draft venues can be submitted');
     }
     venue.status = 'pending';
+    await this.venues.save(venue);
+    return this.mustDetail(id, actor);
+  }
+
+  /**
+   * POST /venues/:id/photos — tambah satu foto (ST-01, owner / super_admin).
+   * ST-01: foto TIDAK lewat change request — langsung disimpan apa pun
+   * status venue (venue tetap harus `approved` agar tampil publik).
+   * Duplikat diabaikan; >5 foto → 400.
+   */
+  async addPhoto(id: string, actor: ActorInput, url: string): Promise<VenueItem> {
+    const venue = await this.venues.findOne({ where: { id } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const next = validateVenuePhotos(
+      normalizePhotos([...(venue.photos ?? []), url.trim()]),
+    );
+    venue.photos = next;
+    venue.updatedBy = actor.id;
+    await this.venues.save(venue);
+    return this.mustDetail(id, actor);
+  }
+
+  /**
+   * DELETE /venues/:id/photos — hapus satu foto (ST-01, owner / super_admin).
+   * Langsung disimpan (tanpa change request). Foto tidak ada → 404.
+   */
+  async removePhoto(
+    id: string,
+    actor: ActorInput,
+    url: string,
+  ): Promise<VenueItem> {
+    const venue = await this.venues.findOne({ where: { id } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const target = url.trim();
+    const current = venue.photos ?? [];
+    if (!current.includes(target)) throw new NotFoundException('Photo not found');
+    venue.photos = current.filter((p) => p !== target);
+    venue.updatedBy = actor.id;
     await this.venues.save(venue);
     return this.mustDetail(id, actor);
   }
@@ -541,6 +585,15 @@ export function normalizePhotos(input: string[]): string[] {
     out.push(s);
   }
   return out;
+}
+
+/** Batas foto venue (ST-01). */
+export const MAX_VENUE_PHOTOS = 5;
+
+/** Normalisasi + validasi URL foto venue (maks 5, /uploads/ atau https). */
+export function validateVenuePhotos(input: string[]): string[] {
+  assertPhotoUrls(input, MAX_VENUE_PHOTOS, 'Venue photos');
+  return input;
 }
 
 /** Jarak great-circle (meter) untuk filter/sort geo fallback sqljs. */

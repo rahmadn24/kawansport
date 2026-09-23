@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html lang="id"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#faf8ff;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "background": "#faf8ff", "tertiary-fixed": "#b2f746", "surface-container-low": "#f2f3ff", "on-tertiary-fixed-variant": "#334f00", "surface-variant": "#dae2fd", "on-tertiary": "#ffffff", "primary-container": "#15803d", "on-error": "#ffffff", "on-background": "#131b2e", "tertiary-fixed-dim": "#98da27", "surface-container-lowest": "#ffffff", "surface-container-highest": "#dae2fd", "secondary": "#9d4300", "tertiary-container": "#517b00", "on-primary-container": "#d3ffd5", "secondary-container": "#fd761a", "on-tertiary-container": "#deffab", "surface-dim": "#d2d9f4", "secondary-fixed": "#ffdbca", "primary-fixed": "#95f8a7", "surface-tint": "#006d30", "surface-container-high": "#e2e7ff", "secondary-fixed-dim": "#ffb690", "on-secondary-fixed": "#341100", "outline": "#6f7a6e", "primary": "#00652c", "on-error-container": "#93000a", "on-primary-fixed-variant": "#005323", "error": "#ba1a1a", "error-container": "#ffdad6", "on-secondary-container": "#5c2400", "on-secondary": "#ffffff", "inverse-on-surface": "#eef0ff", "on-primary": "#ffffff", "outline-variant": "#becabc", "inverse-primary": "#79db8d", "tertiary": "#3f6000", "on-surface": "#131b2e", "primary-fixed-dim": "#79db8d", "on-secondary-fixed-variant": "#783200", "on-primary-fixed": "#00210a", "on-tertiary-fixed": "#121f00", "inverse-surface": "#283044", "surface": "#faf8ff", "surface-bright": "#faf8ff", "on-surface-variant": "#3f493f", "surface-container": "#eaedff" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-xl": "2rem", "space-xs": "0.25rem", "space-md": "1rem", "space-sm": "0.5rem", "space-lg": "1.5rem", "margin": "1rem", "gutter": "1rem" }, fontFamily: { "body-sm": ["Inter"], "headline-lg": ["Inter"], "display-hero": ["Inter"], "headline-md": ["Inter"], "label-sm": ["Inter"], "label-md": ["Inter"], "label-lg": ["Inter"], "stat-counter": ["Inter"], "body-md": ["Inter"], "headline-sm": ["Inter"], "body-lg": ["Inter"] }, fontSize: { "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "display-hero": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "800"}], "headline-md": ["22px", {"lineHeight": "28px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "label-sm": ["10px", {"lineHeight": "12px", "letterSpacing": "0.05em", "fontWeight": "700"}], "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600"}], "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}], "stat-counter": ["24px", {"lineHeight": "28px", "letterSpacing": "-0.03em", "fontWeight": "800"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}], "headline-sm": ["18px", {"lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col min-h-screen selection:bg-tertiary-fixed selection:text-on-tertiary-fixed"><header class="fixed top-0 w-full z-50 pt-safe bg-surface-container-lowest/85 backdrop-blur-xl shadow-[0_1px_12px_rgba(19,27,46,0.04)]"><div class="h-16 px-4 flex items-center justify-between gap-2"><div class="flex items-center gap-2.5 min-w-0"><img alt="Brand logo" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1W6SdzX_vh5D_b4lld0NViL0cMFH9XBwM3dR0vis5UzqbnJxD4zF0VmjhBXMiwHETtSL7SSXQgTBMM8e0qMTE0pTcFH6C9DoosHn5CrkQOKMQhPmL-sFgA_4pBBPAxsaDqq-O5iQ2-2dMe61o2YHLLF9YakUbvrakkqqDweFUntoQQdPg0cs4dmGCGN7_4ITK-Bc_ysOHiUB16z5COkieecTXAhydOxVicIausSnzWXqdZNIWCq-WV8oQ"/><div class="flex flex-col min-w-0"><div class="flex items-center gap-1"><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight">KawanSport</span></div><button class="flex items-center gap-0.5 text-left text-on-surface-variant hover:text-on-surface transition-colors py-0.5 -my-0.5"><span class="material-symbols-outlined text-[14px] text-primary flex-shrink-0">location_on</span><span class="font-label-sm text-label-sm truncate font-semibold">Jakarta Selatan</span><span class="material-symbols-outlined text-[14px] leading-none">arrow_drop_down</span></button></div></div><div class="flex items-center gap-2"><button aria-label="Notifikasi" class="relative w-11 h-11 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2 right-2 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-container opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary-container"></span></span></button><a class="w-11 h-11 flex items-center justify-center rounded-full hover:opacity-90 transition-opacity" data-path="profil" href="#"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VuWpjsvdLkHIqiiHqiy7dYI4KFYFxMePaty_FzP749YFy1vb28h2X88DjUHy6juGZtsVF007tWaO561Y2Wt2bW-cy46NzNUvPvJWf1x8uHrXQJ-ug_du6jC7U7tCtd1gXGuTf2mjGtmVrpegmAx_Nc0bv-mUKlItfhOR9z48VrvI3DlOU-LrBMuVTYhJSNv2jvoBTDbNGc2-dX2RPIqP8ofDzhZoZFrY3IOuSimTGDQzvuTogDAJi0PdM"/></a></div></div></header><main class="flex flex-col relative w-full pt-16 pb-24 bg-surface min-h-screen"><div class="flex flex-col w-full pb-28">
+<!-- Search & Cart Top Bar Sub-Header -->
+<section class="px-4 pt-3 pb-2 flex flex-col gap-3 bg-surface-container-lowest shadow-sm">
+<div class="flex items-center gap-3">
+<div class="flex-1 relative flex items-center">
+<span class="material-symbols-outlined absolute left-3.5 text-outline text-[20px] pointer-events-none">search</span>
+<input class="w-full h-11 pl-10 pr-9 rounded-xl bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari raket, sepatu, jersey, shuttlecock..." type="text"/>
+<button aria-label="Filter katalog" class="absolute right-2.5 w-6 h-6 flex items-center justify-center text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[18px]">tune</span>
+</button>
+</div>
+<button aria-label="Keranjang Belanja" class="relative w-11 h-11 rounded-xl bg-surface-container-low flex items-center justify-center text-on-surface hover:bg-surface-container transition-all active:scale-95">
+<span class="material-symbols-outlined text-[24px] text-primary" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="absolute -top-1 -right-1 px-1.5 h-[18px] min-w-[18px] flex items-center justify-center rounded-full bg-secondary-container text-on-secondary font-label-sm text-[10px] font-bold shadow-sm">
+          3
+        </span>
+</button>
+</div>
+<!-- Category Chips Carousel -->
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1">
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-on-surface text-surface-container-lowest font-label-md text-label-md flex items-center gap-1.5 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary-fixed"></span>
+<span>Semua Gear</span>
+</button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+        Badminton
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+        Futsal
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+        Padel &amp; Tennis
+      </button>
+<button class="flex-shrink-0 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-low transition-colors shadow-sm">
+        Nutrisi &amp; Suplemen
+      </button>
+</div>
+</section>
+<!-- Flash Announcement / Court Match Sync Banner -->
+<section class="px-4 mt-3">
+<div class="p-3.5 rounded-2xl bg-gradient-to-r from-primary/10 via-tertiary-fixed/20 to-primary-container/10 flex items-center justify-between gap-3 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary text-on-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[20px]">sports_tennis</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary font-bold">Pick-up Kilat Venue</span>
+<span class="px-1.5 py-0.2 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[9px] font-bold">Ready</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant line-clamp-1">Ambil perlengkapanmu langsung di venue pas tanding!</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0">arrow_forward</span>
+</div>
+</section>
+<!-- Cart Items Drawer / Main Body -->
+<main class="px-4 mt-4 flex flex-col gap-4">
+<!-- Header Cart Count & Action -->
+<div class="flex items-center justify-between">
+<div class="flex items-baseline gap-2">
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Keranjang Gear</h2>
+<span class="font-label-md text-label-md text-primary font-semibold">(3 Produk Siap)</span>
+</div>
+<button class="font-label-sm text-label-sm text-secondary font-bold hover:underline flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">delete_sweep</span>
+        Hapus Semua
+      </button>
+</div>
+<!-- SELLER GROUP 1: Official Yonex Store -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col gap-3.5">
+<!-- Seller Header -->
+<div class="flex items-center justify-between pb-3 border-b-0">
+<div class="flex items-center gap-2">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary accent-primary" type="checkbox"/>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<h3 class="font-label-lg text-label-lg text-on-surface font-bold">Official Yonex Store Jakarta</h3>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline px-2 py-0.5 rounded-full bg-surface-container-low font-semibold">Jaksel</span>
+</div>
+<!-- Item 1: Raket Astrox 88D Pro -->
+<div class="flex gap-3 items-start">
+<input checked="" class="mt-2 w-4 h-4 rounded accent-primary" type="checkbox"/>
+<div class="w-20 h-20 rounded-xl bg-surface-container-low overflow-hidden flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Pro badminton racket Yonex Astrox 88D with premium matte black, neon lime, and flame orange accents lying on polished court wood floor with soft cinematic sports studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD94ztBGIG5J3LLHFZF4C0qTb9a6XY25E-QN8NycMvVnZXzQFZ2mn8kQF7GO_t6dxJejcKmCvA0eRvuLxl5fmaAnLfTVpGFRUJnX-3YA6APgk3KcXw1iVXK0pxk1pdvaI-p3k_Y6kAJ8UlrPPpcv8x8CeMr6IvXgxBRAjfkHF1_MTQRBbbOId1f-0xb9AvT0956UqMBntJRYeC-zL-QGQskpM-6oQDhEwItZzqcW-aV34FZrkigOD1Z"/>
+<span class="absolute top-1 left-1 px-1 py-0.5 rounded bg-primary text-on-primary font-label-sm text-[8px] font-bold">ORIGINAL</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-1">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold truncate leading-snug">Raket Yonex Astrox 88D Pro</h4>
+<button aria-label="Hapus item" class="text-outline hover:text-error transition-colors p-0.5">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-medium">Varian: 4U G5</span>
+<span class="text-tertiary font-label-sm text-label-sm font-semibold">Tension 28 lbs</span>
+</div>
+</div>
+<div class="flex items-center justify-between mt-2">
+<span class="font-headline-sm text-headline-sm text-primary font-bold">Rp 2.450.000</span>
+<!-- Stepper -->
+<div class="flex items-center gap-2 bg-surface-container-low rounded-lg p-1">
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="font-label-md text-label-md text-on-surface font-bold px-1.5">1</span>
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 2: Shuttlecock Yonex Aerosensa 50 -->
+<div class="flex gap-3 items-start pt-3">
+<input checked="" class="mt-2 w-4 h-4 rounded accent-primary" type="checkbox"/>
+<div class="w-20 h-20 rounded-xl bg-surface-container-low overflow-hidden flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Tube canister of premium tournament feather shuttlecocks Yonex Aerosensa 50 with bright goose feathers and crisp competition details against a clean athletic green studio backdrop." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSoUlzuw3cH48uPSfsAGmv0HTJYTSe1CRXack2bzzyQB64mGpU-Wj4e6KL39OOeee517WbR4vLIXgbOr8SZdKzXOxe5pbUZI8xtrVtknsFHfsf8ANYu-HIhzdG-PXVvTP6aoqKuEP1H6KGnaZBmiDb-stMj2BqGlb12NWl-15_kaqUumaXjBrkZnNFCp_63HA5b8s6tG9C4U1l0jUC6JLXlJKuZFFkU4x7mjB-XlnP74YI_kgFqDR8"/>
+<span class="absolute top-1 left-1 px-1 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[8px] font-bold">PRO PACK</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-1">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold truncate leading-snug">Shuttlecock Yonex Aerosensa 50 (Isi 12)</h4>
+<button aria-label="Hapus item" class="text-outline hover:text-error transition-colors p-0.5">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-medium">Speed 77 • Grade A</span>
+</div>
+</div>
+<div class="flex items-center justify-between mt-2">
+<span class="font-headline-sm text-headline-sm text-primary font-bold">Rp 320.000</span>
+<!-- Stepper -->
+<div class="flex items-center gap-2 bg-surface-container-low rounded-lg p-1">
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="font-label-md text-label-md text-on-surface font-bold px-1.5">2</span>
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- SELLER GROUP 2: Specs Official Arena -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col gap-3.5">
+<!-- Seller Header -->
+<div class="flex items-center justify-between pb-3">
+<div class="flex items-center gap-2">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary accent-primary" type="checkbox"/>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+<h3 class="font-label-lg text-label-lg text-on-surface font-bold">Specs Official Arena</h3>
+</div>
+</div>
+<span class="font-label-sm text-label-sm text-outline px-2 py-0.5 rounded-full bg-surface-container-low font-semibold">Tangerang</span>
+</div>
+<!-- Item 3: Sepatu Futsal Specs Lightspeed 4 Reborn -->
+<div class="flex gap-3 items-start">
+<input checked="" class="mt-2 w-4 h-4 rounded accent-primary" type="checkbox"/>
+<div class="w-20 h-20 rounded-xl bg-surface-container-low overflow-hidden flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Modern indoor futsal shoes Specs Lightspeed 4 Reborn in vibrant electric teal and neon orange stripes resting on a blue sport turf court under arena spotlights." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNs9d2BPVXJ8RXPlqCFrsjWF1Arn7fruM0aauuOs1FKczjaEUP4Q-XEiT6_srmeKPGxS7gt2xq-FbSED2_0AMIR-CJmCxJFpv4ehQOkVMlEs2vvRLs5oEAw-SYvndJJxO8LBiXXSb6vIspIiA6G_2lgeefPDJxEIb9Y83n1P9mBqdVo8Tf3APeylbwhumIN06suuW1H3MSSjztYANm93T7Nv2PjgHNB7bV8-JJLq0VBQv4Izswzj59"/>
+<span class="absolute top-1 left-1 px-1 py-0.5 rounded bg-secondary-container text-on-secondary font-label-sm text-[8px] font-bold">BEST SELLER</span>
+</div>
+<div class="flex-1 min-w-0 flex flex-col justify-between">
+<div>
+<div class="flex items-start justify-between gap-1">
+<h4 class="font-label-lg text-label-lg text-on-surface font-semibold truncate leading-snug">Sepatu Futsal Specs Lightspeed 4 Reborn</h4>
+<button aria-label="Hapus item" class="text-outline hover:text-error transition-colors p-0.5">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="px-2 py-0.5 rounded-md bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-medium">Ukuran: Size 42</span>
+<span class="text-outline font-label-sm text-label-sm">Warna: Ember Teal</span>
+</div>
+</div>
+<div class="flex items-center justify-between mt-2">
+<span class="font-headline-sm text-headline-sm text-primary font-bold">Rp 549.000</span>
+<!-- Stepper -->
+<div class="flex items-center gap-2 bg-surface-container-low rounded-lg p-1">
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</button>
+<span class="font-label-md text-label-md text-on-surface font-bold px-1.5">1</span>
+<button class="w-6 h-6 rounded flex items-center justify-center bg-surface-container-lowest text-on-surface hover:bg-surface transition-all active:scale-90">
+<span class="material-symbols-outlined text-[14px]">add</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Delivery Option Selection (Sporty Court Pick-up) -->
+<section class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">local_shipping</span>
+<h3 class="font-label-lg text-label-lg text-on-surface font-bold">Metode Pengiriman &amp; Ambil Gear</h3>
+</div>
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">Pilih Opsi</span>
+</div>
+<div class="flex flex-col gap-2.5 mt-1">
+<!-- Option 1: Pick-up GBK Arena -->
+<label class="flex items-start gap-3 p-3 rounded-xl bg-surface-container-low cursor-pointer transition-all hover:bg-surface-container">
+<input class="mt-1 w-4 h-4 text-primary focus:ring-primary accent-primary" name="delivery_method" type="radio"/>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-lg text-label-lg text-on-surface font-bold">Kirim ke Alamat Rumah</span>
+<span class="px-2 py-0.2 rounded-full bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm">Reguler (1-2 Hari)</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Jl. Senopati Raya No. 42, Kebayoran Baru, Jakarta Selatan</p>
+</div>
+<span class="font-label-md text-label-md text-on-surface font-bold">Rp 18.000</span>
+</label>
+<!-- Option 2: Active Court Pick-up (Sporty Convenience Feature) -->
+<label class="flex items-start gap-3 p-3 rounded-xl bg-gradient-to-r from-primary-container/15 via-surface-container to-primary/10 cursor-pointer shadow-sm">
+<input checked="" class="mt-1 w-4 h-4 text-primary focus:ring-primary accent-primary" name="delivery_method" type="radio"/>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-lg text-label-lg text-primary font-bold">Ambil di Venue Booking (GBK Arena)</span>
+<span class="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-[9px] font-bold uppercase">GRATIS ONGKIR</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface mt-0.5">
+              Disinkronkan dengan jadwal sparing kamu: <span class="font-semibold text-primary">Jumat, 19:00 WIB (Lapangan 3)</span>
+</p>
+<div class="flex items-center gap-1 mt-1 text-primary">
+<span class="material-symbols-outlined text-[14px]">sports_score</span>
+<span class="font-label-sm text-label-sm font-semibold">Tinggal ambil di loker athlete KawanSport</span>
+</div>
+</div>
+<span class="font-label-md text-label-md text-primary font-bold">Rp 0</span>
+</label>
+</div>
+</section>
+<!-- Promo Voucher Applied Box -->
+<section class="bg-surface-container-lowest rounded-2xl p-3.5 shadow-sm flex items-center justify-between gap-3">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-8 h-8 rounded-lg bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]">confirmation_number</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-on-surface font-bold uppercase tracking-wider">VOUCHER: MAINHEMAT</span>
+<span class="px-1.5 py-0.2 rounded bg-primary text-on-primary font-label-sm text-[9px] font-bold">TERPAKAI</span>
+</div>
+<span class="font-body-sm text-body-sm text-primary font-semibold truncate">Hemat Rp 50.000 khusus member aktif</span>
+</div>
+</div>
+<button class="font-label-md text-label-md text-primary font-bold px-2 py-1 rounded-lg hover:bg-surface-container-low transition-colors">
+        Ganti
+      </button>
+</section>
+<!-- Payment Detail Breakdown Snippet -->
+<section class="bg-surface-container-lowest rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+<h3 class="font-label-lg text-label-lg text-on-surface font-bold mb-1">Rincian Pembayaran</h3>
+<div class="flex justify-between items-center text-on-surface-variant font-body-sm text-body-sm">
+<span>Subtotal Gear (3 item)</span>
+<span class="text-on-surface font-medium">Rp 3.319.000</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-body-sm text-body-sm">
+<span>Biaya Pengiriman (Venue Pick-up)</span>
+<span class="text-primary font-semibold">Rp 0 (Hemat)</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-body-sm text-body-sm">
+<span>Diskon Voucher Komunitas</span>
+<span class="text-secondary font-semibold">-Rp 50.000</span>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-body-sm text-body-sm">
+<span>Biaya Proteksi Gear Olahraga</span>
+<span class="text-on-surface font-medium">Gratis</span>
+</div>
+</section>
+</main>
+<!-- Bottom Sticky Summary Checkout Bar (Above Global Tab Bar) -->
+<aside class="fixed bottom-16 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-xl px-4 py-3 shadow-[0_-6px_20px_rgba(19,27,46,0.08)]">
+<div class="max-w-md mx-auto flex items-center justify-between gap-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Total Tagihan (3 Gear)</span>
+<div class="flex items-baseline gap-1.5">
+<span class="font-stat-counter text-stat-counter text-on-surface font-extrabold tracking-tight">Rp 3.269.000</span>
+<span class="font-label-sm text-label-sm line-through text-outline">Rp 3.319.000</span>
+</div>
+</div>
+<button class="h-12 px-6 rounded-full bg-secondary-container text-on-secondary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-[0_8px_20px_-4px_rgba(249,115,22,0.45)] hover:brightness-105 active:scale-95 transition-all">
+<span>Checkout Gear (3)</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</aside>
+</div>
+<script>
+  // Micro-interaction for stepper buttons and quantity updates
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      // Soft micro-click response feedback
+      if (btn.innerText.trim() === 'add' || btn.innerText.trim() === 'remove') {
+        const counterSpan = btn.parentElement.querySelector('span.font-label-md');
+        if (counterSpan) {
+          let count = parseInt(counterSpan.innerText, 10);
+          if (btn.innerText.trim() === 'add') {
+            counterSpan.innerText = count + 1;
+          } else if (btn.innerText.trim() === 'remove' && count > 1) {
+            counterSpan.innerText = count - 1;
+          }
+        }
+      }
+    });
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_-4px_16px_rgba(19,27,46,0.06)]" data-active-classes="text-primary font-semibold"><div class="flex items-center justify-around h-16 px-1"><a class="flex flex-col items-center justify-center w-14 h-full gap-0.5 text-on-surface-variant transition-colors" data-path="event" href="#"><span class="material-symbols-outlined text-[22px]">emoji_events</span><span class="font-label-sm text-label-sm">Event</span></a><a class="flex flex-col items-center justify-center w-14 h-full gap-0.5 text-on-surface-variant transition-colors" data-path="booking" href="#"><span class="material-symbols-outlined text-[22px]">stadium</span><span class="font-label-sm text-label-sm">Booking</span></a><a aria-current="page" class="flex flex-col items-center justify-center w-14 h-full gap-0.5 transition-colors text-primary font-semibold" data-path="shop" href="#"><span class="material-symbols-outlined text-[22px]">shopping_bag</span><span class="font-label-sm text-label-sm">Shop</span></a><a class="flex flex-col items-center justify-center w-14 h-full gap-0.5 text-on-surface-variant transition-colors" data-path="partner" href="#"><span class="material-symbols-outlined text-[22px]">handshake</span><span class="font-label-sm text-label-sm">Partner</span></a><a class="flex flex-col items-center justify-center w-14 h-full gap-0.5 text-on-surface-variant transition-colors relative" data-path="chat" href="#"><div class="relative flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">chat_bubble</span><span class="absolute -top-1 -right-2 px-1 min-w-[14px] h-[14px] flex items-center justify-center rounded-full bg-secondary-container text-on-secondary font-label-sm text-[9px] font-bold leading-none">3</span></div><span class="font-label-sm text-label-sm">Chat</span></a><a class="flex flex-col items-center justify-center w-14 h-full gap-0.5 text-on-surface-variant transition-colors" data-path="profil" href="#"><img alt="Profile" class="w-5 h-5 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida/AEtjO1VuWpjsvdLkHIqiiHqiy7dYI4KFYFxMePaty_FzP749YFy1vb28h2X88DjUHy6juGZtsVF007tWaO561Y2Wt2bW-cy46NzNUvPvJWf1x8uHrXQJ-ug_du6jC7U7tCtd1gXGuTf2mjGtmVrpegmAx_Nc0bv-mUKlItfhOR9z48VrvI3DlOU-LrBMuVTYhJSNv2jvoBTDbNGc2-dX2RPIqP8ofDzhZoZFrY3IOuSimTGDQzvuTogDAJi0PdM"/><span class="font-label-sm text-label-sm">Profil</span></a></div></nav></body></html>

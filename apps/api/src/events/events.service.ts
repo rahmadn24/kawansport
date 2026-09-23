@@ -7,12 +7,19 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
+import { assertOwnerOrAdmin, type ActorInput } from '../auth/ownership';
+import { assertPhotoUrls } from '../uploads/photo-url';
+import { normalizePhotos } from '../venues/venues.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsDto } from './dto/list-events.dto';
+import { UpdateEventDto } from './dto/update-event.dto';
 import { EventParticipant } from './event-participant.entity';
 import { SportEvent, resolveEventStatus } from './event.entity';
 
 const DEFAULT_RADIUS_M = 10000;
+
+/** Batas foto event (ST-01). */
+export const MAX_EVENT_PHOTOS = 5;
 
 export interface EventListItem {
   id: string;
@@ -25,6 +32,7 @@ export interface EventListItem {
   capacity: number;
   participantsCount: number;
   status: 'open' | 'full';
+  photos: string[];
   host: { id: string; email: string; displayName: string | null; avatarUrl: string | null };
   /** Meter dari titik query; hanya ada saat filter lat/lng dipakai. */
   distanceMeters?: number;
@@ -118,6 +126,7 @@ export class EventsService implements OnModuleInit {
       capacity: dto.capacity,
       participantsCount: 1,
       status: resolveEventStatus(1, dto.capacity),
+      photos: validateEventPhotos(normalizePhotos(dto.photos ?? [])),
     });
     const saved = await this.events.save(event);
     await this.participantRows.save(
@@ -240,6 +249,37 @@ export class EventsService implements OnModuleInit {
       ),
       meta: { page, limit, total },
     };
+  }
+
+  /** PATCH /events/:id — host (atau super_admin) ubah title/deskripsi/foto. */
+  async update(
+    id: string,
+    actor: ActorInput,
+    dto: UpdateEventDto,
+  ): Promise<EventListItem & { isJoined: boolean }> {
+    const event = await this.events.findOne({
+      where: { id },
+      relations: { host: true },
+    });
+    if (!event) throw new NotFoundException('Event not found');
+    assertOwnerOrAdmin(actor, event.hostId);
+    if (dto.title !== undefined) event.title = dto.title.trim();
+    if (dto.description !== undefined) {
+      event.description = dto.description?.trim() ? dto.description.trim() : null;
+    }
+    if (dto.photos !== undefined) {
+      event.photos = validateEventPhotos(normalizePhotos(dto.photos));
+    }
+    const saved = await this.events.save(event);
+    const fresh = await this.events.findOne({
+      where: { id: saved.id },
+      relations: { host: true },
+    });
+    const row = fresh ?? saved;
+    const isJoined = await this.participantRows.exist({
+      where: { eventId: id, userId: actor.id },
+    });
+    return { ...this.toPublic(row), isJoined };
   }
 
   /** GET /events/:id — detail + host info + isJoined real (SM-05). */
@@ -383,6 +423,7 @@ export class EventsService implements OnModuleInit {
       capacity: e.capacity,
       participantsCount: e.participantsCount,
       status: e.status,
+      photos: e.photos ?? [],
       host: {
         id: e.host?.id ?? e.hostId,
         email: e.host?.email ?? '',
@@ -412,6 +453,12 @@ export class EventsService implements OnModuleInit {
       ]);
     }
   }
+}
+
+/** Normalisasi + validasi URL foto event (maks 5, /uploads/ atau https). */
+export function validateEventPhotos(input: string[]): string[] {
+  assertPhotoUrls(input, MAX_EVENT_PHOTOS, 'Event photos');
+  return input;
 }
 
 /** Jarak great-circle (meter) untuk filter geo fallback sqljs. */

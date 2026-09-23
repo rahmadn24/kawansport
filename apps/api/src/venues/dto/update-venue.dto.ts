@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsLatitude,
   IsLongitude,
@@ -7,6 +8,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { IsPhotoUrl } from '../../uploads/photo-url';
 
 /** PATCH /venues/:id — semua field opsional; lat/lng wajib berpasangan. */
 export class UpdateVenueDto {
@@ -37,6 +39,8 @@ export class UpdateVenueDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsString({ each: true })
+  @IsPhotoUrl({ each: true })
   photos?: string[];
 }

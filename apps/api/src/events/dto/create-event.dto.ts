@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsInt,
   IsLatitude,
@@ -11,6 +13,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsPhotoUrl } from '../../uploads/photo-url';
 
 /** POST /events — host otomatis = current user (JWT). */
 export class CreateEventDto {
@@ -46,4 +49,12 @@ export class CreateEventDto {
   @Min(2)
   @Max(500)
   capacity!: number;
+
+  /** Foto event (ST-01): path /uploads/... atau https, maks 5. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  @IsPhotoUrl({ each: true })
+  photos?: string[];
 }

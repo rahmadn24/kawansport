@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsInt,
   IsNotEmpty,
@@ -8,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsPhotoUrl } from '../../uploads/photo-url';
 
 /** POST /products — seller yang sudah approved; produk langsung `pending`. */
 export class CreateProductDto {
@@ -38,6 +40,8 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(5)
   @IsString({ each: true })
+  @IsPhotoUrl({ each: true })
   photos?: string[];
 }

@@ -7,8 +7,13 @@ import { normalizeSports } from '../users/users.service';
  * (apply saat admin approve) — hasilnya identik, tanpa circular import.
  */
 
-/** Field venue yang butuh approve saat entity sudah `approved`. */
-export const VENUE_SENSITIVE_FIELDS = ['name', 'photos'] as const;
+/**
+ * Field venue yang butuh approve saat entity sudah `approved`.
+ * ST-01: foto venue dikelola langsung owner/admin TANPA change request
+ * (endpoint POST/DELETE /venues/:id/photos + PATCH photos langsungimpan);
+ * venue tetap harus `approved` agar tampil publik.
+ */
+export const VENUE_SENSITIVE_FIELDS = ['name'] as const;
 
 /** Field court yang butuh approve saat venue induk sudah `approved`. */
 export const COURT_SENSITIVE_FIELDS = [

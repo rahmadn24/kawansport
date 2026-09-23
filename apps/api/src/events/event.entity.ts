@@ -71,6 +71,16 @@ export class SportEvent {
   @Column({ type: 'int' })
   capacity!: number;
 
+  /**
+   * URL/path foto event (ST-01, maks 5 — ditegakkan di DTO/service).
+   * Postgres: text[] — sqljs-test: simple-array (portabel).
+   */
+  @Column(
+    isSqljs
+      ? { type: 'simple-array', nullable: true }
+      : { type: 'text', array: true, default: [] as string[] },
+  )
+  photos?: string[] | null;
   /** Jumlah peserta saat ini. SM-04: selalu 0 (join logic = SM-05). */
   @Column({ name: 'participants_count', type: 'int', default: 0 })
   participantsCount!: number;
