@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   SKILL_LEVELS,
   SKILL_LABELS,
@@ -17,6 +9,19 @@ import {
   UserProfile,
   toggleSport,
 } from '../api/profile';
+import { COLORS, SPACING, friendlyServerError } from '../theme';
+import {
+  UIAppBar,
+  UIAvatar,
+  UIBadge,
+  UIButton,
+  UICard,
+  UIChip,
+  UIErrorBanner,
+  UISectionTitle,
+  UISegmented,
+  UITextInput,
+} from '../components/ui';
 
 interface Props {
   initial: UserProfile;
@@ -30,9 +35,15 @@ interface Props {
   onCancel: () => void;
 }
 
+const SKILL_DESC: Record<SkillLevel, string> = {
+  beginner: 'Baru mulai, main santai sambil belajar.',
+  intermediate: 'Sudah rutin main, siap sparing serius.',
+  advanced: 'Sering tanding, cari lawan sepadan.',
+};
+
 /**
- * Layar Edit Profile (SM-03): sports multi-select, skill picker,
- * lokasi manual lat/lng + tombol GPS.
+ * Layar Edit Profile (SM-03): nama, olahraga multi-select, skill
+ * segmented, lokasi GPS + manual collapsed, pratinjau live.
  */
 export function EditProfileScreen({
   initial,
@@ -50,7 +61,11 @@ export function EditProfileScreen({
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(initial.skillLevel ?? null);
   const [lat, setLat] = useState(initial.lat != null ? String(initial.lat) : '');
   const [lng, setLng] = useState(initial.lng != null ? String(initial.lng) : '');
+  const [manualLoc, setManualLoc] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const locSet = lat.trim() !== '' && lng.trim() !== '';
+  const shownSports = sports.slice(0, 4);
 
   const submit = () => {
     const latTrim = lat.trim();
@@ -62,7 +77,6 @@ export function EditProfileScreen({
     let latNum: number | null | undefined;
     let lngNum: number | null | undefined;
     if (latTrim === '' && lngTrim === '') {
-      // Keduanya kosong: biarkan lokasi apa adanya (tidak dikirim).
       latNum = undefined;
       lngNum = undefined;
     } else {
@@ -103,134 +117,208 @@ export function EditProfileScreen({
   };
 
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>Edit Profil</Text>
-
-      <Text style={styles.label}>Nama tampilan</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Nama tampilan"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-
-      <Text style={styles.label}>Olahraga favorit</Text>
-      <View style={styles.chips}>
-        {SPORT_SUGGESTIONS.map((s) => {
-          const active = sports.some((x) => x.toLowerCase() === s.toLowerCase());
-          return (
-            <TouchableOpacity
-              key={s}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setSports((prev) => toggleSport(prev, s))}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{s}</Text>
-            </TouchableOpacity>
-          );
-        })}
+    <View style={styles.screen}>
+      <View style={styles.padded}>
+        <UIAppBar title="Edit Profil" onBack={onCancel} />
       </View>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Tambah olahraga lain"
-          value={customSport}
-          onChangeText={setCustomSport}
-        />
-        <View style={styles.gapH} />
-        <Button title="Tambah" onPress={addCustomSport} />
-      </View>
-
-      <Text style={styles.label}>Skill level</Text>
-      <View style={styles.chips}>
-        {(SKILL_LEVELS as SkillLevel[]).map((level) => {
-          const active = skillLevel === level;
-          return (
-            <TouchableOpacity
-              key={level}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setSkillLevel(active ? null : level)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {SKILL_LABELS[level]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <Text style={styles.label}>Lokasi (lat / lng)</Text>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Lat (-90..90)"
-          keyboardType="numbers-and-punctuation"
-          value={lat}
-          onChangeText={setLat}
-        />
-        <View style={styles.gapH} />
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Lng (-180..180)"
-          keyboardType="numbers-and-punctuation"
-          value={lng}
-          onChangeText={setLng}
-        />
-      </View>
-      {gpsLoading ? (
-        <ActivityIndicator />
-      ) : (
-        <Button title="Gunakan GPS" onPress={useGps} />
-      )}
-      {gpsError ? <Text style={styles.error}>{gpsError}</Text> : null}
-
-      {localError ? <Text style={styles.error}>{localError}</Text> : null}
-      {serverError ? <Text style={styles.error}>{serverError}</Text> : null}
-      <View style={styles.gap} />
-      {saving ? (
-        <ActivityIndicator />
-      ) : (
-        <View style={styles.row}>
-          <View style={styles.flex}>
-            <Button title="Simpan" onPress={submit} />
-          </View>
-          <View style={styles.gapH} />
-          <View style={styles.flex}>
-            <Button title="Batal" onPress={onCancel} />
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.avatarRow}>
+          <UIAvatar name={displayName || initial.displayName} email={initial.email} uri={initial.avatarUrl} size={64} />
+          <View style={styles.avatarMeta}>
+            <Text style={styles.email} numberOfLines={1}>
+              {initial.email}
+            </Text>
+            <Text style={styles.emailSub}>Email tidak bisa diubah</Text>
           </View>
         </View>
-      )}
+
+        <UITextInput
+          label="Nama tampilan"
+          testID="edit-name"
+          placeholder="cth. Andi"
+          value={displayName}
+          onChangeText={setDisplayName}
+        />
+
+        <UISectionTitle>Olahraga favorit</UISectionTitle>
+        <View style={styles.chips}>
+          {SPORT_SUGGESTIONS.map((s) => {
+            const active = sports.some((x) => x.toLowerCase() === s.toLowerCase());
+            return (
+              <UIChip
+                key={s}
+                label={s}
+                active={active}
+                onPress={() => setSports((prev) => toggleSport(prev, s))}
+                accessibilityLabel={`Olahraga ${s}`}
+              />
+            );
+          })}
+        </View>
+        {sports.length > 0 ? (
+          <View style={styles.chips}>
+            {sports
+              .filter((s) => !SPORT_SUGGESTIONS.some((x) => x.toLowerCase() === s.toLowerCase()))
+              .map((s) => (
+                <UIChip key={s} label={`✓ ${s}`} active onPress={() => setSports((prev) => toggleSport(prev, s))} />
+              ))}
+          </View>
+        ) : null}
+        <View style={styles.row}>
+          <View style={styles.flex}>
+            <UITextInput
+              label="Tambah olahraga lain"
+              testID="edit-custom-sport"
+              placeholder="cth. Padel"
+              value={customSport}
+              onChangeText={setCustomSport}
+            />
+          </View>
+          <View style={styles.gapH} />
+          <View style={styles.addBtn}>
+            <UIButton title="Tambah" variant="outline" onPress={addCustomSport} accessibilityLabel="Tambah olahraga" />
+          </View>
+        </View>
+
+        <UISectionTitle>Skill</UISectionTitle>
+        <UISegmented<SkillLevel>
+          label="Skill"
+          value={skillLevel}
+          onChange={setSkillLevel}
+          options={(SKILL_LEVELS as SkillLevel[]).map((l) => ({ value: l, label: SKILL_LABELS[l] }))}
+        />
+        {skillLevel ? <Text style={styles.skillDesc}>{SKILL_DESC[skillLevel]}</Text> : null}
+
+        <UISectionTitle>Lokasi</UISectionTitle>
+        <UICard>
+          <Text style={styles.gpsStatus} accessibilityLabel={locSet ? 'Lokasi sudah ditandai' : 'Lokasi belum ditandai'}>
+            {locSet ? '✓ Lokasi sudah ditandai' : '📍 Lokasi belum ditandai'}
+          </Text>
+          {gpsLoading ? (
+            <ActivityIndicator accessibilityLabel="Mencari lokasi GPS" />
+          ) : (
+            <UIButton title="📍 Pakai GPS" variant="outline" onPress={useGps} accessibilityLabel="Tandai lokasi via GPS" />
+          )}
+          {gpsError ? <Text style={styles.inlineError}>⚠ {gpsError}</Text> : null}
+          <TouchableOpacity
+            onPress={() => setManualLoc((v) => !v)}
+            style={styles.collapse}
+            accessibilityRole="button"
+            accessibilityLabel={manualLoc ? 'Sembunyikan isi lokasi manual' : 'Isi lokasi manual'}
+          >
+            <Text style={styles.collapseText}>{manualLoc ? '▾ Sembunyikan isi manual' : '▸ Isi manual (lat/lng)'}</Text>
+          </TouchableOpacity>
+          {manualLoc ? (
+            <View style={styles.row}>
+              <View style={styles.flex}>
+                <UITextInput
+                  label="Lat"
+                  testID="edit-lat"
+                  placeholder="-6,2"
+                  keyboardType="numbers-and-punctuation"
+                  value={lat}
+                  onChangeText={setLat}
+                />
+              </View>
+              <View style={styles.gapH} />
+              <View style={styles.flex}>
+                <UITextInput
+                  label="Lng"
+                  testID="edit-lng"
+                  placeholder="106,8"
+                  keyboardType="numbers-and-punctuation"
+                  value={lng}
+                  onChangeText={setLng}
+                />
+              </View>
+            </View>
+          ) : null}
+        </UICard>
+
+        <UISectionTitle>Pratinjau kartu partnermu</UISectionTitle>
+        <UICard>
+          <View style={styles.previewRow}>
+            <UIAvatar name={displayName || initial.displayName} email={initial.email} uri={initial.avatarUrl} size={44} />
+            <View style={styles.previewMeta}>
+              <Text style={styles.previewName} numberOfLines={1}>
+                {displayName.trim() || initial.displayName || initial.email}
+              </Text>
+              <View style={styles.previewBadges}>
+                {shownSports.map((s) => (
+                  <View key={s} style={styles.miniChip}>
+                    <Text style={styles.miniChipText}>{s}</Text>
+                  </View>
+                ))}
+                {skillLevel ? <UIBadge kind="skill" label={SKILL_LABELS[skillLevel]} icon="★" /> : null}
+              </View>
+            </View>
+          </View>
+          {shownSports.length === 0 && !skillLevel ? (
+            <Text style={styles.previewEmpty}>Lengkapi olahraga & skill biar gampang diajak sparing.</Text>
+          ) : null}
+        </UICard>
+
+        {localError ? <Text style={styles.inlineError}>⚠ {localError}</Text> : null}
+        <UIErrorBanner message={friendlyServerError(serverError)} />
+      </ScrollView>
+
+      <View style={styles.sticky}>
+        <UIButton
+          title="Simpan"
+          onPress={submit}
+          loading={saving}
+          loadingTitle="Menyimpan…"
+          accessibilityLabel="Simpan profil"
+        />
+        <View style={styles.gap} />
+        <UIButton title="Batal" variant="ghost" onPress={onCancel} accessibilityLabel="Batal edit profil" />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24, justifyContent: 'flex-start' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
-  label: { fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#888',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipActive: { backgroundColor: '#1a73e8', borderColor: '#1a73e8' },
-  chipText: { color: '#333' },
-  chipTextActive: { color: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  body: { flex: 1 },
+  bodyContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.lg },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
+  avatarMeta: { flex: 1, marginLeft: SPACING.md },
+  email: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
+  emailSub: { fontSize: 13, color: COLORS.faint, marginTop: 2 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap' },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
   flex: { flex: 1 },
-  gap: { height: 12 },
-  gapH: { width: 8 },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
+  gapH: { width: SPACING.sm },
+  gap: { height: SPACING.sm },
+  addBtn: { minWidth: 120, paddingTop: 24 },
+  skillDesc: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.sm },
+  gpsStatus: { fontSize: 14, color: COLORS.ink, fontWeight: '600', marginBottom: SPACING.sm },
+  inlineError: { fontSize: 13, color: COLORS.danger, marginTop: SPACING.sm },
+  collapse: { minHeight: 44, justifyContent: 'center', marginTop: SPACING.sm },
+  collapseText: { fontSize: 14, fontWeight: '700', color: COLORS.brand700 },
+  previewRow: { flexDirection: 'row', alignItems: 'center' },
+  previewMeta: { flex: 1, marginLeft: SPACING.md },
+  previewName: { fontSize: 16, fontWeight: '700', color: COLORS.ink },
+  previewBadges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 6 },
+  miniChip: {
+    borderRadius: 9999,
+    backgroundColor: COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginTop: 6,
+  },
+  miniChipText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  previewEmpty: { fontSize: 13, color: COLORS.faint, marginTop: SPACING.sm },
+  sticky: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingHorizontal: SPACING.screen,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.screen,
+    backgroundColor: COLORS.bg,
+  },
 });

@@ -1,13 +1,28 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Button,
+  Alert,
+  Pressable,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { COLORS, RADIUS, SPACING, TYPO, friendlyServerError } from './src/theme';
+import {
+  UIAppBar,
+  UIAvatar,
+  UIBadge,
+  UIButton,
+  UICard,
+  UIEmptyState,
+  UIErrorBanner,
+  UISectionTitle,
+  UISkeleton,
+  UIToast,
+} from './src/components/ui';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { UpdateProfileInput } from './src/api/profile';
 import {
@@ -91,11 +106,21 @@ function Profile() {
   const [editing, setEditing] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   if (editing && user) {
     const save = (input: UpdateProfileInput) => {
       updateProfile(input)
-        .then(() => setEditing(false))
+        .then(() => {
+          setEditing(false);
+          setToast('Profil tersimpan ✓');
+        })
         .catch(() => undefined);
     };
     // GPS hanya mengisi field lat/lng di form; user menekan Simpan untuk PATCH /me.
@@ -126,34 +151,102 @@ function Profile() {
     );
   }
 
+  const confirmLogout = () => {
+    Alert.alert('Keluar dari KawanSport?', 'Kamu harus masuk lagi untuk main bareng.', [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Ya, keluar', style: 'destructive', onPress: () => logout().catch(() => undefined) },
+    ]);
+  };
+
+  const displayName = user?.displayName || user?.email || 'Kawan';
+  const shownSports = (user?.sports ?? []).slice(0, 4);
+
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>KawanSport</Text>
-      <Text style={styles.subtitle}>{user?.email}</Text>
-      {user?.displayName ? <Text style={styles.subtitle}>{user.displayName}</Text> : null}
-      {user && user.sports.length > 0 ? (
-        <Text style={styles.subtitle}>Olahraga: {user.sports.join(', ')}</Text>
-      ) : null}
-      {user?.skillLevel ? <Text style={styles.subtitle}>Skill: {user.skillLevel}</Text> : null}
-      {user?.lat != null && user?.lng != null ? (
-        <Text style={styles.subtitle}>
-          Lokasi: {user.lat}, {user.lng}
-        </Text>
-      ) : null}
-      <View style={styles.gap} />
-      {loading ? (
-        <ActivityIndicator />
+    <View style={styles.screenWrap}>
+      <View style={styles.padded}>
+        <UIAppBar title="Profil Saya" />
+      </View>
+      {loading && !user ? (
+        <View style={styles.padded}>
+          <UISkeleton rows={2} />
+        </View>
       ) : (
-        <>
-          <Button title="Refresh Profile (/me)" onPress={refreshProfile} />
+        <ScrollView style={styles.bodyFlex} contentContainerStyle={styles.bodyPad}>
+          <UICard>
+            <View style={styles.profileTop}>
+              <UIAvatar name={user?.displayName} email={user?.email} uri={user?.avatarUrl} size={64} />
+              <View style={styles.profileHead}>
+                <Text style={styles.profileName} accessibilityLabel={`Nama: ${displayName}`} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                <Text style={styles.profileEmail} numberOfLines={1}>
+                  {user?.email ?? '—'}
+                </Text>
+                {user?.skillLevel ? (
+                  <View style={styles.badgeRow}>
+                    <UIBadge kind="skill" label={skillLabel(user.skillLevel)} icon="★" />
+                  </View>
+                ) : null}
+              </View>
+            </View>
+            {shownSports.length > 0 ? (
+              <View style={styles.sportsRow}>
+                {shownSports.map((s) => (
+                  <View key={s} style={styles.miniChip}>
+                    <Text style={styles.miniChipText}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.profileEmpty}>Belum ada olahraga favorit — lengkapi via Edit.</Text>
+            )}
+            <Text style={styles.profileLoc} accessibilityLabel={user?.lat != null ? 'Lokasi sudah ditandai' : 'Lokasi belum ditandai'}>
+              {user?.lat != null && user?.lng != null
+                ? '📍 Lokasi sudah ditandai'
+                : '📍 Lokasi belum ditandai'}
+            </Text>
+          </UICard>
+
+          <UISectionTitle>Pratinjau kartu partner</UISectionTitle>
+          <UICard>
+            <View style={styles.profileTop}>
+              <UIAvatar name={user?.displayName} email={user?.email} uri={user?.avatarUrl} size={44} />
+              <View style={styles.profileHead}>
+                <Text style={styles.previewName} numberOfLines={1}>
+                  {displayName} 👋
+                </Text>
+                <Text style={styles.previewSub}>
+                  {shownSports.length > 0 ? shownSports.join(' • ') : 'Siap diajak sparing!'}
+                </Text>
+              </View>
+            </View>
+          </UICard>
+
+          <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={() => refreshProfile().catch(() => undefined)} />
+
           <View style={styles.gap} />
-          <Button title="Edit Profil" onPress={() => setEditing(true)} />
-          <View style={styles.gap} />
-          <Button title="Logout" onPress={logout} />
-        </>
+          {loading ? (
+            <ActivityIndicator accessibilityLabel="Memuat profil" />
+          ) : (
+            <>
+              <UIButton title="Edit Profil" onPress={() => setEditing(true)} accessibilityLabel="Edit profil" />
+              <View style={styles.gap} />
+              <UIButton title="Muat ulang" variant="ghost" onPress={() => refreshProfile().catch(() => undefined)} accessibilityLabel="Muat ulang profil" />
+              <View style={styles.gap} />
+              <UIButton title="Keluar" variant="danger" onPress={confirmLogout} accessibilityLabel="Keluar dari akun" />
+            </>
+          )}
+        </ScrollView>
       )}
+      <UIToast message={toast} kind="success" />
     </View>
   );
+}
+
+function skillLabel(level: NonNullable<ReturnType<typeof useAuth>['user']>['skillLevel']): string {
+  if (level === 'beginner') return 'Pemula';
+  if (level === 'intermediate') return 'Menengah';
+  return 'Lanjutan';
 }
 
 type EventsRoute =
@@ -194,6 +287,13 @@ function EventsFlow({
   const [participantsLoading, setParticipantsLoading] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const loadList = useCallback(async (sport: string | null) => {
     setLoading(true);
@@ -261,7 +361,7 @@ function EventsFlow({
   };
 
   /** SM-05: join/leave lalu sinkronkan detail + daftar peserta. */
-  const mutateJoin = (fn: (id: string) => Promise<EventDetail>) => {
+  const mutateJoin = (fn: (id: string) => Promise<EventDetail>, okMsg: string) => {
     if (route.name !== 'detail') return;
     const id = route.id;
     setMutating(true);
@@ -270,13 +370,14 @@ function EventsFlow({
       .then((updated) => {
         setDetail(updated);
         loadParticipants(id);
+        setToast(okMsg);
       })
       .catch((e) => setJoinError(toErrorMessage(e)))
       .finally(() => setMutating(false));
   };
 
-  const handleJoin = () => mutateJoin(joinEvent);
-  const handleLeave = () => mutateJoin(leaveEvent);
+  const handleJoin = () => mutateJoin(joinEvent, 'Kamu ikut event ini. Sampai jumpa di lapangan! 🎉');
+  const handleLeave = () => mutateJoin(leaveEvent, 'Kamu keluar dari event.');
 
   const submitCreate = (input: CreateEventInput) => {
     setSaving(true);
@@ -286,52 +387,64 @@ function EventsFlow({
         setEvents((prev) => [created, ...prev]);
         setRoute({ name: 'list' });
         loadList(sportFilter).catch(() => undefined);
+        setToast('Event dibuat. Ajak kawanmu gabung! 🎉');
       })
       .catch((e) => setCreateError(toErrorMessage(e)))
       .finally(() => setSaving(false));
   };
 
+  const toastView = <UIToast message={toast} kind="success" />;
+
   if (route.name === 'create') {
     return (
-      <CreateEventScreen
-        saving={saving}
-        serverError={createError}
-        onSubmit={submitCreate}
-        onCancel={() => setRoute({ name: 'list' })}
-      />
+      <View style={styles.flowWrap}>
+        <CreateEventScreen
+          saving={saving}
+          serverError={createError}
+          onSubmit={submitCreate}
+          onCancel={() => setRoute({ name: 'list' })}
+        />
+        {toastView}
+      </View>
     );
   }
   if (route.name === 'detail') {
     return (
-      <EventDetailScreen
-        event={detail}
-        loading={detailLoading}
-        error={detailError}
-        participants={participants}
-        participantsLoading={participantsLoading}
-        mutating={mutating}
-        joinError={joinError}
-        onBack={() => setRoute({ name: 'list' })}
-        onRefresh={refreshDetail}
-        onJoin={handleJoin}
-        onLeave={handleLeave}
-        onBookCourt={() => {
-          if (detail) onBookCourt(detail);
-        }}
-      />
+      <View style={styles.flowWrap}>
+        <EventDetailScreen
+          event={detail}
+          loading={detailLoading}
+          error={detailError}
+          participants={participants}
+          participantsLoading={participantsLoading}
+          mutating={mutating}
+          joinError={joinError}
+          onBack={() => setRoute({ name: 'list' })}
+          onRefresh={refreshDetail}
+          onJoin={handleJoin}
+          onLeave={handleLeave}
+          onBookCourt={() => {
+            if (detail) onBookCourt(detail);
+          }}
+        />
+        {toastView}
+      </View>
     );
   }
   return (
-    <EventListScreen
-      events={events}
-      loading={loading}
-      error={error}
-      sportFilter={sportFilter}
-      onFilterChange={changeFilter}
-      onRefresh={() => loadList(sportFilter).catch(() => undefined)}
-      onSelect={openDetail}
-      onCreate={() => setRoute({ name: 'create' })}
-    />
+    <View style={styles.flowWrap}>
+      <EventListScreen
+        events={events}
+        loading={loading}
+        error={error}
+        sportFilter={sportFilter}
+        onFilterChange={changeFilter}
+        onRefresh={() => loadList(sportFilter).catch(() => undefined)}
+        onSelect={openDetail}
+        onCreate={() => setRoute({ name: 'create' })}
+      />
+      {toastView}
+    </View>
   );
 }
 
@@ -708,10 +821,20 @@ function ShopFlow() {
   );
 }
 
+const TABS = [
+  { key: 'events', label: 'Event', icon: '📅', a11y: 'Tab Event' },
+  { key: 'booking', label: 'Booking', icon: '🏟', a11y: 'Tab Booking' },
+  { key: 'shop', label: 'Shop', icon: '🛍', a11y: 'Tab Shop' },
+  { key: 'partners', label: 'Partner', icon: '🤝', a11y: 'Tab Partner' },
+  { key: 'chat', label: 'Chat', icon: '💬', a11y: 'Tab Chat' },
+  { key: 'profile', label: 'Profil', icon: '👤', a11y: 'Tab Profil' },
+] as const;
+
+type TabKey = (typeof TABS)[number]['key'];
+
 function LoggedIn() {
-  const [tab, setTab] = useState<'events' | 'booking' | 'shop' | 'partners' | 'chat' | 'profile'>(
-    'events',
-  );
+  const { user } = useAuth();
+  const [tab, setTab] = useState<TabKey>('events');
   const [chatPartnerId, setChatPartnerId] = useState<string | null>(null);
   const [eventCtx, setEventCtx] = useState<EventBookingCtx | null>(null);
   /** PH3-06: deep-link mentah dari tap notifikasi, dikonsumsi effect di bawah. */
@@ -720,6 +843,19 @@ function LoggedIn() {
   const [mineSignal, setMineSignal] = useState(0);
   const [deepEventId, setDeepEventId] = useState<string | null>(null);
   const [deepConversationId, setDeepConversationId] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // UX-02: sapa user sekali saat masuk (login/register sukses → LoggedIn mount).
+  useEffect(() => {
+    setToast('Selamat datang di KawanSport! 🎉');
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   /**
    * PH3-05: inisialisasi push notification sekali saat user login.
@@ -763,13 +899,16 @@ function LoggedIn() {
       if (link.entityId) {
         setDeepVenueId(link.entityId);
         setTab('booking');
+        setToast('Membuka lapangan dari notifikasi.');
       }
     } else if (link.type === 'booking') {
       // Tanpa entityId pun tetap buka daftar booking (tak ada route detail).
       setMineSignal((s) => s + 1);
       setTab('booking');
+      setToast('Membuka booking dari notifikasi.');
     } else if (link.type === 'chat') {
       setTab('chat');
+      setToast('Membuka chat dari notifikasi.');
       if (link.chatKind === 'partner' && link.entityId) {
         setChatPartnerId(link.entityId);
       } else if (link.chatKind === 'conversation' && link.entityId) {
@@ -779,6 +918,7 @@ function LoggedIn() {
       if (link.entityId) {
         setDeepEventId(link.entityId);
         setTab('events');
+        setToast('Membuka event dari notifikasi.');
       }
     }
     // system / link tanpa entityId (selain booking): tetap di tab aktif.
@@ -790,28 +930,10 @@ function LoggedIn() {
     setTab('booking');
   };
 
+  const unreadLabel = unreadCount > 0 ? `, ${unreadCount > 99 ? '99+' : unreadCount} belum dibaca` : '';
+
   return (
     <View style={styles.tabs}>
-      <View style={styles.tabBar}>
-        <View style={styles.tabFlex}>
-          <Button title="Event" onPress={() => setTab('events')} />
-        </View>
-        <View style={styles.tabFlex}>
-          <Button title="Booking" onPress={() => setTab('booking')} />
-        </View>
-        <View style={styles.tabFlex}>
-          <Button title="Shop" onPress={() => setTab('shop')} />
-        </View>
-        <View style={styles.tabFlex}>
-          <Button title="Partner" onPress={() => setTab('partners')} />
-        </View>
-        <View style={styles.tabFlex}>
-          <Button title="Chat" onPress={() => setTab('chat')} />
-        </View>
-        <View style={styles.tabFlex}>
-          <Button title="Profil" onPress={() => setTab('profile')} />
-        </View>
-      </View>
       <View style={styles.tabBody}>
         {tab === 'events' ? (
           <EventsFlow
@@ -843,11 +965,46 @@ function LoggedIn() {
             onConsumedPartner={() => setChatPartnerId(null)}
             initialConversationId={deepConversationId ?? undefined}
             onConsumedConversation={() => setDeepConversationId(null)}
+            onUnreadChange={setUnreadCount}
           />
         ) : (
           <Profile />
         )}
       </View>
+      <View style={styles.tabBar} accessibilityRole="tablist">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          const label = t.key === 'chat' ? `${t.a11y}${unreadLabel}` : t.a11y;
+          return (
+            <Pressable
+              key={t.key}
+              style={[styles.tabItem, active && styles.tabItemActive]}
+              onPress={() => setTab(t.key)}
+              accessibilityRole="tab"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: active }}
+            >
+              <View style={styles.tabIconWrap}>
+                {t.key === 'profile' ? (
+                  <UIAvatar name={user?.displayName} email={user?.email} uri={user?.avatarUrl} size={36} />
+                ) : (
+                  <Text style={styles.tabIcon} accessibilityElementsHidden>
+                    {t.icon}
+                  </Text>
+                )}
+                {t.key === 'chat' && unreadCount > 0 ? (
+                  <View style={styles.tabBadge}>
+                    <Text style={styles.tabBadgeText}>{unreadCount > 99 ? '99+' : String(unreadCount)}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{t.label}</Text>
+              {active ? <View style={styles.tabIndicator} /> : null}
+            </Pressable>
+          );
+        })}
+      </View>
+      <UIToast message={toast} kind="info" />
     </View>
   );
 }
@@ -858,12 +1015,15 @@ function ChatFlow({
   onConsumedPartner,
   initialConversationId,
   onConsumedConversation,
+  onUnreadChange,
 }: {
   initialPartnerId?: string;
   onConsumedPartner?: () => void;
   /** PH3-06: deep-link notifikasi chat via conversationId → buka room. */
   initialConversationId?: string;
   onConsumedConversation?: () => void;
+  /** UX-02: laporkan total unread ke BottomTabs (badge). Display-only. */
+  onUnreadChange?: (n: number) => void;
 }) {
   const { user } = useAuth();
   const myId = user?.id ?? null;
@@ -898,6 +1058,11 @@ function ChatFlow({
   useEffect(() => {
     loadList().catch(() => undefined);
   }, [loadList]);
+
+  // UX-02: total unread untuk badge tab Chat (display-only, tak ubah logika).
+  useEffect(() => {
+    onUnreadChange?.(conversations.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0));
+  }, [conversations, onUnreadChange]);
 
   // Deep-link dari tab Partner: buka/buat conversation lalu masuk room.
   useEffect(() => {
@@ -1132,14 +1297,15 @@ function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) =
     }
   };
 
-  // Invite placeholder sampai SM-08; Chat (SM-07) buka room 1-1.
+  // Invite: notice lokal ramah (belum ada endpoint); Chat (SM-07) buka room 1-1.
   const placeholder = (kind: 'Invite' | 'Chat', p: PartnerItem) => {
+    const name = p.displayName || p.email;
     if (kind === 'Chat') {
       if (onChatPartner) onChatPartner(p.id);
-      else setNotice(`Chat ke ${p.displayName || p.email} segera hadir (SM-07).`);
+      else setNotice(`Chat ke ${name} segera hadir.`);
       return;
     }
-    setNotice(`${kind} ke ${p.displayName || p.email} segera hadir (SM-07).`);
+    setNotice(`Undangan ke ${name} dicatat. Fitur penuh segera hadir.`);
   };
 
   return (
@@ -1166,11 +1332,20 @@ function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) =
 function Gate() {
   const { user, initializing, loading, error, login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  // UX-02: email dipertahankan saat ganti mode Masuk/Daftar.
+  const [email, setEmail] = useState('');
 
   if (initializing) {
     return (
-      <View style={styles.box}>
-        <ActivityIndicator />
+      <View style={styles.gate}>
+        <View style={styles.heroMini} accessibilityLabel="Memuat KawanSport">
+          <View style={styles.logoMark}>
+            <Text style={styles.logoMarkText}>K</Text>
+          </View>
+          <Text style={styles.heroName}>KawanSport</Text>
+          <Text style={styles.heroSlogan}>Main bareng, naik level</Text>
+        </View>
+        <ActivityIndicator accessibilityLabel="Memuat" />
       </View>
     );
   }
@@ -1178,25 +1353,44 @@ function Gate() {
   if (user) return <LoggedIn />;
 
   const noop = () => undefined;
-  if (mode === 'login') {
-    return (
-      <LoginScreen
-        loading={loading}
-        serverError={error}
-        onSubmit={(email, password) => login(email, password).catch(noop)}
-        onSwitch={() => setMode('register')}
-      />
-    );
-  }
   return (
-    <RegisterScreen
-      loading={loading}
-      serverError={error}
-      onSubmit={(email, password, displayName) =>
-        register(email, password, displayName).catch(noop)
-      }
-      onSwitch={() => setMode('login')}
-    />
+    <ScrollView style={styles.gateScroll} contentContainerStyle={styles.gate} keyboardShouldPersistTaps="handled">
+      <View style={styles.hero} accessibilityRole="header">
+        <View style={styles.logoMark}>
+          <Text style={styles.logoMarkText}>K</Text>
+        </View>
+        <Text style={styles.heroName}>KawanSport</Text>
+        <Text style={styles.heroSlogan}>Cari sparing, booking lapangan, kawan main.</Text>
+      </View>
+
+      <View style={styles.formCard}>
+        <UIErrorBanner message={friendlyServerError(error)} />
+        {mode === 'login' ? (
+          <LoginScreen
+            loading={loading}
+            serverError={null}
+            onSubmit={(em, password) => login(em, password).catch(noop)}
+            onSwitch={() => setMode('register')}
+            initialEmail={email}
+            onEmailChange={setEmail}
+          />
+        ) : (
+          <RegisterScreen
+            loading={loading}
+            serverError={null}
+            onSubmit={(em, password, displayName) =>
+              register(em, password, displayName).catch(noop)
+            }
+            onSwitch={() => setMode('login')}
+            initialEmail={email}
+            onEmailChange={setEmail}
+          />
+        )}
+      </View>
+      <Text style={styles.gateFoot}>
+        {mode === 'login' ? 'Belum punya akun? Tekan Daftar di bawah form.' : 'Sudah punya akun? Tekan Masuk di bawah form.'}
+      </Text>
+    </ScrollView>
   );
 }
 
@@ -1212,15 +1406,91 @@ function App(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  box: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#555' },
-  gap: { height: 12 },
-  tabs: { flex: 1 },
-  tabBar: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 8 },
-  tabFlex: { flex: 1, marginHorizontal: 4 },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  flowWrap: { flex: 1 },
+  screenWrap: { flex: 1, backgroundColor: COLORS.bg },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  bodyFlex: { flex: 1 },
+  bodyPad: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen },
+  gap: { height: SPACING.md },
+  // Gate
+  gateScroll: { flex: 1, backgroundColor: COLORS.bg },
+  gate: { padding: SPACING.screen },
+  hero: { alignItems: 'center', marginBottom: SPACING.lg },
+  heroMini: { alignItems: 'center', marginBottom: SPACING.xl },
+  logoMark: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: COLORS.brand900,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  logoMarkText: { color: COLORS.lime, fontSize: 32, fontWeight: '800' },
+  heroName: { ...TYPO.display, color: COLORS.ink },
+  heroSlogan: { fontSize: 14, color: COLORS.muted, marginTop: SPACING.xs, textAlign: 'center' },
+  formCard: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+  },
+  gateFoot: { fontSize: 13, color: COLORS.faint, textAlign: 'center', marginTop: SPACING.lg },
+  // Profile
+  profileTop: { flexDirection: 'row', alignItems: 'center' },
+  profileHead: { flex: 1, marginLeft: SPACING.md },
+  profileName: { fontSize: 18, fontWeight: '800', color: COLORS.ink },
+  profileEmail: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
+  badgeRow: { flexDirection: 'row', marginTop: SPACING.sm },
+  sportsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACING.md },
+  miniChip: {
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    marginRight: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  miniChipText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  profileEmpty: { fontSize: 13, color: COLORS.faint, marginTop: SPACING.md },
+  profileLoc: { fontSize: 14, color: COLORS.ink, fontWeight: '600', marginTop: SPACING.md },
+  previewName: { fontSize: 16, fontWeight: '700', color: COLORS.ink },
+  previewSub: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
+  // BottomTabs
+  tabs: { flex: 1, backgroundColor: COLORS.bg },
   tabBody: { flex: 1 },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    backgroundColor: COLORS.bg,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.sm,
+  },
+  tabItem: { flex: 1, alignItems: 'center', minHeight: 56, justifyContent: 'center' },
+  tabItemActive: {},
+  tabIconWrap: { position: 'relative', alignItems: 'center', justifyContent: 'center', minHeight: 36 },
+  tabIcon: { fontSize: 22 },
+  tabLabel: { fontSize: 11, fontWeight: '600', color: COLORS.faint, marginTop: 2 },
+  tabLabelActive: { color: COLORS.brand700, fontWeight: '800' },
+  tabIndicator: { height: 3, width: 24, borderRadius: 2, backgroundColor: COLORS.lime, marginTop: 4 },
+  tabBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -14,
+    backgroundColor: COLORS.danger,
+    borderRadius: RADIUS.full,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: { color: COLORS.bg, fontSize: 11, fontWeight: '800' },
 });
 
 export default App;

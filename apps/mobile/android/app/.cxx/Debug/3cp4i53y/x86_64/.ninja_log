@@ -1,0 +1,11 @@
+# ninja log v5
+911	996	1790110505281529218	/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/build/intermediates/cxx/Debug/3cp4i53y/obj/x86_64/libappmodules.so	3dbbfcb5a10a67ad
+2	911	1790110505197558125	CMakeFiles/appmodules.dir/OnLoad.cpp.o	29ce2f311cdc4787
+2	770	1790110505058508204	CMakeFiles/appmodules.dir/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/build/generated/rncli/src/main/jni/rncli.cpp.o	2ab08688cdc94dc
+1	14	0	/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/x86_64/CMakeFiles/cmake.verify_globs	433937512c310851
+9	73	1790140921040881562	build.ninja	86b7f60fb5ffca4e
+14	93	1790140921040881562	build.ninja	86b7f60fb5ffca4e
+0	10	0	/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/x86_64/CMakeFiles/cmake.verify_globs	433937512c310851
+2	753	1790140921808786800	CMakeFiles/appmodules.dir/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/build/generated/rncli/src/main/jni/rncli.cpp.o	2ab08688cdc94dc
+3	924	1790140921978797487	CMakeFiles/appmodules.dir/OnLoad.cpp.o	29ce2f311cdc4787
+924	1023	1790140922075868199	/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/build/intermediates/cxx/Debug/3cp4i53y/obj/x86_64/libappmodules.so	3dbbfcb5a10a67ad

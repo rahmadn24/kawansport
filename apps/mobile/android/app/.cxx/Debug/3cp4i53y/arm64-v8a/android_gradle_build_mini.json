@@ -1,0 +1,50 @@
+{
+  "buildFiles": [
+    "/Users/macintoshhd/Documents/Opencode/kawansport/node_modules/react-native/ReactAndroid/cmake-utils/default-app-setup/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/macintoshhd/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/macintoshhd/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "appmodules::@6890427a1f51a3e7e1df": {
+      "artifactName": "appmodules",
+      "abi": "arm64-v8a",
+      "output": "/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/build/intermediates/cxx/Debug/3cp4i53y/obj/arm64-v8a/libappmodules.so",
+      "runtimeFiles": [
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/fabricjni/libs/android.arm64-v8a/libfabricjni.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/d24b1709d46536081311594eb088200c/transformed/fbjni-0.5.1/prefab/modules/fbjni/libs/android.arm64-v8a/libfbjni.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/folly_runtime/libs/android.arm64-v8a/libfolly_runtime.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/glog/libs/android.arm64-v8a/libglog.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/jsi/libs/android.arm64-v8a/libjsi.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_codegen_rncore/libs/android.arm64-v8a/libreact_codegen_rncore.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_debug/libs/android.arm64-v8a/libreact_debug.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_utils/libs/android.arm64-v8a/libreact_utils.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_nativemodule_core/libs/android.arm64-v8a/libreact_nativemodule_core.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_newarchdefaults/libs/android.arm64-v8a/libreact_newarchdefaults.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_componentregistry/libs/android.arm64-v8a/libreact_render_componentregistry.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_core/libs/android.arm64-v8a/libreact_render_core.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_debug/libs/android.arm64-v8a/libreact_render_debug.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_graphics/libs/android.arm64-v8a/libreact_render_graphics.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_imagemanager/libs/android.arm64-v8a/libreact_render_imagemanager.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/react_render_mapbuffer/libs/android.arm64-v8a/libreact_render_mapbuffer.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/rrc_image/libs/android.arm64-v8a/librrc_image.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/rrc_view/libs/android.arm64-v8a/librrc_view.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/rrc_legacyviewmanagerinterop/libs/android.arm64-v8a/librrc_legacyviewmanagerinterop.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/runtimeexecutor/libs/android.arm64-v8a/libruntimeexecutor.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/turbomodulejsijni/libs/android.arm64-v8a/libturbomodulejsijni.so",
+        "/Users/macintoshhd/.gradle/caches/transforms-3/9b0d2d573c44f4119b76e42d8acdd284/transformed/react-android-0.73.11-debug/prefab/modules/yoga/libs/android.arm64-v8a/libyoga.so"
+      ]
+    }
+  }
+}

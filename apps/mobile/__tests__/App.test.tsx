@@ -10,7 +10,7 @@ it('renders auth gate (login screen saat belum login)', async () => {
   });
   expect(tree).toBeDefined();
   const loginButtons = tree!.root.findAll(
-    (node) => node.props?.title === 'Login',
+    (node) => node.props?.title === 'Masuk',
   );
   expect(loginButtons.length).toBeGreaterThan(0);
   tree!.unmount();

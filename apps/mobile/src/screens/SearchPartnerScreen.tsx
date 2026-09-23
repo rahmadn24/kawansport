@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Button,
-  FlatList,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import {
   PartnerItem,
   RADIUS_PRESETS,
@@ -18,6 +9,22 @@ import {
   SkillLevel,
   formatDistance,
 } from '../api/partners';
+import { COLORS, SPACING, TYPO, friendlyServerError } from '../theme';
+import {
+  UIAppBar,
+  UIAvatar,
+  UIBadge,
+  UIButton,
+  UICard,
+  UIChip,
+  UIEmptyState,
+  UIErrorBanner,
+  UINoticeBar,
+  UISectionTitle,
+  UISegmented,
+  UISkeleton,
+  UITextInput,
+} from '../components/ui';
 
 interface Props {
   partners: PartnerItem[];
@@ -39,9 +46,7 @@ interface Props {
 }
 
 /**
- * Layar Search Partner (SM-06): sport chips, skill picker, radius
- * preset + manual, lat/lng manual + tombol GPS, list hasil + jarak
- * + tombol invite/chat placeholder.
+ * Layar Search Partner (SM-06): kartu filter + hasil + pagination.
  */
 export function SearchPartnerScreen({
   partners,
@@ -66,6 +71,9 @@ export function SearchPartnerScreen({
   const [lng, setLng] = useState('');
   const [radius, setRadius] = useState('10000');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+
+  const locSet = lat.trim() !== '' && lng.trim() !== '';
 
   const useGps = async () => {
     try {
@@ -104,6 +112,7 @@ export function SearchPartnerScreen({
       return;
     }
     setLocalError(null);
+    setSearched(true);
     onSearch({
       ...(sport ? { sport } : {}),
       ...(skill ? { skill } : {}),
@@ -114,194 +123,232 @@ export function SearchPartnerScreen({
   };
 
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>Cari Partner</Text>
-
-      <Text style={styles.label}>Olahraga</Text>
-      <View style={styles.chips}>
-        <TouchableOpacity
-          style={[styles.chip, !sport && styles.chipActive]}
-          onPress={() => setSport(null)}
-        >
-          <Text style={[styles.chipText, !sport && styles.chipTextActive]}>Semua</Text>
-        </TouchableOpacity>
-        {SPORT_SUGGESTIONS.map((s) => {
-          const active = sport?.toLowerCase() === s.toLowerCase();
-          return (
-            <TouchableOpacity
-              key={s}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setSport(active ? null : s)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{s}</Text>
-            </TouchableOpacity>
-          );
-        })}
+    <View style={styles.screen}>
+      <View style={styles.padded}>
+        <UIAppBar title="Cari Partner" />
       </View>
-
-      <Text style={styles.label}>Skill</Text>
-      <View style={styles.chips}>
-        <TouchableOpacity
-          style={[styles.chip, !skill && styles.chipActive]}
-          onPress={() => setSkill(null)}
-        >
-          <Text style={[styles.chipText, !skill && styles.chipTextActive]}>Semua</Text>
-        </TouchableOpacity>
-        {(Object.keys(SKILL_LABELS) as SkillLevel[]).map((level) => {
-          const active = skill === level;
-          return (
-            <TouchableOpacity
-              key={level}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setSkill(active ? null : level)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {SKILL_LABELS[level]}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <Text style={styles.label}>Radius (meter)</Text>
-      <View style={styles.chips}>
-        {RADIUS_PRESETS.map((r) => {
-          const active = Number(radius) === r;
-          return (
-            <TouchableOpacity
-              key={r}
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setRadius(String(r))}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {r >= 1000 ? `${r / 1000} km` : `${r} m`}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-      <TextInput
-        style={styles.input}
-        placeholder="Radius manual 100..100000"
-        keyboardType="numbers-and-punctuation"
-        value={radius}
-        onChangeText={setRadius}
-      />
-
-      <Text style={styles.label}>Lokasi (lat / lng)</Text>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Lat (-90..90)"
-          keyboardType="numbers-and-punctuation"
-          value={lat}
-          onChangeText={setLat}
-        />
-        <View style={styles.gapH} />
-        <TextInput
-          style={[styles.input, styles.flex]}
-          placeholder="Lng (-180..180)"
-          keyboardType="numbers-and-punctuation"
-          value={lng}
-          onChangeText={setLng}
-        />
-      </View>
-      {gpsLoading ? (
-        <ActivityIndicator />
+      {loading && partners.length === 0 && searched ? (
+        <View style={styles.padded}>
+          <UISkeleton rows={3} />
+        </View>
       ) : (
-        <Button title="Gunakan GPS" onPress={useGps} />
-      )}
-      {gpsError ? <Text style={styles.error}>{gpsError}</Text> : null}
+        <FlatList
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          data={partners}
+          keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            <View>
+              <UICard>
+                <UISectionTitle>Filter</UISectionTitle>
+                <Text style={styles.label}>Olahraga</Text>
+                <View style={styles.chips}>
+                  <UIChip label="Semua" active={!sport} onPress={() => setSport(null)} />
+                  {SPORT_SUGGESTIONS.map((s) => {
+                    const active = sport?.toLowerCase() === s.toLowerCase();
+                    return (
+                      <UIChip key={s} label={s} active={active} onPress={() => setSport(active ? null : s)} />
+                    );
+                  })}
+                </View>
 
-      {localError ? <Text style={styles.error}>{localError}</Text> : null}
-      <View style={styles.gap} />
-      {loading && partners.length === 0 ? (
-        <ActivityIndicator />
-      ) : (
-        <Button title="Cari" onPress={submit} />
-      )}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+                <Text style={styles.label}>Skill</Text>
+                <UISegmented<SkillLevel>
+                  label="Skill partner"
+                  value={skill}
+                  onChange={setSkill}
+                  options={[
+                    { value: null, label: 'Semua' },
+                    { value: 'beginner', label: SKILL_LABELS.beginner },
+                    { value: 'intermediate', label: SKILL_LABELS.intermediate },
+                    { value: 'advanced', label: SKILL_LABELS.advanced },
+                  ]}
+                />
 
-      <Text style={styles.meta}>
-        {total > 0 ? `${total} partner • hal ${page}` : 'Belum ada hasil. Tekan Cari.'}
-      </Text>
-      <FlatList
-        style={styles.list}
-        data={partners}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          loading ? null : <Text style={styles.empty}>Tidak ada partner cocok.</Text>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.displayName || item.email}</Text>
-            <Text style={styles.cardSub}>
-              {(item.sports ?? []).join(', ') || 'Belum ada olahraga'}
-              {item.skillLevel ? ` • ${SKILL_LABELS[item.skillLevel]}` : ''}
-            </Text>
-            <Text style={styles.cardSub}>
-              {item.distanceMeters != null ? `${formatDistance(item.distanceMeters)}` : 'Jarak —'}
-            </Text>
-            <View style={styles.cardRow}>
-              <View style={styles.flex}>
-                <Button title="Invite" onPress={() => onInvite(item)} />
-              </View>
-              <View style={styles.gapH} />
-              <View style={styles.flex}>
-                <Button title="Chat" onPress={() => onChat(item)} />
-              </View>
+                <Text style={styles.label}>Jarak</Text>
+                <View style={styles.chips}>
+                  {RADIUS_PRESETS.map((r) => {
+                    const active = Number(radius) === r;
+                    return (
+                      <UIChip
+                        key={r}
+                        label={r >= 1000 ? `${r / 1000} km` : `${r} m`}
+                        active={active}
+                        onPress={() => setRadius(String(r))}
+                        accessibilityLabel={`Jarak ${r >= 1000 ? `${r / 1000} kilometer` : `${r} meter`}`}
+                      />
+                    );
+                  })}
+                </View>
+                <UITextInput
+                  label="Radius manual (meter)"
+                  testID="partner-radius"
+                  placeholder="100..100000"
+                  keyboardType="numbers-and-punctuation"
+                  value={radius}
+                  onChangeText={setRadius}
+                />
+
+                <Text style={styles.label}>Lokasi</Text>
+                <Text style={styles.gpsStatus} accessibilityLabel={locSet ? 'Lokasi sudah ditandai' : 'Lokasi belum ditandai'}>
+                  {locSet ? '✓ Lokasi sudah ditandai' : '📍 Lokasi belum ditandai — pakai GPS biar akurat'}
+                </Text>
+                {gpsLoading ? (
+                  <ActivityIndicator accessibilityLabel="Mencari lokasi GPS" />
+                ) : (
+                  <UIButton title="📍 Pakai GPS" variant="outline" onPress={useGps} accessibilityLabel="Tandai lokasi via GPS" />
+                )}
+                {gpsError ? <Text style={styles.inlineError}>⚠ {gpsError}</Text> : null}
+                <View style={styles.row}>
+                  <View style={styles.flex}>
+                    <UITextInput
+                      label="Lat"
+                      testID="partner-lat"
+                      placeholder="-6,2"
+                      keyboardType="numbers-and-punctuation"
+                      value={lat}
+                      onChangeText={setLat}
+                    />
+                  </View>
+                  <View style={styles.gapH} />
+                  <View style={styles.flex}>
+                    <UITextInput
+                      label="Lng"
+                      testID="partner-lng"
+                      placeholder="106,8"
+                      keyboardType="numbers-and-punctuation"
+                      value={lng}
+                      onChangeText={setLng}
+                    />
+                  </View>
+                </View>
+
+                {localError ? <Text style={styles.inlineError}>⚠ {localError}</Text> : null}
+                <View style={styles.gap} />
+                <UIButton
+                  title="Cari Partner"
+                  onPress={submit}
+                  loading={loading && partners.length === 0}
+                  loadingTitle="Mencari…"
+                  accessibilityLabel="Cari partner sparing"
+                />
+              </UICard>
+
+              <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={submit} />
+              <UINoticeBar message={notice} />
+
+              <Text style={styles.meta} accessibilityRole="text">
+                {total > 0 ? `${total} partner • hal ${page}` : searched ? 'Tidak ada partner cocok.' : 'Atur filter lalu tekan Cari.'}
+              </Text>
             </View>
-          </View>
-        )}
-      />
-      {hasMore ? <Button title={loading ? 'Memuat…' : 'Muat lagi'} onPress={onLoadMore} /> : null}
+          }
+          ListEmptyComponent={
+            loading ? null : (
+              <UIEmptyState
+                illustration={searched ? '🔍' : '🤝'}
+                title={searched ? 'Tidak ada yang cocok' : 'Cari kawan sparing'}
+                message={
+                  searched
+                    ? 'Coba longgarkan filter atau perlebar jarak pencarianmu.'
+                    : 'Atur olahraga, skill, dan jarak, lalu tekan Cari.'
+                }
+              />
+            )
+          }
+          renderItem={({ item }) => {
+            const name = item.displayName || item.email;
+            const sports = (item.sports ?? []).slice(0, 3);
+            return (
+              <View style={styles.card} accessibilityLabel={`Partner ${name}`}>
+                <View style={styles.cardTop}>
+                  <UIAvatar name={item.displayName} email={item.email} uri={item.avatarUrl} size={44} />
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <View style={styles.chips}>
+                      {sports.map((s) => (
+                        <View key={s} style={styles.miniChip}>
+                          <Text style={styles.miniChipText}>{s}</Text>
+                        </View>
+                      ))}
+                      {item.skillLevel ? (
+                        <UIBadge kind="skill" label={SKILL_LABELS[item.skillLevel]} icon="★" />
+                      ) : null}
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.cardSub}>
+                  {item.distanceMeters != null ? `📍 ${formatDistance(item.distanceMeters)}` : '📍 Jarak —'}
+                </Text>
+                <View style={styles.cardRow}>
+                  <View style={styles.flex}>
+                    <UIButton title="Sapa 👋" onPress={() => onChat(item)} accessibilityLabel={`Sapa ${name}`} />
+                  </View>
+                  <View style={styles.gapH} />
+                  <View style={styles.flex}>
+                    <UIButton title="Undang" variant="outline" onPress={() => onInvite(item)} accessibilityLabel={`Undang ${name}`} />
+                  </View>
+                </View>
+              </View>
+            );
+          }}
+          ListFooterComponent={
+            hasMore ? (
+              <View style={styles.footer}>
+                <UIButton
+                  title={loading ? 'Memuat…' : 'Muat lagi'}
+                  variant="ghost"
+                  onPress={onLoadMore}
+                  disabled={loading}
+                  accessibilityLabel="Muat partner berikutnya"
+                />
+              </View>
+            ) : null
+          }
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 12, textAlign: 'center' },
-  label: { fontSize: 14, fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#888',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipActive: { backgroundColor: '#1a73e8', borderColor: '#1a73e8' },
-  chipText: { color: '#333' },
-  chipTextActive: { color: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  flex: { flex: 1 },
-  gap: { height: 12 },
-  gapH: { width: 8 },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
-  notice: { color: '#1a73e8', marginTop: 8, textAlign: 'center' },
-  meta: { fontSize: 13, color: '#555', marginTop: 12, marginBottom: 4, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
   list: { flex: 1 },
-  empty: { textAlign: 'center', color: '#555', marginTop: 24 },
+  listContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.ink, marginTop: SPACING.md, marginBottom: SPACING.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+  flex: { flex: 1 },
+  gap: { height: SPACING.sm },
+  gapH: { width: SPACING.sm },
+  gpsStatus: { fontSize: 13, color: COLORS.muted, marginBottom: SPACING.sm },
+  inlineError: { fontSize: 13, color: COLORS.danger, marginTop: SPACING.xs },
+  meta: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.md, marginBottom: SPACING.sm, textAlign: 'center' },
   card: {
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
+    borderColor: COLORS.line,
+    borderRadius: 20,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  cardSub: { fontSize: 13, color: '#555', marginTop: 4 },
-  cardRow: { flexDirection: 'row', marginTop: 8 },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  cardHead: { flex: 1, marginLeft: SPACING.md },
+  cardTitle: { ...TYPO.cardTitle, color: COLORS.ink },
+  miniChip: {
+    borderRadius: 9999,
+    backgroundColor: COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginTop: 6,
+  },
+  miniChipText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  cardSub: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.sm },
+  cardRow: { flexDirection: 'row', marginTop: SPACING.md },
+  footer: { marginTop: SPACING.sm },
 });

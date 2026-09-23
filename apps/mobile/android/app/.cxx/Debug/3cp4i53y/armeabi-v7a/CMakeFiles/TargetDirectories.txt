@@ -1,0 +1,3 @@
+/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/armeabi-v7a/CMakeFiles/appmodules.dir
+/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/macintoshhd/Documents/Opencode/kawansport/apps/mobile/android/app/.cxx/Debug/3cp4i53y/armeabi-v7a/CMakeFiles/rebuild_cache.dir

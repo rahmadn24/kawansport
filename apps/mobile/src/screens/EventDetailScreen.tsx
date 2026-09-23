@@ -1,7 +1,19 @@
 import React from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EventDetail, EventParticipantItem, slotsLeft } from '../api/events';
 import { bookingStatusLabel, formatSlotLabel } from '../api/bookings';
+import { COLORS, SPACING, TYPO, formatWIB, friendlyServerError } from '../theme';
+import {
+  UIAppBar,
+  UIAvatar,
+  UIBadge,
+  UIButton,
+  UICard,
+  UIEmptyState,
+  UIErrorBanner,
+  UISectionTitle,
+  UISkeleton,
+} from '../components/ui';
 
 interface Props {
   event: EventDetail | null;
@@ -21,8 +33,8 @@ interface Props {
 }
 
 /**
- * Layar Event Detail (SM-04 + SM-05): info lengkap + host + status slot,
- * tombol Join/Leave, daftar peserta, badge FULL (join disabled saat penuh).
+ * Layar Event Detail (SM-04 + SM-05): header + peserta + detail +
+ * daftar peserta, sticky Join/Leave/Book Court.
  */
 export function EventDetailScreen({
   event,
@@ -39,88 +51,170 @@ export function EventDetailScreen({
   onBookCourt,
 }: Props) {
   const isFull = event != null && event.status === 'full' && !event.isJoined;
+
+  const confirmLeave = () => {
+    Alert.alert('Keluar dari event?', 'Slotmu akan dilepas untuk kawan lain.', [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Ya, keluar', style: 'destructive', onPress: onLeave },
+    ]);
+  };
+
   return (
-    <View style={styles.box}>
-      <Text style={styles.title}>Detail Event</Text>
+    <View style={styles.screen}>
+      <View style={styles.padded}>
+        <UIAppBar title="Detail Event" onBack={onBack} />
+      </View>
       {loading && !event ? (
-        <ActivityIndicator />
-      ) : event ? (
-        <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.eventTitle}>{event.title}</Text>
-            <Text style={event.status === 'open' ? styles.open : styles.full}>
-              {event.status === 'open' ? 'OPEN' : 'FULL'}
-            </Text>
-          </View>
-          <Text style={styles.sub}>
-            {event.sport} • {new Date(event.datetime).toLocaleString()}
-          </Text>
-          {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
-          <Text style={styles.sub}>
-            Lokasi: {event.lat}, {event.lng}
-          </Text>
-          <Text style={styles.sub}>
-            Peserta: {event.participantsCount}/{event.capacity} (tersisa{' '}
-            {slotsLeft(event)})
-          </Text>
-          <Text style={styles.sub}>
-            Host: {event.host.displayName ?? event.host.email}
-          </Text>
-          <View style={styles.gap} />
-          {mutating ? (
-            <ActivityIndicator />
-          ) : event.isJoined ? (
-            <Button title="Leave" onPress={onLeave} />
-          ) : (
-            <Button title={isFull ? 'FULL — Slot Habis' : 'Join'} onPress={onJoin} disabled={isFull} />
-          )}
-          {joinError ? <Text style={styles.error}>{joinError}</Text> : null}
-          <View style={styles.gap} />
-          <Button title="Book Court" onPress={onBookCourt} />
-          {event.booking ? (
-            <Text style={styles.sub}>
-              Booking: {formatSlotLabel(event.booking.date, event.booking.start, event.booking.end)}{' '}
-              • {bookingStatusLabel(event.booking.status)}
-            </Text>
-          ) : null}
-          <View style={styles.gap} />
-          <Text style={styles.sectionTitle}>
-            Peserta ({participants.length}/{event.capacity})
-          </Text>
-          {participantsLoading && participants.length === 0 ? (
-            <ActivityIndicator />
-          ) : participants.length === 0 ? (
-            <Text style={styles.sub}>Belum ada peserta.</Text>
-          ) : (
-            participants.map((p) => (
-              <Text key={p.userId} style={styles.sub}>
-                • {p.displayName ?? p.email}
-                {p.userId === event.host.id ? ' (host)' : ''}
-              </Text>
-            ))
-          )}
+        <View style={styles.padded}>
+          <UISkeleton rows={3} />
         </View>
+      ) : event ? (
+        <>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+            <UICard>
+              <View style={styles.row}>
+                <Text style={styles.eventTitle} accessibilityRole="header">
+                  {event.title}
+                </Text>
+                <UIBadge
+                  kind={event.status === 'open' ? 'open' : 'full'}
+                  label={event.status === 'open' ? 'OPEN' : 'FULL'}
+                  icon={event.status === 'open' ? '●' : '■'}
+                />
+              </View>
+              <Text style={styles.meta}>
+                {event.sport} • {formatWIB(event.datetime)}
+              </Text>
+              <View style={styles.hostRow}>
+                <UIAvatar
+                  name={event.host.displayName}
+                  email={event.host.email}
+                  uri={event.host.avatarUrl}
+                  size={36}
+                />
+                <Text style={styles.hostText}>
+                  Host: {event.host.displayName ?? event.host.email}
+                </Text>
+              </View>
+            </UICard>
+
+            <UISectionTitle>Peserta</UISectionTitle>
+            <UICard>
+              <Text style={styles.slotText} accessibilityLabel={`Sisa ${slotsLeft(event)} dari ${event.capacity} slot`}>
+                Sisa {slotsLeft(event)} dari {event.capacity} slot
+              </Text>
+              <View style={styles.progress} accessibilityElementsHidden>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(100, Math.round((event.participantsCount / Math.max(1, event.capacity)) * 100))}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.meta}>
+                {event.participantsCount}/{event.capacity} sudah gabung
+              </Text>
+            </UICard>
+
+            <UISectionTitle>Detail</UISectionTitle>
+            <UICard>
+              {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
+              <Text style={styles.detailLine}>📍 Titik lokasi event sudah ditandai</Text>
+              <Text style={styles.detailSub}>Rincian alamat menyusul dari host</Text>
+              {event.booking ? (
+                <Text style={styles.detailLine}>
+                  🏟 Lapangan: {formatSlotLabel(event.booking.date, event.booking.start, event.booking.end)} •{' '}
+                  {bookingStatusLabel(event.booking.status)}
+                </Text>
+              ) : null}
+            </UICard>
+
+            <UISectionTitle>Yang ikut ({participants.length}/{event.capacity})</UISectionTitle>
+            {participantsLoading && participants.length === 0 ? (
+              <UISkeleton rows={2} />
+            ) : participants.length === 0 ? (
+              <UIEmptyState
+                illustration="🙌"
+                title="Belum ada peserta"
+                message="Jadilah yang pertama gabung dan ramaikan event ini!"
+              />
+            ) : (
+              <UICard>
+                {participants.map((p) => (
+                  <View key={p.userId} style={styles.partRow}>
+                    <UIAvatar name={p.displayName} email={p.email} uri={p.avatarUrl} size={36} />
+                    <Text style={styles.partName} numberOfLines={1}>
+                      {p.displayName ?? p.email}
+                      {p.userId === event.host.id ? ' 👑' : ''}
+                    </Text>
+                    {p.userId === event.host.id ? (
+                      <UIBadge kind="skill" label="Host" />
+                    ) : null}
+                  </View>
+                ))}
+              </UICard>
+            )}
+          </ScrollView>
+
+          <View style={styles.sticky}>
+            <UIErrorBanner message={friendlyServerError(joinError)} actionLabel="Coba lagi" onAction={event.isJoined ? onLeave : onJoin} />
+            {event.isJoined ? (
+              <UIButton
+                title="Keluar Event"
+                variant="outline"
+                onPress={confirmLeave}
+                loading={mutating}
+                loadingTitle="Memproses…"
+                accessibilityLabel="Keluar dari event"
+              />
+            ) : (
+              <UIButton
+                title={isFull ? 'Penuh — Slot Habis' : 'Ikut Event'}
+                variant="primary"
+                onPress={onJoin}
+                disabled={isFull}
+                loading={mutating}
+                loadingTitle="Memproses…"
+                accessibilityLabel={isFull ? 'Event penuh, slot habis' : 'Ikut event ini'}
+              />
+            )}
+            <View style={styles.gap} />
+            <UIButton title="Pesan Lapangan" variant="ghost" onPress={onBookCourt} accessibilityLabel="Pesan lapangan untuk event ini" />
+          </View>
+        </>
       ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.gap} />
-      <Button title="Refresh" onPress={onRefresh} />
-      <View style={styles.gap} />
-      <Button title="Kembali" onPress={onBack} />
+      <View style={styles.padded}>
+        <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={onRefresh} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24, justifyContent: 'flex-start' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
-  card: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 16 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  eventTitle: { fontSize: 18, fontWeight: '700', flex: 1, marginRight: 8 },
-  open: { color: '#0a7d2c', fontWeight: '700' },
-  full: { color: '#c00', fontWeight: '700' },
-  sub: { fontSize: 14, color: '#444', marginTop: 8 },
-  desc: { fontSize: 14, color: '#222', marginTop: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', marginTop: 4 },
-  gap: { height: 12 },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  body: { flex: 1 },
+  bodyContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.lg },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  eventTitle: { fontSize: 18, fontWeight: '800', color: COLORS.ink, flex: 1, marginRight: SPACING.sm },
+  meta: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.sm },
+  hostRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.md },
+  hostText: { fontSize: 14, color: COLORS.ink, fontWeight: '600', marginLeft: SPACING.sm, flex: 1 },
+  slotText: { ...TYPO.angka, color: COLORS.ink },
+  progress: { height: 8, borderRadius: 4, backgroundColor: COLORS.line, marginTop: SPACING.sm, overflow: 'hidden' },
+  progressFill: { height: 8, borderRadius: 4, backgroundColor: COLORS.brand600 },
+  desc: { fontSize: 14, color: COLORS.ink, lineHeight: 22 },
+  detailLine: { fontSize: 14, color: COLORS.ink, marginTop: SPACING.sm, fontWeight: '600' },
+  detailSub: { fontSize: 13, color: COLORS.faint, marginTop: 2 },
+  partRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm },
+  partName: { flex: 1, fontSize: 14, color: COLORS.ink, marginLeft: SPACING.sm, marginRight: SPACING.sm },
+  sticky: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingHorizontal: SPACING.screen,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.screen,
+    backgroundColor: COLORS.bg,
+  },
+  gap: { height: SPACING.sm },
 });
