@@ -159,6 +159,7 @@ export class UsersService implements OnModuleInit {
       lat: user.lat ?? null,
       lng: user.lng ?? null,
       avatarUrl: user.avatarUrl ?? null,
+      loyaltyPoints: user.loyaltyPoints ?? 0,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       lastLoginAt: user.lastLoginAt ?? null,

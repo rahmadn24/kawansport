@@ -11,6 +11,7 @@ import { normalizePhotos } from '../venues/venues.service';
 import { assertPhotoUrls } from '../uploads/photo-url';
 import { Court } from '../venues/court.entity';
 import { Venue } from '../venues/venue.entity';
+import { User } from '../users/user.entity';
 import { CreateRatingDto } from './dto/create-rating.dto';
 import { ListRatingsDto, RatingSortBy } from './dto/list-ratings.dto';
 import { UpdateRatingDto } from './dto/update-rating.dto';
@@ -19,6 +20,9 @@ import { Review } from './review.entity';
 
 /** Batas foto review (ST-01). */
 export const MAX_REVIEW_PHOTOS = 3;
+
+/** Poin Kawan per review dibuat (ST-04, sekali per rating). */
+export const REVIEW_EARN_POINTS = 50;
 
 export interface RatingItem {
   id: string;
@@ -54,6 +58,8 @@ export class RatingsService {
     private readonly venues: Repository<Venue>,
     @InjectRepository(Court)
     private readonly courts: Repository<Court>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
   ) {}
 
   /** POST /api/ratings — buat rating + review (auth required). */
@@ -103,6 +109,8 @@ export class RatingsService {
         photos,
       });
       await this.reviews.save(review);
+      // ST-04: +50 Poin Kawan sekali saat review dibuat (tidak di update).
+      await this.awardReviewPoints(actor.id);
     }
 
     return this.toPublic(savedRating, review);
@@ -197,6 +205,18 @@ export class RatingsService {
 
     // Hard delete rating (cascade akan hapus review karena cascade: true di entity)
     await this.ratings.remove(rating);
+  }
+
+  /**
+   * ST-04: tambah Poin Kawan saat review dibuat. Idempotent per rating
+   * secara alami (satu rating = satu review = satu award; update tidak
+   * memanggil ini sehingga tidak ada double-earn).
+   */
+  private async awardReviewPoints(userId: string): Promise<void> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) return;
+    user.loyaltyPoints = (user.loyaltyPoints ?? 0) + REVIEW_EARN_POINTS;
+    await this.users.save(user);
   }
 
   /** Helper: list ratings dengan filter venueId + courtId. */

@@ -4,6 +4,7 @@ import { EventParticipant } from '../events/event-participant.entity';
 import { SportEvent } from '../events/event.entity';
 import { Court } from '../venues/court.entity';
 import { VenuesModule } from '../venues/venues.module';
+import { VouchersModule } from '../vouchers/vouchers.module';
 import { BookingExpiryService } from './booking-expiry.service';
 import { Booking } from './booking.entity';
 import { BookingsController } from './bookings.controller';
@@ -15,6 +16,7 @@ import { PaymentsController } from './payments.controller';
   imports: [
     TypeOrmModule.forFeature([Booking, Court, SportEvent, EventParticipant]),
     VenuesModule,
+    VouchersModule,
   ],
   controllers: [BookingsController, PaymentsController],
   providers: [BookingsService, MidtransService, BookingExpiryService],

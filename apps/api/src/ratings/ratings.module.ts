@@ -6,9 +6,10 @@ import { Rating } from './rating.entity';
 import { Review } from './review.entity';
 import { RatingsController } from './ratings.controller';
 import { RatingsService } from './ratings.service';
+import { User } from '../users/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Rating, Review, Venue, Court])],
+  imports: [TypeOrmModule.forFeature([Rating, Review, Venue, Court, User])],
   controllers: [RatingsController],
   providers: [RatingsService],
   exports: [RatingsService],

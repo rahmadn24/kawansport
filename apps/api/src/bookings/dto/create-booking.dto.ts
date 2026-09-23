@@ -7,6 +7,7 @@ import {
   IsUUID,
   Matches,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -48,4 +49,20 @@ export class CreateBookingDto {
   @Min(15)
   @Max(24 * 60)
   durationMinutes?: number;
+
+  /**
+   * Kode voucher (ST-04, opsional, case-insensitive → uppercase di service).
+   * Urutan akuntansi: subtotal → diskon voucher → poin → total.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  voucherCode?: string;
+
+  /** Poin Kawan dipakai, 1 poin = Rp1 (ST-04, opsional, default 0). */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  usePoints?: number;
 }

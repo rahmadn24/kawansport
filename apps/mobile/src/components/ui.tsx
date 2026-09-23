@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -438,27 +439,154 @@ export function UISearchBar({
   onChange,
   placeholder = 'Cari...',
   accessibilityLabel = 'Pencarian',
+  onFilterPress,
+  filterExpanded,
+  filterLabel = 'Filter pencarian',
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   accessibilityLabel?: string;
+  onFilterPress?: () => void;
+  filterExpanded?: boolean;
+  filterLabel?: string;
 }) {
   return (
-    <View style={styles.searchWrap}>
-      <Text style={styles.searchIcon} accessibilityElementsHidden>
-        🔍
-      </Text>
-      <TextInput
-        style={styles.searchInput}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={COLORS.faint}
-        accessibilityLabel={accessibilityLabel}
-        returnKeyType="search"
-      />
+    <View style={styles.searchRow}>
+      <View style={styles.searchWrap}>
+        <Text style={styles.searchIcon} accessibilityElementsHidden>
+          🔍
+        </Text>
+        <TextInput
+          style={styles.searchInput}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.faint}
+          accessibilityLabel={accessibilityLabel}
+          returnKeyType="search"
+        />
+      </View>
+      {onFilterPress ? (
+        <TouchableOpacity
+          style={styles.searchFilterBtn}
+          onPress={onFilterPress}
+          accessibilityRole="button"
+          accessibilityLabel={filterExpanded ? 'Sembunyikan filter' : filterLabel}
+          accessibilityState={filterExpanded !== undefined ? { expanded: filterExpanded } : undefined}
+        >
+          <Text style={styles.searchFilterIcon} accessibilityElementsHidden>
+            ⚙
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
+  );
+}
+
+// ---------- Header navy Stitch (discovery list) ----------
+
+export function UIHeader({
+  locationText = 'Sekitarmu',
+  onBellPress,
+  onAvatarPress,
+  userName,
+  userEmail,
+  avatarUri,
+}: {
+  locationText?: string;
+  onBellPress?: () => void;
+  onAvatarPress?: () => void;
+  userName?: string | null;
+  userEmail?: string;
+  avatarUri?: string | null;
+}) {
+  const locLabel = locationText === 'Pilih lokasi' ? 'Lokasi belum dipilih' : `Lokasi: ${locationText}`;
+  const bellInner = (
+    <View style={styles.headerBellInner}>
+      <Text style={styles.headerBellIcon} accessibilityElementsHidden>
+        🔔
+      </Text>
+      <View style={styles.headerBellDot} accessibilityElementsHidden />
+    </View>
+  );
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerBrand}>
+        <View style={styles.headerLogo} accessibilityElementsHidden>
+          <Text style={styles.headerLogoText}>K</Text>
+        </View>
+        <View style={styles.headerBrandCol}>
+          <Text style={styles.headerName}>KawanSport</Text>
+          <Text style={styles.headerLoc} accessibilityLabel={locLabel} numberOfLines={1}>
+            📍 {locationText} ▾
+          </Text>
+        </View>
+      </View>
+      <View style={styles.headerRight}>
+        {onBellPress ? (
+          <TouchableOpacity
+            style={styles.headerBell}
+            onPress={onBellPress}
+            accessibilityRole="button"
+            accessibilityLabel="Buka notifikasi"
+          >
+            {bellInner}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerBell} accessibilityRole="image" accessibilityLabel="Notifikasi">
+            {bellInner}
+          </View>
+        )}
+        {onAvatarPress ? (
+          <TouchableOpacity
+            onPress={onAvatarPress}
+            accessibilityRole="button"
+            accessibilityLabel="Buka profil saya"
+          >
+            <UIAvatar name={userName ?? 'Akun Saya'} email={userEmail} uri={avatarUri} size={36} />
+          </TouchableOpacity>
+        ) : (
+          <View accessibilityLabel="Foto akun saya">
+            <UIAvatar name={userName ?? 'Akun Saya'} email={userEmail} uri={avatarUri} size={36} />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ---------- Chip olahraga horizontal (discovery list) ----------
+
+export function UISportChips({
+  sports,
+  value,
+  onChange,
+}: {
+  sports: string[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.sportStrip}
+      accessibilityLabel="Saring olahraga"
+    >
+      <UIChip label="Semua" active={!value} onPress={() => onChange(null)} />
+      {sports.map((s) => {
+        const active = value?.toLowerCase() === s.toLowerCase();
+        return (
+          <UIChip
+            key={s}
+            label={s}
+            active={active}
+            onPress={() => onChange(active ? null : s)}
+          />
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -671,18 +799,76 @@ const styles = StyleSheet.create({
   toastInfo: { backgroundColor: COLORS.navy },
   toastError: { backgroundColor: COLORS.danger },
   toastText: { fontSize: 14, fontWeight: '600', color: COLORS.bg, textAlign: 'center' },
+  searchRow: { flexDirection: 'row', alignItems: 'center' },
   searchWrap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bgAlt,
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
     borderColor: COLORS.line,
-    borderRadius: RADIUS.md,
-    minHeight: 44,
-    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    minHeight: 48,
+    paddingHorizontal: SPACING.lg,
   },
   searchIcon: { fontSize: 18, marginRight: SPACING.sm },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.ink, minHeight: 42 },
+  searchInput: { flex: 1, fontSize: 14, color: COLORS.ink, minHeight: 46 },
+  searchFilterBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginLeft: SPACING.sm,
+    backgroundColor: COLORS.bg,
+    borderWidth: 1.5,
+    borderColor: COLORS.brand700,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchFilterIcon: { fontSize: 20, color: COLORS.brand700 },
+  header: {
+    backgroundColor: COLORS.navy,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
+    marginHorizontal: -SPACING.screen,
+  },
+  headerBrand: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  headerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.lime,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogoText: { fontSize: 20, fontWeight: '800', color: COLORS.navy },
+  headerBrandCol: { marginLeft: SPACING.sm, flex: 1 },
+  headerName: { fontSize: 16, fontWeight: '800', color: COLORS.bg },
+  headerLoc: { fontSize: 12, fontWeight: '600', color: COLORS.bg, opacity: 0.85, marginTop: 2 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  headerBell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBellInner: { alignItems: 'center', justifyContent: 'center' },
+  headerBellIcon: { fontSize: 18 },
+  headerBellDot: {
+    position: 'absolute',
+    top: -2,
+    right: -8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+  },
+  sportStrip: { paddingVertical: SPACING.sm, alignItems: 'center' },
   progressTrack: {
     flexDirection: 'row',
     height: 6,

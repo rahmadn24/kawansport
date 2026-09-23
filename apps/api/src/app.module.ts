@@ -29,6 +29,8 @@ import {
 import { User } from './users/user.entity';
 import { UsersModule } from './users/users.module';
 import { Court } from './venues/court.entity';
+import { Voucher, VoucherRedemption } from './vouchers/voucher.entity';
+import { VouchersModule } from './vouchers/vouchers.module';
 import { Rating } from './ratings/rating.entity';
 import { Review } from './ratings/review.entity';
 import { SlotClaim } from './venues/slot-claim.entity';
@@ -50,13 +52,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, SlotClaim, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),
@@ -72,6 +74,7 @@ import { UploadsModule } from './uploads/uploads.module';
     ChatModule,
     MarketplaceModule,
     NotificationsModule,
+    VouchersModule,
   ],
   controllers: [HealthController],
 })

@@ -70,6 +70,26 @@ export class Booking {
   @Column({ type: 'int' })
   amount!: number;
 
+  /**
+   * Subtotal sebelum voucher/poin (ST-04). Sama dengan `amount` bila tanpa
+   * diskon/poin; nullable agar baris lama (pra-ST-04) tetap valid — response
+   * memakai fallback `amount` bila null.
+   */
+  @Column({ type: 'int', nullable: true })
+  subtotal?: number | null;
+
+  /** Diskon voucher rupiah (ST-04, snapshot, default 0). */
+  @Column({ type: 'int', default: 0 })
+  discount!: number;
+
+  /** Kode voucher terpakai (ST-04, snapshot uppercase, null bila tanpa voucher). */
+  @Column({ name: 'voucher_code', type: 'varchar', length: 32, nullable: true })
+  voucherCode?: string | null;
+
+  /** Poin Kawan terpakai, 1 poin = Rp1 (ST-04, snapshot, default 0). */
+  @Column({ name: 'points_used', type: 'int', default: 0 })
+  pointsUsed!: number;
+
   /** Token Snap Midtrans (atau stub bila tanpa server key). */
   @Column({ name: 'snap_token', type: 'varchar', length: 255, nullable: true })
   snapToken?: string | null;

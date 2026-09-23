@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingsModule } from '../bookings/bookings.module';
 import { ChangeRequestsModule } from '../change-requests/change-requests.module';
 import { UsersModule } from '../users/users.module';
+import { VouchersModule } from '../vouchers/vouchers.module';
 import { CartController } from './cart.controller';
 import { Cart, CartItem } from './cart.entity';
 import { CartService } from './cart.service';
@@ -36,6 +37,7 @@ import {
     ]),
     UsersModule,
     ChangeRequestsModule,
+    VouchersModule,
     // Reuse MidtransService BK-03 (Snap + verify signature) — tanpa
     // duplikasi logika (OrdersService memakai instance yang sama).
     BookingsModule,

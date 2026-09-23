@@ -2,7 +2,7 @@ import React from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { ConversationItem } from '../api/chat';
 import { COLORS, RADIUS, SPACING, TYPO, friendlyServerError } from '../theme';
-import { UIAppBar, UIAvatar, UIBadge, UIEmptyState, UIErrorBanner, UISkeleton } from '../components/ui';
+import { UIAvatar, UIBadge, UIEmptyState, UIErrorBanner, UIHeader, UISkeleton } from '../components/ui';
 import { formatRelativeTime } from '../mocks/stitch';
 
 interface Props {
@@ -18,8 +18,9 @@ export function ChatListScreen({ conversations, loading, error, onRefresh, onSel
   const firstLoad = loading && conversations.length === 0;
   return (
     <View style={styles.screen}>
+      <UIHeader locationText="Sekitarmu" />
       <View style={styles.padded}>
-        <UIAppBar title="Chat" />
+        <Text style={styles.title}>Chat</Text>
         <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={onRefresh} />
       </View>
       {firstLoad ? (
@@ -83,7 +84,8 @@ export function ChatListScreen({ conversations, loading, error, onRefresh, onSel
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.md },
+  title: { ...TYPO.title, color: COLORS.ink, marginBottom: SPACING.sm },
   list: { flex: 1 },
   listContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen },
   card: {

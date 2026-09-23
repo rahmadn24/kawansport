@@ -7,6 +7,7 @@ import {
   UIBadge,
   UIEmptyState,
   UIErrorBanner,
+  UIHeader,
   UISegmented,
 } from '../components/ui';
 import { orderBadgeKind } from '../mocks/stitch';
@@ -32,12 +33,14 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
   if (loading && orders.length === 0) {
     return (
       <View style={styles.box}>
+        <UIHeader locationText="Sekitarmu" />
         <ActivityIndicator accessibilityLabel="Memuat order" />
       </View>
     );
   }
   return (
     <View style={styles.box}>
+      <UIHeader locationText="Sekitarmu" />
       <Text style={styles.title}>Order Saya</Text>
 
       <UISegmented<ShopOrderStatus>

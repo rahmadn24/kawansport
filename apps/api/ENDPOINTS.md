@@ -51,8 +51,9 @@ Token: access JWT `JWT_ACCESS_TTL` (default `15m`), refresh JWT `JWT_REFRESH_TTL
 ## Profil (SM-03, auth)
 
 ### `GET /me`
-Response profil publik: `id, email, displayName, role, sports[], skillLevel, lat, lng, avatarUrl, createdAt, updatedAt`.
+Response profil publik: `id, email, displayName, role, sports[], skillLevel, lat, lng, avatarUrl, loyaltyPoints, createdAt, updatedAt`.
 `role`: `super_admin | venue_owner | seller | user` (default `user`).
+`loyaltyPoints`: saldo Poin Kawan (ST-04, default 0; +50 per review, 1 poin = Rp1 saat redeem).
 
 ### `PATCH /me`
 Body parsial: `{ displayName?, sports? (maks 20 × 40 char), skillLevel? (beginner|intermediate|advanced), lat?+lng? }`.
@@ -302,3 +303,59 @@ Daftar order milik sendiri (terbaru dulu, beserta grup+item) →
 
 ### `GET /orders/:id`
 Detail milik sendiri; milik orang lain → 403 (super_admin lolos); tak ada → 404.
+
+## Voucher promo + Poin Kawan (ST-04, auth kecuali webhook)
+
+Tabel `vouchers` (`code` unik uppercase, `type` percent|fixed, `value`,
+`max_discount`, `min_transaction`, `quota` total, `per_user_limit`,
+`used_count`, `valid_from/valid_to`, `applicable_to` booking|shop|all,
+`active`) + `voucher_redemptions` (jejak redeem per user untuk
+`perUserLimit`; dibuat dalam transaksi yang sama dengan booking/order,
+dihapus hanya oleh kompensasi Snap-gagal).
+
+Urutan akuntansi (booking maupun checkout): `subtotal → diskon voucher →
+poin → total` (integer rupiah, min 0). Snapshot tersimpan di
+booking/order: `subtotal, discount, voucherCode, pointsUsed`
+(`amount`/`total` = TOTAL SETELAH diskon+poin — webhook wajib mengirim
+`gross_amount` final tersebut, else 409).
+
+- Diskon: percent = floor(subtotal×value/100) capped `maxDiscount`;
+  fixed = min(value, subtotal).
+- Poin: 1 poin = Rp1, capped sisa total setelah voucher; saldo kurang →
+  400; saldo tidak pernah negatif (cek+mutasi satu transaksi).
+- Earn: +50 Poin Kawan tiap review dibuat (`POST /ratings` dengan
+  comment/foto; update tidak menambah). Saldo terlihat di `GET /me`
+  (`loyaltyPoints`).
+- Validasi voucher: tak dikenal → 400; nonaktif/kedaluwarsa/belum
+  berlaku/scope salah/minimal tak terpenuhi → 400; kuota total atau
+  per-user habis → 409. Tanpa mutasi bila gagal.
+- Tidak ada hard delete voucher: nonaktifkan via deactivate (riwayat
+  redeem + snapshot tetap utuh; `code` terkunci bila sudah dipakai).
+
+### `POST /admin/vouchers` (super_admin)
+Body: `{ code, type (percent 1..100 | fixed ≥1), value, maxDiscount?,
+minTransaction? (default 0), quota?, perUserLimit?, validFrom?,
+validTo? (ISO, from ≤ to), applicableTo? (default all), active?
+(default true) }` → 201 item voucher. Duplikat code → 409.
+
+### `GET /admin/vouchers` (super_admin)
+`{ data: VoucherItem[], meta: { total } }`, terbaru dulu.
+
+### `GET /admin/vouchers/:id` (super_admin)
+Detail satu voucher. Tak ada → 404.
+
+### `PATCH /admin/vouchers/:id` (super_admin)
+Parsial; ganti `code` setelah dipakai → 409.
+
+### `POST /admin/vouchers/:id/deactivate` (super_admin)
+`active=false` (idempotent, 200). Redeem berikutnya → 400.
+
+### `POST /bookings` (+ `voucherCode?`, `usePoints?`)
+Field lama utuh; response/detail `BookingItem` tambah
+`subtotal, discount, voucherCode, pointsUsed`.
+
+### `POST /checkout` (body opsional `{ voucherCode?, usePoints? }`)
+Tanpa body = checkout normal MP-02. Response/detail `OrderDetail` tambah
+`subtotal, discount, voucherCode, pointsUsed`.
+Gagal Snap → kompensasi: stok kembali + redeem dibatalkan + poin kembali
++ order `cancelled` (booking: slot dilepas + kompensasi sama).

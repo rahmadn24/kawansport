@@ -4,13 +4,14 @@ import { VenueItem } from '../api/venues';
 import { formatDistance } from '../api/partners';
 import { formatIDR } from '../api/bookings';
 import { COLORS, RADIUS, SPACING, TYPO, formatKm, initialsOf } from '../theme';
+import { SPORT_SUGGESTIONS } from '../api/profile';
 import {
-  UIAppBar,
-  UIChip,
   UIEmptyState,
   UIErrorBanner,
+  UIHeader,
   UISearchBar,
   UISkeleton,
+  UISportChips,
 } from '../components/ui';
 
 interface Props {
@@ -24,8 +25,6 @@ interface Props {
   /** Konteks event bila alur berasal dari tombol Book Court di EventDetail. */
   eventLabel: string | null;
 }
-
-const SPORTS = ['Futsal', 'Basket', 'Badminton', 'Tenis', 'Voli'];
 
 /** Layar Venue List (BK-04, Stitch UX-03): search lokal + filter sport + kartu kaya. */
 // TODO(ST-06): rating venue di kartu DISEMBUNYIKAN sampai API rating tersedia.
@@ -50,7 +49,7 @@ export function VenueListScreen({
     : venues;
   return (
     <View style={styles.box}>
-      <UIAppBar title="Booking Lapangan" />
+      <UIHeader locationText="Sekitarmu" />
       {eventLabel ? (
         <View style={styles.ctx} accessibilityRole="text">
           <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
@@ -64,20 +63,7 @@ export function VenueListScreen({
         accessibilityLabel="Cari venue di daftar ini"
       />
 
-      <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Saring olahraga">
-        <UIChip label="Semua" active={!sportFilter} onPress={() => onFilterChange(null)} />
-        {SPORTS.map((s) => {
-          const active = sportFilter?.toLowerCase() === s.toLowerCase();
-          return (
-            <UIChip
-              key={s}
-              label={s}
-              active={active}
-              onPress={() => onFilterChange(active ? null : s)}
-            />
-          );
-        })}
-      </View>
+      <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
 
       {loading && venues.length === 0 ? (
         <UISkeleton rows={4} />
@@ -164,7 +150,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   ctxText: { fontSize: 13, fontWeight: '600', color: COLORS.brand900, textAlign: 'center' },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.sm, marginTop: SPACING.md },
   list: { flex: 1 },
   listPad: { paddingBottom: SPACING.screen },
   card: {

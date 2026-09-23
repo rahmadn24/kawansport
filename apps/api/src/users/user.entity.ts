@@ -119,6 +119,13 @@ export class User {
   )
   role!: UserRole;
 
+  /**
+   * Saldo Poin Kawan (ST-04). 1 poin = Rp1 saat redeem di booking/checkout.
+   * Earn saat ini: +50 tiap review dibuat (RatingsService.create).
+   */
+  @Column({ name: 'loyalty_points', type: 'int', default: 0 })
+  loyaltyPoints!: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

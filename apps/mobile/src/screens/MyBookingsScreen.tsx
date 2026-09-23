@@ -20,6 +20,7 @@ import {
   UIBadge,
   UIEmptyState,
   UIErrorBanner,
+  UIHeader,
   UISegmented,
 } from '../components/ui';
 import { bookingBadgeKind } from '../mocks/stitch';
@@ -78,6 +79,7 @@ export function MyBookingsScreen({
 
   return (
     <View style={styles.box}>
+      <UIHeader locationText="Sekitarmu" />
       <Text style={styles.title}>Booking Saya</Text>
 
       <UISegmented<BookingStatus>

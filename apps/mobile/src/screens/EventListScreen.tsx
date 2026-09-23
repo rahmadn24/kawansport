@@ -3,15 +3,15 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { SPORT_SUGGESTIONS, SportEventItem, slotsLeft } from '../api/events';
 import { COLORS, RADIUS, SPACING, TYPO, formatKm, formatWIB, friendlyServerError } from '../theme';
 import {
-  UIAppBar,
   UIAvatar,
   UIBadge,
   UIButton,
-  UIChip,
   UIEmptyState,
   UIErrorBanner,
+  UIHeader,
   UISearchBar,
   UISkeleton,
+  UISportChips,
 } from '../components/ui';
 import { STITCH_EVENT_BANNER, sportIconOf } from '../mocks/stitch';
 
@@ -56,37 +56,15 @@ export function EventListScreen({
 
   return (
     <View style={styles.screen}>
+      <UIHeader locationText="Sekitarmu" />
       <View style={styles.padded}>
-        <UIAppBar
-          title="Event"
-          right={
-            <View style={styles.headerRight}>
-              <Text style={styles.locText} numberOfLines={1} accessibilityLabel="Event di sekitarmu">
-                📍 Sekitarmu
-              </Text>
-            </View>
-          }
-        />
         <UISearchBar
           value={query}
           onChange={setQuery}
           placeholder="Cari mabar, olahraga, host…"
           accessibilityLabel="Cari event di daftar ini"
         />
-        <View style={styles.chipsRow}>
-          <UIChip label="Semua" active={!sportFilter} onPress={() => onFilterChange(null)} />
-          {SPORT_SUGGESTIONS.map((s) => {
-            const active = sportFilter?.toLowerCase() === s.toLowerCase();
-            return (
-              <UIChip
-                key={s}
-                label={`${sportIconOf(s)} ${s}`}
-                active={active}
-                onPress={() => onFilterChange(active ? null : s)}
-              />
-            );
-          })}
-        </View>
+        <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
 
         <View style={styles.banner} accessibilityLabel="Event spesial akhir pekan">
           <View style={styles.bannerBody}>
@@ -219,10 +197,7 @@ export function EventListScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
-  headerRight: { flexDirection: 'row', alignItems: 'center' },
-  locText: { fontSize: 13, fontWeight: '700', color: COLORS.brand700, marginRight: SPACING.sm, maxWidth: 120 },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACING.md, marginBottom: SPACING.sm },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.md },
   banner: {
     backgroundColor: COLORS.navy,
     borderRadius: RADIUS.lg,

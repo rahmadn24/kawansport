@@ -10,7 +10,9 @@ import { randomBytes } from 'crypto';
 import { In, Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
 import { MidtransService } from '../bookings/midtrans.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 import { Cart, CartItem } from './cart.entity';
+import { CheckoutDto } from './dto/checkout.dto';
 import { Product } from './product.entity';
 import {
   ShopOrder,
@@ -43,6 +45,14 @@ export interface OrderDetail {
   channel: string;
   status: ShopOrderStatus;
   total: number;
+  /** Subtotal sebelum voucher/poin (ST-04; = total bila tanpa promo). */
+  subtotal: number;
+  /** Diskon voucher rupiah (ST-04, snapshot). */
+  discount: number;
+  /** Kode voucher terpakai (ST-04, snapshot, null bila tanpa voucher). */
+  voucherCode: string | null;
+  /** Poin Kawan terpakai (ST-04, snapshot, 1 poin = Rp1). */
+  pointsUsed: number;
   snapToken: string | null;
   redirectUrl: string | null;
   paidAt: Date | null;
@@ -67,6 +77,7 @@ export class OrdersService {
     @InjectRepository(Product)
     private readonly products: Repository<Product>,
     private readonly midtrans: MidtransService,
+    private readonly vouchers: VouchersService,
   ) {}
 
   /**
@@ -98,12 +109,17 @@ export class OrdersService {
   /**
    * POST /checkout — checkout atomik cart milik sendiri:
    * lock produk (FOR UPDATE di Postgres) dalam urutan id stabil → cek
-   * approved + stok → decrement → buat 1 order + N grup (satu per seller) +
+   * approved + stok → decrement → redeem voucher + potong poin (ST-04,
+   * dalam transaksi yang sama) → buat 1 order + N grup (satu per seller) +
    * item snapshot → kosongkan cart → buat transaksi Snap Midtrans.
    * - Cart kosong → 400. Produk tak-approved/hilang/stok kurang → 409.
+   * - Voucher invalid/kedaluwarsa/kuota habis → 400/409 (tanpa mutasi).
+   * - Poin melebihi saldo → 400 (tanpa mutasi).
    * - 2 checkout paralel atas stok 1 → tepat 1 sukses (mutex + lock + cek).
    */
-  async checkout(actor: ActorInput): Promise<OrderDetail> {
+  async checkout(actor: ActorInput, dto?: CheckoutDto): Promise<OrderDetail> {
+    const voucherCode = dto?.voucherCode?.trim() || null;
+    const usePoints = dto?.usePoints ?? 0;
     const orderId = await this.withCheckoutLock(async () => {
       const created = await this.orders.manager.transaction(async (mgr) => {
         const cartRepo = mgr.getRepository(Cart);
@@ -166,10 +182,32 @@ export class OrdersService {
         // Kelompokkan per seller → 1 grup per seller.
         const sellerIds = [...new Set(lines.map((l) => byId.get(l.productId)!.sellerId))].sort();
         const paymentRef = generateMarketPaymentRef();
-        const total = lines.reduce(
+        const subtotal = lines.reduce(
           (sum, l) => sum + byId.get(l.productId)!.price * l.qty,
           0,
         );
+
+        // ST-04: redeem voucher + potong poin dalam transaksi yang sama.
+        // Urutan akuntansi: subtotal → diskon voucher → poin → total.
+        let discount = 0;
+        let appliedCode: string | null = null;
+        let redemptionId: string | null = null;
+        if (voucherCode) {
+          const redeemed = await this.vouchers.redeemInTransaction(mgr, {
+            code: voucherCode,
+            userId: actor.id,
+            subtotal,
+            channel: 'shop',
+          });
+          discount = redeemed.discount;
+          appliedCode = redeemed.voucherCode;
+          redemptionId = redeemed.redemptionId;
+        }
+        const { pointsUsed } = await this.vouchers.deductPointsInTransaction(
+          mgr,
+          { userId: actor.id, requested: usePoints, cap: subtotal - discount },
+        );
+        const total = Math.max(0, subtotal - discount - pointsUsed);
 
         const order = await orderRepo.save(
           orderRepo.create({
@@ -178,8 +216,18 @@ export class OrdersService {
             channel: 'marketplace',
             status: 'pending',
             total,
+            subtotal,
+            discount,
+            voucherCode: appliedCode,
+            pointsUsed,
           }),
         );
+        if (redemptionId) {
+          await this.vouchers.linkRedemption(mgr, {
+            redemptionId,
+            orderId: order.id,
+          });
+        }
 
         for (const sellerId of sellerIds) {
           const sellerLines = lines.filter(
@@ -281,9 +329,10 @@ export class OrdersService {
   }
 
   /**
-   * Kompensasi Snap gagal: kembalikan stok tiap item + tandai order
-   * `cancelled` (beserta grupnya). Idempotent: hanya berjalan bila order
-   * masih `pending` tanpa token.
+   * Kompensasi Snap gagal: kembalikan stok tiap item + batalkan redeem
+   * voucher + kembalikan poin (ST-04) + tandai order `cancelled` (beserta
+   * grupnya). Idempotent: hanya berjalan bila order masih `pending`
+   * tanpa token.
    */
   private async compensateFailedSnap(orderId: string): Promise<void> {
     await this.orders.manager.transaction(async (mgr) => {
@@ -309,6 +358,19 @@ export class OrdersService {
       for (const p of products) {
         p.stock += qtyByProduct.get(p.id) ?? 0;
         await productRepo.save(p);
+      }
+      if (order.voucherCode) {
+        await this.vouchers.rollbackRedeem(mgr, {
+          voucherCode: order.voucherCode,
+          userId: order.userId,
+          orderId,
+        });
+      }
+      if ((order.pointsUsed ?? 0) > 0) {
+        await this.vouchers.refundPoints(mgr, {
+          userId: order.userId,
+          pointsUsed: order.pointsUsed ?? 0,
+        });
       }
       order.status = 'cancelled';
       await orderRepo.save(order);
@@ -350,6 +412,10 @@ export class OrdersService {
       channel: order.channel,
       status: order.status,
       total: order.total,
+      subtotal: order.subtotal ?? order.total,
+      discount: order.discount ?? 0,
+      voucherCode: order.voucherCode ?? null,
+      pointsUsed: order.pointsUsed ?? 0,
       snapToken: order.snapToken ?? null,
       redirectUrl: order.redirectUrl ?? null,
       paidAt: order.paidAt ?? null,

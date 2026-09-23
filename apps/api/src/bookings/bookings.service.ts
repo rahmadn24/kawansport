@@ -29,6 +29,7 @@ import { Booking, BookingStatus } from './booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { MidtransNotificationDto } from './dto/midtrans-notification.dto';
 import { MidtransService } from './midtrans.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 
 /** Booking pending kedaluwarsa 30 menit setelah dibuat (keputusan PO, BK-03). */
 export const BOOKING_TTL_MS = 30 * 60 * 1000;
@@ -45,6 +46,14 @@ export interface BookingItem {
   status: BookingStatus;
   paymentRef: string;
   amount: number;
+  /** Subtotal sebelum voucher/poin (ST-04; = amount bila tanpa promo). */
+  subtotal: number;
+  /** Diskon voucher rupiah (ST-04, snapshot). */
+  discount: number;
+  /** Kode voucher terpakai (ST-04, snapshot, null bila tanpa voucher). */
+  voucherCode: string | null;
+  /** Poin Kawan terpakai (ST-04, snapshot, 1 poin = Rp1). */
+  pointsUsed: number;
   snapToken: string | null;
   redirectUrl: string | null;
   /** Id event asal (BK-04); null bila booking langsung via POST /bookings. */
@@ -70,6 +79,7 @@ export class BookingsService {
     private readonly participants: Repository<EventParticipant>,
     private readonly slots: SlotsService,
     private readonly midtrans: MidtransService,
+    private readonly vouchers: VouchersService,
     // DataSource untuk cabang marketplace (MP-): repo ShopOrder/Product
     // diakses langsung agar tidak ada dependensi modul sirkular
     // Bookings <-> Marketplace (MidtransService dipakai ulang satu arah).
@@ -191,7 +201,7 @@ export class BookingsService {
     // terbaca free sebelum klaim (cron 5 mnt sebagai jaring pengaman).
     await this.expireDueBookings();
 
-    const amount = Math.round((court.pricePerHour * duration) / 60);
+    const subtotal = Math.round((court.pricePerHour * duration) / 60);
     const claim = await this.slots.confirmSlot(
       court.id,
       dto.date,
@@ -201,33 +211,136 @@ export class BookingsService {
     );
 
     const paymentRef = generatePaymentRef();
+    // Redeem voucher + potong poin + buat booking dalam SATU transaksi
+    // (ST-04): validasi-sebelum-mutasi + mutasi atomik (usedCount++,
+    // loyaltyPoints--, baris booking + redemption). Snap dibuat SETELAH
+    // commit agar lock tidak ditahan selama panggilan jaringan; gagal Snap
+    // → kompensasi (booking cancelled + redeem dibatalkan + poin kembali,
+    // pola yang sama dengan MP-02) + slot dilepas.
+    let bookingId: string;
+    let promo: {
+      voucherCode: string | null;
+      redemptionId: string | null;
+      pointsUsed: number;
+    };
     try {
-      const booking = await this.bookings.save(
-        this.bookings.create({
-          userId: actor.id,
-          courtId: court.id,
-          date: dto.date,
-          startMinute,
-          endMinute,
-          status: 'pending',
-          paymentRef,
-          amount,
-          slotClaimId: claim.id,
-          eventId,
-        }),
-      );
-      const snap = await this.midtrans.createTransaction({
-        orderId: paymentRef,
-        grossAmount: amount,
+      const created = await this.dataSource.transaction(async (mgr) => {
+        const bookingRepo = mgr.getRepository(Booking);
+        let discount = 0;
+        let voucherCode: string | null = null;
+        let redemptionId: string | null = null;
+        if (dto.voucherCode?.trim()) {
+          const redeemed = await this.vouchers.redeemInTransaction(mgr, {
+            code: dto.voucherCode,
+            userId: actor.id,
+            subtotal,
+            channel: 'booking',
+          });
+          discount = redeemed.discount;
+          voucherCode = redeemed.voucherCode;
+          redemptionId = redeemed.redemptionId;
+        }
+        const { pointsUsed } = await this.vouchers.deductPointsInTransaction(
+          mgr,
+          {
+            userId: actor.id,
+            requested: dto.usePoints ?? 0,
+            cap: subtotal - discount,
+          },
+        );
+        const amount = Math.max(0, subtotal - discount - pointsUsed);
+        const booking = await bookingRepo.save(
+          bookingRepo.create({
+            userId: actor.id,
+            courtId: court.id,
+            date: dto.date,
+            startMinute,
+            endMinute,
+            status: 'pending',
+            paymentRef,
+            amount,
+            subtotal,
+            discount,
+            voucherCode,
+            pointsUsed,
+            slotClaimId: claim.id,
+            eventId,
+          }),
+        );
+        if (redemptionId) {
+          await this.vouchers.linkRedemption(mgr, {
+            redemptionId,
+            bookingId: booking.id,
+          });
+        }
+        return {
+          bookingId: booking.id,
+          promo: { voucherCode, redemptionId, pointsUsed },
+        };
       });
-      booking.snapToken = snap.token;
-      booking.redirectUrl = snap.redirectUrl;
-      return toBookingItem(await this.bookings.save(booking));
+      bookingId = created.bookingId;
+      promo = created.promo;
     } catch (err) {
-      // Gagal simpan/Snap → bebaskan slot agar tidak nyangkut booked.
+      // Gagal sebelum booking tersimpan → bebaskan slot agar tidak nyangkut.
       await this.slots.releaseClaimInternal(claim.id).catch(() => undefined);
       throw err;
     }
+
+    try {
+      const bookingRepo = this.dataSource.getRepository(Booking);
+      const booking = await bookingRepo.findOneOrFail({
+        where: { id: bookingId },
+      });
+      const snap = await this.midtrans.createTransaction({
+        orderId: paymentRef,
+        grossAmount: booking.amount,
+      });
+      booking.snapToken = snap.token;
+      booking.redirectUrl = snap.redirectUrl;
+      return toBookingItem(await bookingRepo.save(booking));
+    } catch (err) {
+      // Gagal Snap → kompensasi + bebaskan slot (pola MP-02).
+      await this.compensateFailedSnap(bookingId, actor.id, promo);
+      await this.slots.releaseClaimInternal(claim.id).catch(() => undefined);
+      throw err;
+    }
+  }
+
+  /**
+   * Kompensasi Snap gagal (ST-04, pola MP-02): booking → `cancelled`,
+   * redeem voucher dibatalkan (redemption dihapus + usedCount--), poin
+   * dikembalikan. Idempotent: hanya berjalan bila booking masih `pending`
+   * tanpa token.
+   */
+  private async compensateFailedSnap(
+    bookingId: string,
+    userId: string,
+    promo: {
+      voucherCode: string | null;
+      redemptionId: string | null;
+      pointsUsed: number;
+    },
+  ): Promise<void> {
+    await this.dataSource.transaction(async (mgr) => {
+      const bookingRepo = mgr.getRepository(Booking);
+      const booking = await bookingRepo.findOne({ where: { id: bookingId } });
+      if (!booking || booking.status !== 'pending' || booking.snapToken) return;
+      booking.status = 'cancelled';
+      await bookingRepo.save(booking);
+      if (promo.voucherCode) {
+        await this.vouchers.rollbackRedeem(mgr, {
+          voucherCode: promo.voucherCode,
+          userId,
+          bookingId,
+        });
+      }
+      if (promo.pointsUsed > 0) {
+        await this.vouchers.refundPoints(mgr, {
+          userId,
+          pointsUsed: promo.pointsUsed,
+        });
+      }
+    });
   }
 
   /** GET /bookings/me — daftar booking milik sendiri (expiry oportunistik). */
@@ -326,7 +439,8 @@ export class BookingsService {
     }
     // SEC-01 High: gross_amount wajib sama dengan amount booking — tolak
     // 409 (status tetap pending) bila beda agar paid palsu via nominal
-    // kecil tidak mungkin.
+    // kecil tidak mungkin. `amount` = TOTAL SETELAH diskon voucher + poin
+    // (ST-04), jadi webhook wajib mengirim gross_amount final tersebut.
     assertAmountMatches(dto.gross_amount, booking.amount);
 
     const tx = dto.transaction_status;
@@ -381,7 +495,8 @@ export class BookingsService {
       return { ok: true, status: order.status };
     }
     // SEC-01 High: sama seperti booking — gross_amount wajib sama dengan
-    // order.total, beda -> 409 dan status tetap pending.
+    // order.total (= TOTAL SETELAH diskon voucher + poin ST-04),
+    // beda -> 409 dan status tetap pending.
     assertAmountMatches(dto.gross_amount, order.total);
 
     const tx = dto.transaction_status;
@@ -568,6 +683,10 @@ function toBookingItem(b: Booking): BookingItem {
     status: b.status,
     paymentRef: b.paymentRef,
     amount: b.amount,
+    subtotal: b.subtotal ?? b.amount,
+    discount: b.discount ?? 0,
+    voucherCode: b.voucherCode ?? null,
+    pointsUsed: b.pointsUsed ?? 0,
     snapToken: b.snapToken ?? null,
     redirectUrl: b.redirectUrl ?? null,
     eventId: b.eventId ?? null,
