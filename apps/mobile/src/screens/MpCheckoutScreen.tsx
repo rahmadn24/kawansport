@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopOrder, shopOrderStatusLabel } from '../api/shop';
 import { COLORS, RADIUS, SPACING, TYPO } from '../theme';
@@ -26,6 +26,14 @@ interface Props {
 export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
   const isStub = (order.snapToken ?? '').startsWith('stub-snap-');
   const itemCount = order.groups.reduce((sum, g) => sum + g.items.length, 0);
+  // Pakai snap lama (by design): JANGAN bikin charge ulang.
+  const canPay = order.status === 'pending' && !!order.redirectUrl;
+
+  const handlePay = () => {
+    if (order.redirectUrl) {
+      Linking.openURL(order.redirectUrl).catch(() => undefined);
+    }
+  };
   return (
     <View style={styles.box}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad}>
@@ -90,6 +98,16 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
         </View>
 
         <View style={styles.gap} />
+        {canPay ? (
+          <>
+            <UIButton
+              title="Bayar Sekarang"
+              onPress={handlePay}
+              accessibilityLabel={`Bayar sekarang, total ${formatIDR(order.total)}`}
+            />
+            <View style={styles.gap} />
+          </>
+        ) : null}
         <UIButton title="Kembali ke Keranjang" variant="ghost" onPress={onDone} />
       </ScrollView>
 

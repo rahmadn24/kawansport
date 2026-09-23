@@ -35,6 +35,10 @@ export interface RatingFormModalProps {
   submitting?: boolean;
   /** Error message dari submit sebelumnya */
   error?: string | null;
+  /** Nilai awal untuk mode edit (opsional; bila ada, form terisi existing). */
+  initial?: { score: number; comment?: string | null };
+  /** Label tombol submit (default "Kirim Ulasan"; mode edit pakai "Simpan"). */
+  submitLabel?: string;
 }
 
 /**
@@ -57,6 +61,8 @@ export function RatingFormModal({
   targetType,
   submitting = false,
   error,
+  initial,
+  submitLabel,
 }: RatingFormModalProps) {
   const [score, setScore] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
@@ -65,15 +71,18 @@ export function RatingFormModal({
 
   const MAX_COMMENT_LENGTH = 1000;
 
-  // Reset form saat modal dibuka/ditutup
+  // Reset form saat modal dibuka/ditutup; mode edit terisi nilai existing.
+  const initialScore = initial?.score ?? 0;
+  const initialComment = initial?.comment ?? '';
   useEffect(() => {
     if (visible) {
-      setScore(0);
-      setComment('');
-      setCharCount(0);
+      setScore(initialScore);
+      setComment(initialComment);
+      setCharCount(initialComment.length);
       setTouched({ score: false, comment: false });
     }
-  }, [visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, initialScore, initialComment]);
 
   const handleCommentChange = (text: string) => {
     if (text.length <= MAX_COMMENT_LENGTH) {
@@ -204,12 +213,12 @@ export function RatingFormModal({
                 disabled={submitting || score === 0}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Kirim rating"
+                accessibilityLabel={submitLabel ?? 'Kirim rating'}
               >
                 {submitting ? (
                   <ActivityIndicator size="small" color={COLORS.bg} />
                 ) : (
-                  <Text style={styles.submitText}>Kirim Ulasan</Text>
+                  <Text style={styles.submitText}>{submitLabel ?? 'Kirim Ulasan'}</Text>
                 )}
               </TouchableOpacity>
             </View>

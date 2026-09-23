@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopOrder, ShopOrderStatus, shopOrderStatusLabel } from '../api/shop';
 import { COLORS, RADIUS, SPACING, TYPO, formatWIB } from '../theme';
@@ -121,6 +121,20 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
                       </View>
                     ))
                   : null}
+                {expanded && o.status === 'pending' ? (
+                  o.redirectUrl ? (
+                    <TouchableOpacity
+                      style={styles.payBtn}
+                      onPress={() => Linking.openURL(o.redirectUrl as string).catch(() => undefined)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Bayar order ${o.paymentRef}, total ${formatIDR(o.total)}`}
+                    >
+                      <Text style={styles.payBtnText}>Bayar</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.waitPay}>Menunggu link bayar…</Text>
+                  )
+                ) : null}
                 <View style={styles.gap} />
                 <TouchableOpacity
                   style={styles.toggleBtn}
@@ -168,6 +182,16 @@ const styles = StyleSheet.create({
   itemSub: { fontSize: 13, fontWeight: '600', color: COLORS.ink },
   groupSubtotal: { fontSize: 13, fontWeight: '700', color: COLORS.brand700, marginTop: SPACING.sm, textAlign: 'right' },
   gap: { height: SPACING.md },
+  payBtn: {
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.full,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
+  },
+  payBtnText: { fontSize: 14, fontWeight: '700', color: COLORS.bg },
+  waitPay: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.md, textAlign: 'center' },
   toggleBtn: {
     borderWidth: 1.5,
     borderColor: COLORS.brand700,

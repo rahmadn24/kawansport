@@ -85,7 +85,7 @@ export function VenueDetailScreen({
   const [selectedStart, setSelectedStart] = useState<string | null>(null);
 
   // Rating hooks
-  const { summary, loading: summaryLoading, error: summaryError } = useVenueRatingSummary(
+  const { summary, loading: summaryLoading, error: summaryError, refetch: refetchSummary } = useVenueRatingSummary(
     venue?.id ?? null,
   );
   const { hasRated, checking: checkRatingLoading } = useUserRatingCheck(
@@ -497,7 +497,10 @@ export function VenueDetailScreen({
         <RatingReviewScreen
           venueId={venue.id}
           venueName={venue.name}
-          onClose={() => setShowAllReviews(false)}
+          onClose={() => {
+            setShowAllReviews(false);
+            refetchSummary?.();
+          }}
           currentUserId={user?.id ?? null}
           courtId={court?.id ?? null}
           courtName={court?.name}

@@ -1,18 +1,20 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { RatingItem, RatingSortBy } from '../../api/ratings';
-import { useVenueRatings, useVenueRatingSummary, useCourtRatings, useCourtRatingSummary } from '../../hooks/useRatings';
+import { CreateRatingInput, RatingItem, RatingSortBy } from '../../api/ratings';
+import { useVenueRatings, useVenueRatingSummary, useCourtRatings, useCourtRatingSummary, useRatingMutations } from '../../hooks/useRatings';
 import { ReviewCard } from '../../components/ReviewCard';
+import { RatingFormModal } from '../../components/RatingFormModal';
 import { RatingStarsDisplay } from '../../components/RatingStars';
 import { COLORS, RADIUS, SPACING, TYPO, friendlyServerError } from '../../theme';
-import { UIAppBar, UIEmptyState, UIErrorBanner, UISegmented, UISkeleton } from '../../components/ui';
+import { UIAppBar, UIEmptyState, UIErrorBanner, UISegmented, UISkeleton, UIToast } from '../../components/ui';
 
 interface Props {
   venueId: string;
@@ -63,6 +65,80 @@ export function RatingReviewScreen({
     refresh();
     refetchSummary?.();
   }, [refresh, refetchSummary]);
+
+  // Edit/hapus ulasan milik sendiri (owner-only, endpoint sudah ada).
+  const {
+    update: updateRating,
+    remove: removeRating,
+    mutating,
+    error: mutationError,
+    clearError: clearMutationError,
+  } = useRatingMutations();
+  const [editing, setEditing] = useState<RatingItem | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [toastKind, setToastKind] = useState<'success' | 'error'>('success');
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showErrorToast = useCallback((message: string) => {
+    setToastKind('error');
+    setToast(message);
+  }, []);
+
+  const handleEdit = useCallback(
+    (rating: RatingItem) => {
+      clearMutationError();
+      setEditing(rating);
+    },
+    [clearMutationError],
+  );
+
+  const handleEditSubmit = useCallback(
+    async (input: CreateRatingInput) => {
+      if (!editing) return;
+      const updated = await updateRating(editing.id, {
+        score: input.score,
+        comment: input.comment,
+      });
+      if (updated) {
+        setEditing(null);
+        setToastKind('success');
+        setToast('Ulasan diperbarui ✓');
+        handleRefresh();
+      } else {
+        showErrorToast('Gagal menyimpan ulasan');
+      }
+    },
+    [editing, updateRating, handleRefresh, showErrorToast],
+  );
+
+  const handleDelete = useCallback(
+    (ratingId: string) => {
+      Alert.alert('Hapus ulasan?', 'Hapus ulasan ini?', [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: () => {
+            removeRating(ratingId).then((ok) => {
+              if (ok) {
+                setToastKind('success');
+                setToast('Ulasan dihapus ✓');
+                handleRefresh();
+              } else {
+                showErrorToast('Gagal menghapus ulasan');
+              }
+            }).catch(() => showErrorToast('Gagal menghapus ulasan'));
+          },
+        },
+      ]);
+    },
+    [removeRating, handleRefresh, showErrorToast],
+  );
 
   const handleLoadMore = useCallback(() => {
     loadMore();
@@ -121,6 +197,8 @@ export function RatingReviewScreen({
       rating={item}
       currentUserId={currentUserId}
       onUserPress={() => undefined}
+      onEdit={handleEdit}
+      onDelete={handleDelete}
     />
   );
 
@@ -163,6 +241,7 @@ export function RatingReviewScreen({
           ]}
         />
         <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={handleRefresh} />
+        <UIErrorBanner message={mutationError} actionLabel="Coba lagi" onAction={handleRefresh} />
       </View>
 
       <FlatList<ListItem>
@@ -184,6 +263,25 @@ export function RatingReviewScreen({
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+
+      <RatingFormModal
+        visible={!!editing}
+        onClose={() => setEditing(null)}
+        onSubmit={handleEditSubmit}
+        venueId={venueId}
+        courtId={courtId ?? null}
+        targetName={targetName}
+        targetType={isCourt ? 'court' : 'venue'}
+        submitting={mutating}
+        error={mutationError}
+        initial={
+          editing
+            ? { score: editing.score, comment: editing.review?.comment ?? '' }
+            : undefined
+        }
+        submitLabel="Simpan"
+      />
+      <UIToast message={toast} kind={toastKind === 'error' ? 'error' : 'success'} />
     </View>
   );
 }
