@@ -50,7 +50,7 @@ export function VenueListScreen({
   return (
     <View style={styles.screen}>
       <UIHeader locationText="Sekitarmu" />
-      <View style={styles.content}>
+      <View style={styles.padded}>
         {eventLabel ? (
           <View style={styles.ctx} accessibilityRole="text">
             <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
@@ -65,8 +65,10 @@ export function VenueListScreen({
         />
 
         <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
+        <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} />
+      </View>
 
-        {loading && venues.length === 0 ? (
+      {loading && venues.length === 0 ? (
           <UISkeleton rows={4} />
         ) : (
           <FlatList
@@ -137,15 +139,13 @@ export function VenueListScreen({
           />
         )}
 
-        <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} />
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
-  content: { flex: 1, paddingHorizontal: SPACING.screen },
+  padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.md },
   ctx: {
     backgroundColor: COLORS.brand100,
     borderRadius: RADIUS.sm,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   },
   ctxText: { fontSize: 13, fontWeight: '600', color: COLORS.brand900, textAlign: 'center' },
   list: { flex: 1 },
-  listPad: { paddingBottom: SPACING.screen },
+  listPad: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen },
   card: {
     backgroundColor: COLORS.bg,
     borderWidth: 1,
