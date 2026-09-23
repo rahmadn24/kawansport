@@ -1,7 +1,15 @@
-import React from 'react';
-import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
-import { ShopOrder, shopOrderStatusLabel } from '../api/shop';
+import { ShopOrder, ShopOrderStatus, shopOrderStatusLabel } from '../api/shop';
+import { COLORS, RADIUS, SPACING, TYPO, formatWIB } from '../theme';
+import {
+  UIBadge,
+  UIEmptyState,
+  UIErrorBanner,
+  UISegmented,
+} from '../components/ui';
+import { orderBadgeKind } from '../mocks/stitch';
 
 interface Props {
   orders: ShopOrder[];
@@ -13,69 +21,152 @@ interface Props {
 }
 
 /**
- * Layar Orders (MP-02): daftar order milik sendiri + rincian grup per seller
- * (expandable). Tanpa aksi cancel — order pending diselesaikan via pembayaran.
+ * Layar Orders (MP-02, Stitch UX-03): badge status berwarna + nama toko
+ * real + filter segmented + rincian grup per seller (FlatList).
+ * Tanpa aksi cancel — order pending diselesaikan via pembayaran.
  */
 export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, onRefresh }: Props) {
+  const [filter, setFilter] = useState<ShopOrderStatus | null>(null);
+  const shown = filter ? orders.filter((o) => o.status === filter) : orders;
+
   if (loading && orders.length === 0) {
     return (
       <View style={styles.box}>
-        <ActivityIndicator />
+        <ActivityIndicator accessibilityLabel="Memuat order" />
       </View>
     );
   }
   return (
     <View style={styles.box}>
       <Text style={styles.title}>Order Saya</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {orders.length === 0 && !loading ? (
-        <Text style={styles.sub}>Belum ada order. Checkout dari keranjang dulu.</Text>
+
+      <UISegmented<ShopOrderStatus>
+        label="Saring status order"
+        options={[
+          { value: null, label: 'Semua' },
+          { value: 'pending', label: 'Menunggu' },
+          { value: 'paid', label: 'Lunas' },
+          { value: 'expired', label: 'Kedaluwarsa' },
+          { value: 'cancelled', label: 'Batal' },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
+
+      {error ? <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} /> : null}
+      {shown.length === 0 && !loading ? (
+        <UIEmptyState
+          illustration="📦"
+          title="Belum ada order"
+          message={
+            filter
+              ? 'Tidak ada order dengan status ini.'
+              : 'Checkout dari keranjang dulu.'
+          }
+          actionLabel="Muat Ulang"
+          onAction={onRefresh}
+        />
       ) : (
-        orders.map((o) => (
-          <View key={o.id} style={styles.card}>
-            <Text style={styles.name}>
-              {o.paymentRef} • {shopOrderStatusLabel(o.status)}
-            </Text>
-            <Text style={styles.sub}>
-              {formatIDR(o.total)} • {o.groups.length} toko
-            </Text>
-            {expandedId === o.id
-              ? o.groups.map((g) => (
-                  <View key={g.id} style={styles.group}>
-                    <Text style={styles.groupTitle}>
-                      {g.sellerShopName || g.sellerId} • {formatIDR(g.subtotal)} •{' '}
-                      {shopOrderStatusLabel(g.status)}
+        <FlatList
+          style={styles.list}
+          contentContainerStyle={styles.listPad}
+          data={shown}
+          keyExtractor={(o) => o.id}
+          onRefresh={onRefresh}
+          refreshing={loading}
+          renderItem={({ item: o }) => {
+            const expanded = expandedId === o.id;
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardRow}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      Order {o.paymentRef}
                     </Text>
-                    {g.items.map((it) => (
-                      <Text key={it.productId} style={styles.sub}>
-                        {it.productName} × {it.qty} = {formatIDR(it.subtotal)}
-                      </Text>
-                    ))}
+                    <Text style={styles.sub}>
+                      {formatIDR(o.total)} • {o.groups.length} toko • {formatWIB(o.createdAt)}
+                    </Text>
                   </View>
-                ))
-              : null}
-            <View style={styles.gap} />
-            <Button
-              title={expandedId === o.id ? 'Tutup Rincian' : 'Lihat Rincian'}
-              onPress={() => onToggle(o.id)}
-            />
-          </View>
-        ))
+                  <UIBadge kind={orderBadgeKind(o.status)} label={shopOrderStatusLabel(o.status)} />
+                </View>
+                {expanded
+                  ? o.groups.map((g) => (
+                      <View key={g.id} style={styles.group}>
+                        <View style={styles.groupHead}>
+                          <Text style={styles.groupTitle} numberOfLines={1}>
+                            {g.sellerShopName || 'Toko'}
+                          </Text>
+                          <UIBadge
+                            kind={orderBadgeKind(g.status)}
+                            label={shopOrderStatusLabel(g.status)}
+                          />
+                        </View>
+                        {g.items.map((it) => (
+                          <View key={it.productId} style={styles.itemRow}>
+                            <Text style={styles.itemName} numberOfLines={2}>
+                              {it.productName} × {it.qty}
+                            </Text>
+                            <Text style={styles.itemSub}>{formatIDR(it.subtotal)}</Text>
+                          </View>
+                        ))}
+                        <Text style={styles.groupSubtotal}>
+                          Subtotal: {formatIDR(g.subtotal)}
+                        </Text>
+                      </View>
+                    ))
+                  : null}
+                <View style={styles.gap} />
+                <TouchableOpacity
+                  style={styles.toggleBtn}
+                  onPress={() => onToggle(o.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={expanded ? `Tutup rincian order ${o.paymentRef}` : `Lihat rincian order ${o.paymentRef}`}
+                >
+                  <Text style={styles.toggleText}>
+                    {expanded ? 'Tutup Rincian' : 'Lihat Rincian'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }}
+        />
       )}
-      <View style={styles.gap} />
-      <Button title="Muat Ulang" onPress={onRefresh} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24, justifyContent: 'flex-start' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
-  card: { borderWidth: 1, borderColor: '#ddd', borderRadius: 10, padding: 12, marginBottom: 12 },
-  name: { fontSize: 14, fontWeight: '600' },
-  sub: { fontSize: 13, color: '#555', marginTop: 4 },
-  group: { marginTop: 8, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8 },
-  groupTitle: { fontSize: 14, fontWeight: '600' },
-  error: { fontSize: 14, color: '#b00020', marginTop: 8, textAlign: 'center' },
-  gap: { height: 12 },
+  box: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  title: { ...TYPO.title, color: COLORS.ink, marginBottom: SPACING.md, textAlign: 'center' },
+  list: { flex: 1 },
+  listPad: { paddingBottom: SPACING.screen },
+  card: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardHead: { flex: 1, marginRight: SPACING.sm },
+  name: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  sub: { fontSize: 13, color: COLORS.muted, marginTop: 4 },
+  group: { marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: SPACING.md },
+  groupHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  groupTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: COLORS.ink, marginRight: SPACING.sm },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },
+  itemName: { flex: 1, fontSize: 13, color: COLORS.ink, marginRight: SPACING.sm },
+  itemSub: { fontSize: 13, fontWeight: '600', color: COLORS.ink },
+  groupSubtotal: { fontSize: 13, fontWeight: '700', color: COLORS.brand700, marginTop: SPACING.sm, textAlign: 'right' },
+  gap: { height: SPACING.md },
+  toggleBtn: {
+    borderWidth: 1.5,
+    borderColor: COLORS.brand700,
+    borderRadius: RADIUS.full,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleText: { fontSize: 14, fontWeight: '700', color: COLORS.brand700 },
 });

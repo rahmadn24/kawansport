@@ -1,15 +1,16 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Button,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { VenueItem } from '../api/venues';
 import { formatDistance } from '../api/partners';
+import { formatIDR } from '../api/bookings';
+import { COLORS, RADIUS, SPACING, TYPO, formatKm, initialsOf } from '../theme';
+import {
+  UIAppBar,
+  UIChip,
+  UIEmptyState,
+  UIErrorBanner,
+  UISkeleton,
+} from '../components/ui';
 
 interface Props {
   venues: VenueItem[];
@@ -23,7 +24,9 @@ interface Props {
   eventLabel: string | null;
 }
 
-/** Layar Venue List (BK-04): filter sport + daftar venue approved. */
+const SPORTS = ['Futsal', 'Basket', 'Badminton', 'Tenis', 'Voli'];
+
+/** Layar Venue List (BK-04, Stitch UX-03): filter sport + kartu venue. */
 export function VenueListScreen({
   venues,
   loading,
@@ -36,90 +39,142 @@ export function VenueListScreen({
 }: Props) {
   return (
     <View style={styles.box}>
-      <Text style={styles.title}>Venue</Text>
-      {eventLabel ? <Text style={styles.ctx}>Booking untuk: {eventLabel}</Text> : null}
+      <UIAppBar title="Booking Lapangan" />
+      {eventLabel ? (
+        <View style={styles.ctx} accessibilityRole="text">
+          <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
+        </View>
+      ) : null}
 
-      <View style={styles.chips}>
-        <TouchableOpacity
-          style={[styles.chip, !sportFilter && styles.chipActive]}
-          onPress={() => onFilterChange(null)}
-        >
-          <Text style={[styles.chipText, !sportFilter && styles.chipTextActive]}>Semua</Text>
-        </TouchableOpacity>
-        {['Futsal', 'Basket', 'Badminton', 'Tenis', 'Voli'].map((s) => {
+      <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Saring olahraga">
+        <UIChip label="Semua" active={!sportFilter} onPress={() => onFilterChange(null)} />
+        {SPORTS.map((s) => {
           const active = sportFilter?.toLowerCase() === s.toLowerCase();
           return (
-            <TouchableOpacity
+            <UIChip
               key={s}
-              style={[styles.chip, active && styles.chipActive]}
+              label={s}
+              active={active}
               onPress={() => onFilterChange(active ? null : s)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{s}</Text>
-            </TouchableOpacity>
+            />
           );
         })}
       </View>
 
       {loading && venues.length === 0 ? (
-        <ActivityIndicator />
+        <UISkeleton rows={4} />
       ) : (
         <FlatList
           style={styles.list}
+          contentContainerStyle={styles.listPad}
           data={venues}
           keyExtractor={(item) => item.id}
           onRefresh={onRefresh}
           refreshing={loading}
-          ListEmptyComponent={<Text style={styles.empty}>Belum ada venue.</Text>}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => onSelect(item.id)}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardSub}>
-                {item.sports.join(', ')} • {item.address}
-              </Text>
-              <Text style={styles.cardSub}>
-                {(item.courts ?? []).length} lapangan
-                {item.distanceMeters != null ? ` • ${formatDistance(item.distanceMeters)}` : ''}
-              </Text>
-            </TouchableOpacity>
-          )}
+          ListEmptyComponent={
+            <UIEmptyState
+              illustration="🏟"
+              title="Belum ada venue"
+              message="Coba ganti filter olahraga atau muat ulang daftar."
+              actionLabel="Muat Ulang"
+              onAction={onRefresh}
+            />
+          }
+          renderItem={({ item }) => {
+            const courts = item.courts ?? [];
+            const prices = courts
+              .filter((c) => c.status === 'active')
+              .map((c) => c.pricePerHour)
+              .filter((p) => Number.isFinite(p));
+            const fromPrice = prices.length > 0 ? Math.min(...prices) : null;
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => onSelect(item.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Buka ${item.name}`}
+              >
+                <View style={styles.cardTop}>
+                  <View style={styles.thumb} accessibilityElementsHidden>
+                    <Text style={styles.thumbText}>{initialsOf(item.name)}</Text>
+                  </View>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.cardSub} numberOfLines={1}>
+                      {item.sports.join(', ')}
+                    </Text>
+                    <Text style={styles.cardSub} numberOfLines={1}>
+                      {item.address}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.cardMeta}>
+                  <Text style={styles.meta}>
+                    {courts.length} lapangan
+                    {item.distanceMeters != null
+                      ? ` • ${formatKm(item.distanceMeters)} dari lokasimu`
+                      : ` • ${formatDistance(item.distanceMeters)}`}
+                  </Text>
+                  {fromPrice != null ? (
+                    <Text style={styles.price}>Mulai {formatIDR(fromPrice)}/jam</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
         />
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.gap} />
-      <Button title="Refresh" onPress={onRefresh} />
+      <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
-  ctx: { fontSize: 13, color: '#1a73e8', textAlign: 'center', marginBottom: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8, marginTop: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#888',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    marginBottom: 8,
+  box: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: SPACING.screen },
+  ctx: {
+    backgroundColor: COLORS.brand100,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  chipActive: { backgroundColor: '#1a73e8', borderColor: '#1a73e8' },
-  chipText: { color: '#333' },
-  chipTextActive: { color: '#fff' },
+  ctxText: { fontSize: 13, fontWeight: '600', color: COLORS.brand900, textAlign: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.sm },
   list: { flex: 1 },
-  empty: { textAlign: 'center', color: '#555', marginTop: 24 },
+  listPad: { paddingBottom: SPACING.screen },
   card: {
+    backgroundColor: COLORS.bg,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700' },
-  cardSub: { fontSize: 13, color: '#555', marginTop: 4 },
-  gap: { height: 12 },
-  error: { color: '#c00', marginTop: 8, textAlign: 'center' },
+  cardTop: { flexDirection: 'row', alignItems: 'center' },
+  thumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: COLORS.brand900,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  thumbText: { color: COLORS.lime, fontSize: 20, fontWeight: '800' },
+  cardHead: { flex: 1 },
+  cardTitle: { ...TYPO.cardTitle, color: COLORS.ink },
+  cardSub: { ...TYPO.sub, color: COLORS.muted, marginTop: 2 },
+  cardMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingTop: SPACING.md,
+  },
+  meta: { fontSize: 12, fontWeight: '600', color: COLORS.faint },
+  price: { fontSize: 13, fontWeight: '800', color: COLORS.brand700 },
 });

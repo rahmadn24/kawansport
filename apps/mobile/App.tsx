@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -499,6 +499,17 @@ function BookingFlow({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  /** UX-03: peta courtId -> "Venue • Court" (real, dari daftar venue yg dimuat). */
+  const venueNameByCourt = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const v of venues) {
+      for (const c of v.courts ?? []) {
+        map[c.id] = `${v.name} • ${c.name}`;
+      }
+    }
+    return map;
+  }, [venues]);
+
   // Tanggal event selalu tersedia di picker walau di luar strip 14 hari.
   const dateOptions = (() => {
     const base = next14Days();
@@ -640,6 +651,15 @@ function BookingFlow({
       .finally(() => setCancellingId(null));
   };
 
+  /** UX-03: bayar ulang booking pending via layar checkout existing. */
+  const handleRepay = (b: BookingItem) => {
+    setRoute({
+      name: 'checkout',
+      booking: b,
+      courtLabel: venueNameByCourt[b.courtId] ?? null,
+    });
+  };
+
   if (route.name === 'checkout') {
     return (
       <CheckoutScreen
@@ -663,6 +683,8 @@ function BookingFlow({
         cancelError={cancelError}
         onRefresh={() => loadMine().catch(() => undefined)}
         onCancel={handleCancel}
+        venueNameByCourt={venueNameByCourt}
+        onRepay={handleRepay}
       />
     );
   }

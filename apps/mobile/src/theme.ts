@@ -62,6 +62,16 @@ export const TYPO = {
   angka: { fontSize: 18, fontWeight: '800' as const },
 } as const;
 
+/**
+ * Fallback hero venue/produk batch UX-03 (Stitch): gradasi hijau solid +
+ * inisial — FOTO ASLI belum ada, JANGAN foto palsu.
+ */
+// TODO(ST-01): ganti foto asli dari API media.
+export const HERO = {
+  from: COLORS.brand950,
+  to: COLORS.brand700,
+} as const;
+
 /** Format tanggal ke "03 Okt 2026, 09.00 WIB" (id-ID, Asia/Jakarta). */
 export function formatWIB(iso: string): string {
   const d = new Date(iso);

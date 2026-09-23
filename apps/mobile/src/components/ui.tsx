@@ -1,7 +1,8 @@
 /**
- * Komponen bersama Design System v1 (UX-02): Button, Card, Chip,
- * TextInput berlabel, EmptyState, Skeleton, Badge, Avatar, Segmented,
- * AppBar, banner, Toast. Dipakai ulang antar layar batch UX-02.
+ * Komponen bersama Design System v1 (UX-02) + varian Stitch UX-03:
+ * Button pill, Card, Chip navy + dot lime, TextInput berlabel, EmptyState,
+ * Skeleton, Badge, Avatar, Segmented navy, AppBar, banner, Toast,
+ * SearchBar, ProgressBar, StickyBar. Dipakai ulang antar layar.
  * JANGAN dipakai untuk refactor komponen rating (di luar scope).
  */
 import React, { useState } from 'react';
@@ -116,6 +117,7 @@ export function UIChip({ label, active, onPress, accessibilityLabel }: UIChipPro
       accessibilityLabel={accessibilityLabel ?? `Saring ${label}`}
       accessibilityState={{ selected: !!active }}
     >
+      {active ? <View style={styles.chipDot} accessibilityElementsHidden /> : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -261,7 +263,16 @@ export function UISkeleton({ rows = 4 }: { rows?: number }) {
 
 // ---------- Badge ----------
 
-export type BadgeKind = 'open' | 'full' | 'paid' | 'pending' | 'expired' | 'unread' | 'skill' | 'info';
+export type BadgeKind =
+  | 'open'
+  | 'full'
+  | 'paid'
+  | 'pending'
+  | 'expired'
+  | 'cancelled'
+  | 'unread'
+  | 'skill'
+  | 'info';
 
 const BADGE_STYLE: Record<BadgeKind, { bg: string; fg: string }> = {
   open: { bg: COLORS.brand100, fg: COLORS.brand900 },
@@ -269,6 +280,7 @@ const BADGE_STYLE: Record<BadgeKind, { bg: string; fg: string }> = {
   paid: { bg: COLORS.tealPaidBg, fg: COLORS.tealPaid },
   pending: { bg: COLORS.pendingBg, fg: COLORS.pendingFg },
   expired: { bg: COLORS.expiredBg, fg: COLORS.expiredFg },
+  cancelled: { bg: COLORS.dangerSoft, fg: COLORS.danger },
   unread: { bg: COLORS.danger, fg: COLORS.bg },
   skill: { bg: COLORS.brand100, fg: COLORS.brand900 },
   info: { bg: COLORS.brand100, fg: COLORS.brand900 },
@@ -349,6 +361,7 @@ export function UISegmented<T extends string>({ label, options, value, onChange 
             accessibilityLabel={`${label}: ${o.label}`}
             accessibilityState={{ selected: active }}
           >
+            {active ? <View style={styles.chipDot} accessibilityElementsHidden /> : null}
             <Text style={[styles.segText, active && styles.segTextActive]}>{o.label}</Text>
           </TouchableOpacity>
         );
@@ -418,12 +431,108 @@ export function UIToast({ message, kind = 'success' }: { message: string | null;
   );
 }
 
+// ---------- Search bar (Stitch UX-03) ----------
+
+export function UISearchBar({
+  value,
+  onChange,
+  placeholder = 'Cari...',
+  accessibilityLabel = 'Pencarian',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  accessibilityLabel?: string;
+}) {
+  return (
+    <View style={styles.searchWrap}>
+      <Text style={styles.searchIcon} accessibilityElementsHidden>
+        🔍
+      </Text>
+      <TextInput
+        style={styles.searchInput}
+        value={value}
+        onChangeText={onChange}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.faint}
+        accessibilityLabel={accessibilityLabel}
+        returnKeyType="search"
+      />
+    </View>
+  );
+}
+
+// ---------- Progress bar (Stitch UX-03: countdown checkout) ----------
+
+export function UIProgressBar({ progress }: { progress: number }) {
+  const clamped = Math.min(1, Math.max(0, progress));
+  return (
+    <View style={styles.progressTrack} accessibilityElementsHidden>
+      <View style={[styles.progressFill, { flex: clamped }]} />
+      <View style={{ flex: 1 - clamped }} />
+    </View>
+  );
+}
+
+// ---------- Sticky bottom bar (Stitch UX-03: total + CTA oranye) ----------
+
+export function UIStickyBar({
+  totalLabel,
+  totalValue,
+  totalSub,
+  ctaTitle,
+  onCta,
+  ctaDisabled,
+  ctaLoading,
+  ctaA11y,
+}: {
+  totalLabel: string;
+  totalValue: string;
+  totalSub?: string | null;
+  ctaTitle: string;
+  onCta: () => void;
+  ctaDisabled?: boolean;
+  ctaLoading?: boolean;
+  ctaA11y?: string;
+}) {
+  const inactive = ctaDisabled || ctaLoading;
+  return (
+    <View style={styles.stickyBar}>
+      <View style={styles.stickyTotal}>
+        <Text style={styles.stickyLabel}>{totalLabel}</Text>
+        <Text style={styles.stickyValue} numberOfLines={1}>
+          {totalValue}
+        </Text>
+        {totalSub ? (
+          <Text style={styles.stickySub} numberOfLines={1}>
+            {totalSub}
+          </Text>
+        ) : null}
+      </View>
+      <TouchableOpacity
+        style={[styles.stickyCta, inactive && styles.btnDisabled]}
+        onPress={onCta}
+        disabled={inactive}
+        accessibilityRole="button"
+        accessibilityLabel={ctaA11y ?? ctaTitle}
+        accessibilityState={{ disabled: !!inactive, busy: !!ctaLoading }}
+      >
+        {ctaLoading ? (
+          <ActivityIndicator size="small" color={COLORS.bg} />
+        ) : (
+          <Text style={styles.stickyCtaText}>{ctaTitle} ›</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ---------- Styles ----------
 
 const styles = StyleSheet.create({
   btn: {
     minHeight: 48,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -453,11 +562,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     minHeight: 40,
     justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
     marginRight: SPACING.sm,
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.bg,
   },
-  chipActive: { backgroundColor: COLORS.brand700, borderColor: COLORS.brand700 },
+  chipActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
+  chipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.lime,
+    marginRight: 6,
+  },
   chipText: { ...TYPO.chip, color: COLORS.muted },
   chipTextActive: { color: COLORS.bg },
   field: { marginBottom: SPACING.md },
@@ -516,11 +634,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     minHeight: 40,
     justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
     marginRight: SPACING.sm,
     marginBottom: SPACING.sm,
     backgroundColor: COLORS.bg,
   },
-  segActive: { backgroundColor: COLORS.brand700, borderColor: COLORS.brand700 },
+  segActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
   segText: { ...TYPO.chip, color: COLORS.muted },
   segTextActive: { color: COLORS.bg },
   appbar: {
@@ -551,4 +671,47 @@ const styles = StyleSheet.create({
   toastInfo: { backgroundColor: COLORS.navy },
   toastError: { backgroundColor: COLORS.danger },
   toastText: { fontSize: 14, fontWeight: '600', color: COLORS.bg, textAlign: 'center' },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.md,
+    minHeight: 44,
+    paddingHorizontal: SPACING.md,
+  },
+  searchIcon: { fontSize: 18, marginRight: SPACING.sm },
+  searchInput: { flex: 1, fontSize: 14, color: COLORS.ink, minHeight: 42 },
+  progressTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.line,
+    overflow: 'hidden',
+  },
+  progressFill: { backgroundColor: COLORS.accent, borderRadius: 3 },
+  stickyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.bg,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+    paddingHorizontal: SPACING.screen,
+    paddingVertical: SPACING.md,
+  },
+  stickyTotal: { flex: 1, marginRight: SPACING.md },
+  stickyLabel: { fontSize: 12, color: COLORS.muted },
+  stickyValue: { ...TYPO.angka, color: COLORS.ink },
+  stickySub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+  stickyCta: {
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.full,
+    minHeight: 48,
+    paddingHorizontal: SPACING.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 150,
+  },
+  stickyCtaText: { color: COLORS.bg, fontSize: 15, fontWeight: '700' },
 });
