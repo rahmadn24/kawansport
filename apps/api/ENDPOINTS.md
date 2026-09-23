@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W07 + API-W02/W04)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -21,6 +21,7 @@ Ringkasan per SM:
 | API-W06 | Walk-in owner + blokir slot maintenance | `POST /bookings/walk-in`, `POST/GET/DELETE /courts/:id/blocks[/:blockId]` (status availability baru: `blocked`) |
 | API-W07 | Check-in via kode booking | `GET /bookings/by-code/:code`, `POST /bookings/:id/check-in` (kode `KS-XXXXXX`) |
 | API-W04 | Activity feed admin (agregasi read-only) | `GET /admin/activity?limit=` (super_admin) |
+| API-W08 | Payout & withdraw mitra (manual) | `POST/GET /payouts[/me|/balance]`, `POST /payouts/:id/{approve,reject,pay}` |
 | API-W02 | Dispute center | `POST/GET /disputes[/me]`, `GET /disputes?status=`, `POST /disputes/:id/{investigate,resolve}` |
 | MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
 | MP-02 | Cart multiseller + checkout + orders per seller | `GET/PUT /cart`, `POST /checkout`, `GET /orders/me`, `GET /orders/:id` (webhook sama `POST /payments/midtrans/notification`, prefix `MP-`) |
@@ -580,3 +581,72 @@ Body: `{ status: resolved|rejected, resolution? (≤2000) }` → 200 item
 - `resolved` WAJIB `resolution` non-kosong (else 400); `rejected` opsional.
 - Hanya dari `open`/`investigating` (sudah terminal → 409).
 - Status selain resolved/rejected → 400; tak ada → 404.
+
+## Payout & withdraw mitra (API-W08, auth)
+
+Payout = CATAT-DAN-APPROVE manual transfer, TANPA integrasi Midtrans
+disbursement API (keputusan PO FINAL — modul Midtrans hanya punya Snap +
+verify webhook, tidak ada disbursement/Iris; grep `disbursement|iris|
+payout` di `src/` hanya menemukan komentar placeholder activity feed).
+
+Tabel `payouts` (`payee_type` venue|seller, `payee_id` = id venue/seller,
+`amount` integer > 0, `bank_name/account_number/account_name` opsional,
+`status` requested|approved|rejected default `requested` (`paid` = sudah
+ditransfer manual + `reference`), `reference?` bukti transfer teks,
+`reason?` alasan reject, `requested_by`, `handled_by?`, timestamps).
+Tidak ada tabel saldo terpisah (anti-drift): saldo selalu dihitung live
+dari data real — reuse rumus net API-W05
+(`net = round(gross × (100 − commission) / 100)` dengan komisi efektif
+API-W03 termasuk promo bila aktif).
+
+- Venue: `gross` = SUM(`amount`) booking `paid` atas court venue tsb
+  (termasuk walk-in; `amount` sudah final termasuk service fee — konsisten
+  dengan revenue API-W05).
+- Seller: `gross` = SUM(`subtotal`) `order_groups` `paid` seller tsb.
+- `reserved` = SUM(`amount`) payout `approved`+`paid` payee tsb
+  (`requested`/`rejected` TIDAK mengunci saldo).
+- `available` = `net − reserved` (batas withdraw).
+
+### `GET /payouts/balance` (venue_owner / seller / super_admin)
+- Dengan `?payeeType=venue|seller&payeeId=<uuid>` (wajib berpasangan,
+  else 400): satu payee milik sendiri → 200
+  `{ payeeType, payeeId, gross, commissionPercent, net, reserved, available }`.
+  Lintas owner → 403; payee tak ada → 404.
+- Tanpa query: agregat semua payee milik sendiri
+  `{ payeeType: null, payeeId: null, gross, commissionPercent, net,
+  reserved, available, breakdown: BalanceItem[] }`.
+  Super_admin tanpa query → 400 (harus tunjuk payee).
+- Tanpa token → 401; role `user` → 403.
+
+### `POST /payouts` (venue_owner / seller / super_admin)
+Body: `{ payeeType, payeeId, amount (integer ≥ 1), bankName?,
+accountNumber?, accountName? }` → 201 payout `requested`
+(`requestedBy` = user JWT).
+- `amount` ≤ `available` (else 409); payee tak ada → 404; lintas
+  owner → 403; validasi DTO gagal → 400.
+
+### `GET /payouts/me` (venue_owner / seller / super_admin)
+Riwayat milik sendiri (yang diminta actor ATAU yang payee-nya dimiliki
+actor — agar request admin untuk payee-nya tetap terlihat), terbaru dulu
+→ `{ data: PayoutItem[] }`.
+`PayoutItem`: `id, payeeType, payeeId, amount, bankName, accountNumber,
+accountName, status, reference, reason, requestedBy, handledBy,
+createdAt, updatedAt`.
+
+### `GET /payouts?status=` (khusus super_admin)
+Antrean payout, filter `status?`
+(requested|approved|rejected|paid) → `{ data, meta: { total } }`.
+Tanpa token → 401; role lain → 403.
+
+### `POST /payouts/:id/approve` (khusus super_admin)
+Body: `{ reference? (≤255) }`. `requested` → `approved` (`handledBy` =
+admin) → 200 item. Status lain → 409; tak ada → 404.
+
+### `POST /payouts/:id/reject` (khusus super_admin)
+Body: `{ reason? (≤1000) }`. `requested` → `rejected` → 200 item
+(`rejected` tidak mengunci saldo). Status lain → 409; tak ada → 404.
+
+### `POST /payouts/:id/pay` (khusus super_admin)
+Body: `{ reference (wajib non-empty, ≤255) }`. `approved` → `paid`
+(menandai transfer manual sudah dilakukan) → 200 item. Reference kosong
+→ 400; status selain `approved` → 409; tak ada → 404.
