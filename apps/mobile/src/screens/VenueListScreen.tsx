@@ -48,101 +48,104 @@ export function VenueListScreen({
       )
     : venues;
   return (
-    <View style={styles.box}>
+    <View style={styles.screen}>
       <UIHeader locationText="Sekitarmu" />
-      {eventLabel ? (
-        <View style={styles.ctx} accessibilityRole="text">
-          <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
-        </View>
-      ) : null}
+      <View style={styles.content}>
+        {eventLabel ? (
+          <View style={styles.ctx} accessibilityRole="text">
+            <Text style={styles.ctxText}>Booking untuk: {eventLabel}</Text>
+          </View>
+        ) : null}
 
-      <UISearchBar
-        value={query}
-        onChange={setQuery}
-        placeholder="Cari venue, alamat, olahraga…"
-        accessibilityLabel="Cari venue di daftar ini"
-      />
-
-      <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
-
-      {loading && venues.length === 0 ? (
-        <UISkeleton rows={4} />
-      ) : (
-        <FlatList
-          style={styles.list}
-          contentContainerStyle={styles.listPad}
-          data={visible}
-          keyExtractor={(item) => item.id}
-          onRefresh={onRefresh}
-          refreshing={loading}
-          ListEmptyComponent={
-            <UIEmptyState
-              illustration="🏟"
-              title={q ? 'Tidak ketemu' : 'Belum ada venue'}
-              message={
-                q
-                  ? 'Coba kata kunci lain atau ganti filter olahragamu.'
-                  : 'Coba ganti filter olahraga atau muat ulang daftar.'
-              }
-              actionLabel={q ? undefined : 'Muat Ulang'}
-              onAction={q ? undefined : onRefresh}
-            />
-          }
-          renderItem={({ item }) => {
-            const courts = item.courts ?? [];
-            const prices = courts
-              .filter((c) => c.status === 'active')
-              .map((c) => c.pricePerHour)
-              .filter((p) => Number.isFinite(p));
-            const fromPrice = prices.length > 0 ? Math.min(...prices) : null;
-            return (
-              <TouchableOpacity
-                style={styles.card}
-                onPress={() => onSelect(item.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`Buka ${item.name}`}
-              >
-                <View style={styles.cardTop}>
-                  <View style={styles.thumb} accessibilityElementsHidden>
-                    <Text style={styles.thumbText}>{initialsOf(item.name)}</Text>
-                  </View>
-                  <View style={styles.cardHead}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {/* TODO(ST-06): rating venue DISEMBUNYIKAN sampai API rating ada. */}
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                      {item.sports.join(' • ')}
-                    </Text>
-                    <Text style={styles.cardSub} numberOfLines={1}>
-                      📍 {item.address}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.cardMeta}>
-                  <Text style={styles.meta}>
-                    {courts.length} lapangan
-                    {item.distanceMeters != null
-                      ? ` • ${formatKm(item.distanceMeters)} dari lokasimu`
-                      : ` • ${formatDistance(item.distanceMeters)}`}
-                  </Text>
-                  {fromPrice != null ? (
-                    <Text style={styles.price}>Mulai {formatIDR(fromPrice)}/jam</Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            );
-          }}
+        <UISearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="Cari venue, alamat, olahraga…"
+          accessibilityLabel="Cari venue di daftar ini"
         />
-      )}
 
-      <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} />
+        <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
+
+        {loading && venues.length === 0 ? (
+          <UISkeleton rows={4} />
+        ) : (
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={styles.listPad}
+            data={visible}
+            keyExtractor={(item) => item.id}
+            onRefresh={onRefresh}
+            refreshing={loading}
+            ListEmptyComponent={
+              <UIEmptyState
+                illustration="🏟"
+                title={q ? 'Tidak ketemu' : 'Belum ada venue'}
+                message={
+                  q
+                    ? 'Coba kata kunci lain atau ganti filter olahragamu.'
+                    : 'Coba ganti filter olahraga atau muat ulang daftar.'
+                }
+                actionLabel={q ? undefined : 'Muat Ulang'}
+                onAction={q ? undefined : onRefresh}
+              />
+            }
+            renderItem={({ item }) => {
+              const courts = item.courts ?? [];
+              const prices = courts
+                .filter((c) => c.status === 'active')
+                .map((c) => c.pricePerHour)
+                .filter((p) => Number.isFinite(p));
+              const fromPrice = prices.length > 0 ? Math.min(...prices) : null;
+              return (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => onSelect(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Buka ${item.name}`}
+                >
+                  <View style={styles.cardTop}>
+                    <View style={styles.thumb} accessibilityElementsHidden>
+                      <Text style={styles.thumbText}>{initialsOf(item.name)}</Text>
+                    </View>
+                    <View style={styles.cardHead}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      {/* TODO(ST-06): rating venue DISEMBUNYIKAN sampai API rating ada. */}
+                      <Text style={styles.cardSub} numberOfLines={1}>
+                        {item.sports.join(' • ')}
+                      </Text>
+                      <Text style={styles.cardSub} numberOfLines={1}>
+                        📍 {item.address}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.cardMeta}>
+                    <Text style={styles.meta}>
+                      {courts.length} lapangan
+                      {item.distanceMeters != null
+                        ? ` • ${formatKm(item.distanceMeters)} dari lokasimu`
+                        : ` • ${formatDistance(item.distanceMeters)}`}
+                    </Text>
+                    {fromPrice != null ? (
+                      <Text style={styles.price}>Mulai {formatIDR(fromPrice)}/jam</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+
+        <UIErrorBanner message={error} actionLabel="Coba lagi" onAction={onRefresh} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: SPACING.screen },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  content: { flex: 1, paddingHorizontal: SPACING.screen },
   ctx: {
     backgroundColor: COLORS.brand100,
     borderRadius: RADIUS.sm,

@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   toastInfo: { backgroundColor: COLORS.navy },
   toastError: { backgroundColor: COLORS.danger },
   toastText: { fontSize: 14, fontWeight: '600', color: COLORS.bg, textAlign: 'center' },
-  searchRow: { flexDirection: 'row', alignItems: 'center' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.md },
   searchWrap: {
     flex: 1,
     flexDirection: 'row',
@@ -845,7 +845,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.screen,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.md,
-    marginHorizontal: -SPACING.screen,
   },
   headerBrand: { flexDirection: 'row', alignItems: 'center', flex: 1, minHeight: 40 },
   headerLogo: {
@@ -876,7 +875,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: COLORS.accent,
   },
-  sportStrip: { paddingVertical: SPACING.sm, alignItems: 'center' },
+  sportStrip: { marginVertical: SPACING.sm, alignItems: 'center' },
   progressTrack: {
     flexDirection: 'row',
     height: 6,

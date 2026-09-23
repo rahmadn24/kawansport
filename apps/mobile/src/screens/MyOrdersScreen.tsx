@@ -32,16 +32,19 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
 
   if (loading && orders.length === 0) {
     return (
-      <View style={styles.box}>
+      <View style={styles.screen}>
         <UIHeader locationText="Sekitarmu" />
-        <ActivityIndicator accessibilityLabel="Memuat order" />
+        <View style={styles.content}>
+          <ActivityIndicator accessibilityLabel="Memuat order" />
+        </View>
       </View>
     );
   }
   return (
-    <View style={styles.box}>
+    <View style={styles.screen}>
       <UIHeader locationText="Sekitarmu" />
-      <Text style={styles.title}>Order Saya</Text>
+      <View style={styles.content}>
+        <Text style={styles.title}>Order Saya</Text>
 
       <UISegmented<ShopOrderStatus>
         label="Saring status order"
@@ -134,12 +137,14 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
           }}
         />
       )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  content: { flex: 1, paddingHorizontal: SPACING.screen },
   title: { ...TYPO.title, color: COLORS.ink, marginBottom: SPACING.md, textAlign: 'center' },
   list: { flex: 1 },
   listPad: { paddingBottom: SPACING.screen },

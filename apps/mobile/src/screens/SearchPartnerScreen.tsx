@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bgAlt },
   padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.screen + 96 },
+  listContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen + 96 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.brand600, marginRight: 6 },
   onlineText: { fontSize: 12, fontWeight: '700', color: COLORS.brand700 },
-  chipStrip: { paddingVertical: SPACING.sm, gap: SPACING.sm, alignItems: 'center' },
+  chipStrip: { marginVertical: SPACING.sm, gap: SPACING.sm, alignItems: 'center' },
   chipDark: {
     flexDirection: 'row',
     alignItems: 'center',
