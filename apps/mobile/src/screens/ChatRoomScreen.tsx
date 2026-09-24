@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import type { ChatMessage } from '../api/chat';
 import { COLORS, RADIUS, SPACING, friendlyServerError } from '../theme';
-import { UIButton, UIEmptyState, UIErrorBanner, UISkeleton } from '../components/ui';
+import { UIButton, UIEmptyState, UIErrorBanner, UINoticeBar, UISkeleton } from '../components/ui';
 import { formatClockWIB } from '../mocks/stitch';
 
 interface Props {
@@ -25,6 +25,11 @@ interface Props {
   polling: boolean;
   sending: boolean;
   sendError: string | null;
+  /**
+   * GAP-02: pesan jujur bila pesan terakhir terkirim via jalur cadangan
+   * REST (WS gagal/timeout). Null bila kiriman terakhir via WS normal.
+   */
+  fallbackNotice: string | null;
   onBack: () => void;
   onLoadMore: () => void;
   onSend: (body: string) => void;
@@ -48,6 +53,7 @@ export function ChatRoomScreen({
   polling,
   sending,
   sendError,
+  fallbackNotice,
   onBack,
   onLoadMore,
   onSend,
@@ -147,6 +153,7 @@ export function ChatRoomScreen({
       )}
 
       <View style={styles.foot}>
+        <UINoticeBar message={fallbackNotice} />
         <UIErrorBanner message={friendlyServerError(sendError)} />
         <View style={styles.composer}>
           <TextInput

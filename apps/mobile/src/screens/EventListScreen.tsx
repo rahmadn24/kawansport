@@ -24,6 +24,8 @@ interface Props {
   onRefresh: () => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
 }
 
 // TODO(ST-09): header lokasi/notifikasi/avatar + peta dari API search —
@@ -42,6 +44,7 @@ export function EventListScreen({
   onRefresh,
   onSelect,
   onCreate,
+  onBellPress,
 }: Props) {
   const [query, setQuery] = useState('');
   const firstLoad = loading && events.length === 0;
@@ -56,7 +59,7 @@ export function EventListScreen({
 
   return (
     <View style={styles.screen}>
-      <UIHeader locationText="Sekitarmu" />
+      <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
       <View style={styles.padded}>
         <UISearchBar
           value={query}

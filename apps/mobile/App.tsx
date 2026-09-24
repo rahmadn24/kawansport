@@ -22,10 +22,11 @@ import {
   UIErrorBanner,
   UISectionTitle,
   UISkeleton,
+  UITextInput,
   UIToast,
 } from './src/components/ui';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
-import { UpdateProfileInput } from './src/api/profile';
+import { UpdateProfileInput, deleteMyAccount } from './src/api/profile';
 import {
   BookingItem,
   bookEventCourt,
@@ -87,8 +88,22 @@ import {
   getOrCreateConversation,
   listConversations,
   markConversationRead,
+  sendMessageRest,
   validateMessageBody,
 } from './src/api/chat';
+import {
+  listMyNotifications,
+  markNotificationRead,
+  type AppNotification,
+} from './src/api/notifications';
+import {
+  acceptInvite,
+  declineInvite,
+  listMyInvites,
+  sendInvite,
+  type InviteDir,
+  type InviteItem,
+} from './src/api/invites';
 import { useChatSocket } from './src/chat/socket';
 import { getCurrentPosition } from './src/location/geolocation';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -104,6 +119,8 @@ import { VenueListScreen } from './src/screens/VenueListScreen';
 import { VenueDetailScreen } from './src/screens/VenueDetailScreen';
 import { CheckoutScreen } from './src/screens/CheckoutScreen';
 import { MyBookingsScreen } from './src/screens/MyBookingsScreen';
+import { NotifInboxScreen } from './src/screens/NotifInboxScreen';
+import { InvitesScreen } from './src/screens/InvitesScreen';
 import { CartScreen } from './src/screens/CartScreen';
 import { MpCheckoutScreen } from './src/screens/MpCheckoutScreen';
 import { MyOrdersScreen } from './src/screens/MyOrdersScreen';
@@ -119,6 +136,11 @@ function Profile() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** GAP-02 hapus akun: idle -> confirm -> typing("HAPUS") -> DELETE /me. */
+  const [delStep, setDelStep] = useState<'idle' | 'confirm' | 'typing'>('idle');
+  const [delText, setDelText] = useState('');
+  const [delLoading, setDelLoading] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -168,6 +190,19 @@ function Profile() {
       { text: 'Batal', style: 'cancel' },
       { text: 'Ya, keluar', style: 'destructive', onPress: () => logout().catch(() => undefined) },
     ]);
+  };
+
+  /**
+   * GAP-02: DELETE /me lalu logout lokal (reset ke Gate).
+   * 409 (ada tanggungan) -> alasan server ditampilkan jujur, akun tetap utuh.
+   */
+  const doDeleteAccount = () => {
+    setDelLoading(true);
+    setDelError(null);
+    deleteMyAccount()
+      .then(() => logout().catch(() => undefined))
+      .catch((e) => setDelError(toErrorMessage(e)))
+      .finally(() => setDelLoading(false));
   };
 
   const displayName = user?.displayName || user?.email || 'Kawan';
@@ -252,6 +287,75 @@ function Profile() {
               <UIButton title="Muat ulang" variant="ghost" onPress={() => refreshProfile().catch(() => undefined)} accessibilityLabel="Muat ulang profil" />
               <View style={styles.gap} />
               <UIButton title="Keluar" variant="danger" onPress={confirmLogout} accessibilityLabel="Keluar dari akun" />
+              <View style={styles.gap} />
+              <UISectionTitle>Zona berbahaya</UISectionTitle>
+              <UICard>
+                {delStep === 'idle' ? (
+                  <UIButton
+                    title="Hapus Akun"
+                    variant="danger"
+                    onPress={() => {
+                      setDelError(null);
+                      setDelStep('confirm');
+                    }}
+                    accessibilityLabel="Hapus akun permanen"
+                  />
+                ) : delStep === 'confirm' ? (
+                  <>
+                    <Text style={styles.deleteWarn}>
+                      Hapus akun permanen? Semua sesi ikut keluar. Bila masih ada booking/order
+                      aktif, event mendatang, venue, atau toko, server menolak — alasannya
+                      ditampilkan di sini.
+                    </Text>
+                    <View style={styles.gap} />
+                    <UIButton
+                      title="Ya, lanjutkan"
+                      variant="danger"
+                      onPress={() => setDelStep('typing')}
+                      accessibilityLabel="Lanjutkan hapus akun"
+                    />
+                    <View style={styles.gap} />
+                    <UIButton title="Batal" variant="ghost" onPress={() => setDelStep('idle')} accessibilityLabel="Batal hapus akun" />
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.deleteWarn}>
+                      Ketik HAPUS (huruf besar) untuk konfirmasi penghapusan permanen.
+                    </Text>
+                    <UITextInput
+                      label='Ketik "HAPUS"'
+                      testID="delete-confirm"
+                      placeholder="HAPUS"
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      value={delText}
+                      onChangeText={setDelText}
+                    />
+                    <UIErrorBanner message={friendlyServerError(delError)} />
+                    <UIButton
+                      title="Hapus permanen"
+                      variant="danger"
+                      onPress={doDeleteAccount}
+                      disabled={delText.trim() !== 'HAPUS'}
+                      loading={delLoading}
+                      loadingTitle="Menghapus…"
+                      accessibilityLabel="Hapus akun permanen"
+                      testID="delete-submit"
+                    />
+                    <View style={styles.gap} />
+                    <UIButton
+                      title="Batal"
+                      variant="ghost"
+                      onPress={() => {
+                        setDelStep('idle');
+                        setDelText('');
+                        setDelError(null);
+                      }}
+                      accessibilityLabel="Batal hapus akun"
+                    />
+                  </>
+                )}
+              </UICard>
             </>
           )}
         </ScrollView>
@@ -285,11 +389,14 @@ function EventsFlow({
   onBookCourt,
   deepEventId,
   onConsumedDeepEvent,
+  onOpenNotifications,
 }: {
   onBookCourt: (event: EventDetail) => void;
   /** PH3-06: deep-link notifikasi event → buka detail sekali lalu konsumsi. */
   deepEventId?: string | null;
   onConsumedDeepEvent?: () => void;
+  /** GAP-01: bell -> kotak masuk notifikasi. */
+  onOpenNotifications?: () => void;
 }) {
   const [route, setRoute] = useState<EventsRoute>({ name: 'list' });
   const [events, setEvents] = useState<SportEventItem[]>([]);
@@ -486,6 +593,7 @@ function EventsFlow({
         onRefresh={() => loadList(sportFilter).catch(() => undefined)}
         onSelect={openDetail}
         onCreate={() => setRoute({ name: 'create' })}
+        onBellPress={onOpenNotifications}
       />
       {toastView}
     </View>
@@ -512,6 +620,7 @@ function BookingFlow({
   deepVenueId,
   onConsumedDeepVenue,
   mineSignal,
+  onOpenNotifications,
 }: {
   eventCtx: EventBookingCtx | null;
   /** PH3-06: deep-link notifikasi venue → buka venue detail sekali lalu konsumsi. */
@@ -519,6 +628,8 @@ function BookingFlow({
   onConsumedDeepVenue?: () => void;
   /** PH3-06: deep-link notifikasi booking → buka tab mine (increment = trigger). */
   mineSignal?: number;
+  /** GAP-01: bell -> kotak masuk notifikasi. */
+  onOpenNotifications?: () => void;
 }) {
   const [route, setRoute] = useState<BookingRoute>({ name: 'venues' });
   const [venues, setVenues] = useState<VenueItem[]>([]);
@@ -729,6 +840,7 @@ function BookingFlow({
         onCancel={handleCancel}
         venueNameByCourt={venueNameByCourt}
         onRepay={handleRepay}
+        onBellPress={onOpenNotifications}
       />
     );
   }
@@ -766,6 +878,7 @@ function BookingFlow({
       onRefresh={() => loadVenues(sportFilter).catch(() => undefined)}
       onSelect={openVenue}
       eventLabel={eventCtx ? `${eventCtx.title} (${eventCtx.date})` : null}
+      onBellPress={onOpenNotifications}
     />
   );
 }
@@ -776,7 +889,7 @@ type ShopRoute =
   | { name: 'orders' };
 
 /** Alur Shop MP-02: cart -> checkout (1 order + N grup) -> orders. */
-function ShopFlow() {
+function ShopFlow({ onOpenNotifications }: { onOpenNotifications?: () => void }) {
   const [route, setRoute] = useState<ShopRoute>({ name: 'cart' });
   const [cart, setCart] = useState<ShopCart | null>(null);
   const [loading, setLoading] = useState(false);
@@ -888,6 +1001,7 @@ function ShopFlow() {
         expandedId={expandedId}
         onToggle={(id) => setExpandedId((prev) => (prev === id ? null : id))}
         onRefresh={() => loadOrders().catch(() => undefined)}
+        onBellPress={onOpenNotifications}
       />
     );
   }
@@ -934,6 +1048,14 @@ function LoggedIn() {
   const [deepConversationId, setDeepConversationId] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  /** GAP-01: kotak masuk notifikasi (route overlay, dibuka via bell). */
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState<AppNotification[]>([]);
+  const [notifTotal, setNotifTotal] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [notifError, setNotifError] = useState<string | null>(null);
+  const [notifMarkingId, setNotifMarkingId] = useState<string | null>(null);
+  const [notifMarkError, setNotifMarkError] = useState<string | null>(null);
 
   // UX-02: sapa user sekali saat masuk (login/register sukses → LoggedIn mount).
   useEffect(() => {
@@ -1021,14 +1143,58 @@ function LoggedIn() {
 
   const unreadLabel = unreadCount > 0 ? `, ${unreadCount > 99 ? '99+' : unreadCount} belum dibaca` : '';
 
+  /** GAP-01: riwayat notifikasi — muat saat inbox dibuka + tandai dibaca. */
+  const loadNotifs = useCallback(async () => {
+    setNotifLoading(true);
+    setNotifError(null);
+    try {
+      const res = await listMyNotifications(1, 20);
+      setNotifs(res.data);
+      setNotifTotal(res.meta.total);
+    } catch (e) {
+      setNotifError(toErrorMessage(e));
+    } finally {
+      setNotifLoading(false);
+    }
+  }, []);
+
+  const openNotif = useCallback(() => {
+    setNotifOpen(true);
+    loadNotifs().catch(() => undefined);
+  }, [loadNotifs]);
+
+  const handleMarkNotifRead = (id: string) => {
+    setNotifMarkingId(id);
+    setNotifMarkError(null);
+    markNotificationRead(id)
+      .then((updated) => {
+        setNotifs((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      })
+      .catch((e) => setNotifMarkError(toErrorMessage(e)))
+      .finally(() => setNotifMarkingId(null));
+  };
+
   return (
     <View style={styles.tabs}>
       <View style={styles.tabBody}>
-        {tab === 'events' ? (
+        {notifOpen ? (
+          <NotifInboxScreen
+            notifications={notifs}
+            total={notifTotal}
+            loading={notifLoading}
+            error={notifError}
+            markingId={notifMarkingId}
+            markError={notifMarkError}
+            onRefresh={() => loadNotifs().catch(() => undefined)}
+            onMarkRead={handleMarkNotifRead}
+            onBack={() => setNotifOpen(false)}
+          />
+        ) : tab === 'events' ? (
           <EventsFlow
             onBookCourt={handleBookCourt}
             deepEventId={deepEventId}
             onConsumedDeepEvent={() => setDeepEventId(null)}
+            onOpenNotifications={openNotif}
           />
         ) : tab === 'booking' ? (
           <BookingFlow
@@ -1037,15 +1203,17 @@ function LoggedIn() {
             deepVenueId={deepVenueId}
             onConsumedDeepVenue={() => setDeepVenueId(null)}
             mineSignal={mineSignal}
+            onOpenNotifications={openNotif}
           />
         ) : tab === 'shop' ? (
-          <ShopFlow />
+          <ShopFlow onOpenNotifications={openNotif} />
         ) : tab === 'partners' ? (
           <PartnersFlow
             onChatPartner={(partnerId) => {
               setChatPartnerId(partnerId);
               setTab('chat');
             }}
+            onOpenNotifications={openNotif}
           />
         ) : tab === 'chat' ? (
           <ChatFlow
@@ -1055,6 +1223,7 @@ function LoggedIn() {
             initialConversationId={deepConversationId ?? undefined}
             onConsumedConversation={() => setDeepConversationId(null)}
             onUnreadChange={setUnreadCount}
+            onOpenNotifications={openNotif}
           />
         ) : (
           <Profile />
@@ -1105,6 +1274,7 @@ function ChatFlow({
   initialConversationId,
   onConsumedConversation,
   onUnreadChange,
+  onOpenNotifications,
 }: {
   initialPartnerId?: string;
   onConsumedPartner?: () => void;
@@ -1113,6 +1283,8 @@ function ChatFlow({
   onConsumedConversation?: () => void;
   /** UX-02: laporkan total unread ke BottomTabs (badge). Display-only. */
   onUnreadChange?: (n: number) => void;
+  /** GAP-01: bell -> kotak masuk notifikasi. */
+  onOpenNotifications?: () => void;
 }) {
   const { user } = useAuth();
   const myId = user?.id ?? null;
@@ -1129,6 +1301,8 @@ function ChatFlow({
   const [msgError, setMsgError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  /** GAP-02: indikator jujur bila kiriman terakhir lewat jalur cadangan REST. */
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
 
   const loadList = useCallback(async () => {
@@ -1210,6 +1384,7 @@ function ChatFlow({
     setPage(1);
     setTotal(0);
     setSendError(null);
+    setFallbackNotice(null);
     loadMessages(conv.id, 1, false).catch(() => undefined);
     markConversationRead(conv.id)
       .then(() =>
@@ -1266,6 +1441,24 @@ function ChatFlow({
     return () => clearInterval(t);
   }, [active, connected, socketError, messages.length]);
 
+  /** Batas tunggu ack WS sebelum fallback REST (GAP-02). */
+  const WS_SEND_TIMEOUT_MS = 8000;
+
+  const withTimeout = <T,>(p: Promise<T>, ms: number, message: string): Promise<T> =>
+    new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(message)), ms);
+      p.then(
+        (v) => {
+          clearTimeout(t);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(t);
+          reject(e);
+        },
+      );
+    });
+
   const handleSend = (body: string) => {
     if (!active || !myId) return;
     const invalid = validateMessageBody(body);
@@ -1275,26 +1468,46 @@ function ChatFlow({
     }
     setSending(true);
     setSendError(null);
+    setFallbackNotice(null);
     // Optimistic UI: tampilkan langsung dengan id sementara.
+    const trimmed = body.trim();
     const temp: ChatMessage = {
       id: `temp-${Date.now()}`,
       conversationId: active.id,
       senderId: myId,
-      body: body.trim(),
+      body: trimmed,
       createdAt: new Date().toISOString(),
       readAt: null,
     };
     setMessages((prev) => [...prev, temp]);
-    sendMessage(body.trim())
+    const convId = active.id;
+    const replaceTemp = (saved: ChatMessage) => {
+      setMessages((prev) => prev.map((m) => (m.id === temp.id ? saved : m)));
+      loadList().catch(() => undefined);
+    };
+    // GAP-02: WS dulu (dengan timeout) -> gagal/timeout = fallback REST
+    // otomatis. Gagal dua-duanya = pesan error jujur, JANGAN diam.
+    withTimeout(sendMessage(trimmed), WS_SEND_TIMEOUT_MS, 'Koneksi langsung lambat')
       .then((saved) => {
-        setMessages((prev) => prev.map((m) => (m.id === temp.id ? saved : m)));
-        loadList().catch(() => undefined);
+        replaceTemp(saved);
+        setSending(false);
       })
-      .catch((e) => {
-        setMessages((prev) => prev.filter((m) => m.id !== temp.id));
-        setSendError(e instanceof Error ? e.message : 'Gagal mengirim pesan');
-      })
-      .finally(() => setSending(false));
+      .catch(() => {
+        sendMessageRest(convId, trimmed)
+          .then((saved) => {
+            replaceTemp(saved);
+            setFallbackNotice('Koneksi langsung gagal — pesan dikirim via jalur cadangan.');
+          })
+          .catch((e2) => {
+            setMessages((prev) => prev.filter((m) => m.id !== temp.id));
+            setSendError(
+              e2 instanceof Error
+                ? `Pesan gagal terkirim via koneksi langsung maupun jalur cadangan: ${e2.message}`
+                : 'Pesan gagal terkirim via koneksi langsung maupun jalur cadangan.',
+            );
+          })
+          .finally(() => setSending(false));
+      });
   };
 
   if (active) {
@@ -1311,6 +1524,7 @@ function ChatFlow({
         polling={polling}
         sending={sending}
         sendError={sendError}
+        fallbackNotice={fallbackNotice}
         onBack={() => {
           setActive(null);
           loadList().catch(() => undefined);
@@ -1327,12 +1541,20 @@ function ChatFlow({
       error={listError}
       onRefresh={() => loadList().catch(() => undefined)}
       onSelect={openRoom}
+      onBellPress={onOpenNotifications}
     />
   );
 }
 
-/** Alur Search Partner SM-06: filter sport/skill/radius + GPS, list + jarak, pagination. */
-function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) => void }) {
+/** Alur Search Partner SM-06 + Invite GAP-01: filter sport/skill/radius + GPS, list + jarak, pagination, invite real. */
+function PartnersFlow({
+  onChatPartner,
+  onOpenNotifications,
+}: {
+  onChatPartner?: (partnerId: string) => void;
+  /** GAP-01: bell -> kotak masuk notifikasi. */
+  onOpenNotifications?: () => void;
+}) {
   const [partners, setPartners] = useState<PartnerItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -1343,6 +1565,16 @@ function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) =
   const [notice, setNotice] = useState<string | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+  /** GAP-01: invite real — id partner yang undangannya sedang dikirim. */
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [showInvites, setShowInvites] = useState(false);
+  const [incoming, setIncoming] = useState<InviteItem[]>([]);
+  const [outgoing, setOutgoing] = useState<InviteItem[]>([]);
+  const [invitesDir, setInvitesDir] = useState<InviteDir>('in');
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [invitesError, setInvitesError] = useState<string | null>(null);
+  const [invitesActionId, setInvitesActionId] = useState<string | null>(null);
+  const [invitesActionError, setInvitesActionError] = useState<string | null>(null);
 
   const runSearch = useCallback(async (filter: SearchPartnersFilter) => {
     const invalid = validateSearchPartners(filter);
@@ -1386,16 +1618,78 @@ function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) =
     }
   };
 
-  // Invite: notice lokal ramah (belum ada endpoint); Chat (SM-07) buka room 1-1.
-  const placeholder = (kind: 'Invite' | 'Chat', p: PartnerItem) => {
+  // GAP-01: invite real (POST /invites) + feedback jujur; Chat (SM-07) buka room 1-1.
+  const handleChat = (p: PartnerItem) => {
     const name = p.displayName || p.email;
-    if (kind === 'Chat') {
-      if (onChatPartner) onChatPartner(p.id);
-      else setNotice(`Chat ke ${name} segera hadir.`);
-      return;
-    }
-    setNotice(`Undangan ke ${name} dicatat. Fitur penuh segera hadir.`);
+    if (onChatPartner) onChatPartner(p.id);
+    else setNotice(`Chat ke ${name} segera hadir.`);
   };
+
+  const handleInvite = (p: PartnerItem) => {
+    const name = p.displayName || p.email;
+    setInvitingId(p.id);
+    setError(null);
+    sendInvite({ toUserId: p.id })
+      .then(() => {
+        setNotice(`Undangan terkirim ke ${name}. Pantau di Undangan Sparing.`);
+        loadInvites().catch(() => undefined);
+      })
+      .catch((e) => setError(toErrorMessage(e)))
+      .finally(() => setInvitingId(null));
+  };
+
+  const loadInvites = useCallback(async () => {
+    setInvitesLoading(true);
+    setInvitesError(null);
+    setInvitesActionError(null);
+    try {
+      const [masuk, keluar] = await Promise.all([listMyInvites('in'), listMyInvites('sent')]);
+      setIncoming(masuk);
+      setOutgoing(keluar);
+    } catch (e) {
+      setInvitesError(toErrorMessage(e));
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, []);
+
+  const mutateInvite = (id: string, fn: (inviteId: string) => Promise<unknown>, okMsg: string) => {
+    setInvitesActionId(id);
+    setInvitesActionError(null);
+    fn(id)
+      .then(() => {
+        setNotice(okMsg);
+        loadInvites().catch(() => undefined);
+      })
+      .catch((e) => setInvitesActionError(toErrorMessage(e)))
+      .finally(() => setInvitesActionId(null));
+  };
+
+  const openInvites = () => {
+    setShowInvites(true);
+    loadInvites().catch(() => undefined);
+  };
+
+  const pendingIncoming = incoming.filter((i) => i.status === 'pending').length;
+
+  if (showInvites) {
+    return (
+      <InvitesScreen
+        incoming={incoming}
+        outgoing={outgoing}
+        dir={invitesDir}
+        onDirChange={setInvitesDir}
+        loading={invitesLoading}
+        error={invitesError}
+        actionId={invitesActionId}
+        actionError={invitesActionError}
+        onRefresh={() => loadInvites().catch(() => undefined)}
+        onAccept={(id) => mutateInvite(id, acceptInvite, 'Undangan diterima — chat terbuka otomatis saat kamu buka tab Chat.')}
+        onDecline={(id) => mutateInvite(id, declineInvite, 'Undangan ditolak.')}
+        onBack={() => setShowInvites(false)}
+      />
+    );
+  }
 
   return (
     <SearchPartnerScreen
@@ -1412,8 +1706,12 @@ function PartnersFlow({ onChatPartner }: { onChatPartner?: (partnerId: string) =
       onLoadMore={loadMore}
       hasMore={partners.length < total}
       onUseGps={useGps}
-      onInvite={(p) => placeholder('Invite', p)}
-      onChat={(p) => placeholder('Chat', p)}
+      onInvite={handleInvite}
+      onChat={handleChat}
+      onBellPress={onOpenNotifications}
+      invitingId={invitingId}
+      onOpenInvites={openInvites}
+      pendingInvites={pendingIncoming}
     />
   );
 }
@@ -1559,6 +1857,7 @@ const styles = StyleSheet.create({
   miniChipText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
   profileEmpty: { fontSize: 13, color: COLORS.faint, marginTop: SPACING.md },
   profileLoc: { fontSize: 14, color: COLORS.ink, fontWeight: '600', marginTop: SPACING.md },
+  deleteWarn: { fontSize: 14, color: COLORS.ink, lineHeight: 21, marginBottom: SPACING.sm },
   previewName: { fontSize: 16, fontWeight: '700', color: COLORS.ink },
   previewSub: { fontSize: 13, color: COLORS.muted, marginTop: 2 },
   // BottomTabs

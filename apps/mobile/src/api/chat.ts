@@ -83,6 +83,23 @@ export async function markConversationRead(
   return res.data;
 }
 
+/**
+ * POST /conversations/:id/messages — kirim pesan via REST (GAP-02).
+ * Jalur persist SAMA dengan WS; dipakai sebagai fallback otomatis bila
+ * pengiriman WS gagal/timeout. 201: MessageItem.
+ */
+export async function sendMessageRest(
+  conversationId: string,
+  body: string,
+  http: Http = api,
+): Promise<ChatMessage> {
+  const res = await http.post<ChatMessage>(
+    `/conversations/${conversationId}/messages`,
+    { body },
+  );
+  return res.data;
+}
+
 /** Total unread seluruh conversation — untuk badge tab Chat. */
 export function totalUnread(conversations: ConversationItem[]): number {
   return conversations.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0);

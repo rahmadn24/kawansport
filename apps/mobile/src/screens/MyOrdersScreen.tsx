@@ -19,6 +19,8 @@ interface Props {
   expandedId: string | null;
   onToggle: (id: string) => void;
   onRefresh: () => void;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
 }
 
 /**
@@ -26,14 +28,14 @@ interface Props {
  * real + filter segmented + rincian grup per seller (FlatList).
  * Tanpa aksi cancel — order pending diselesaikan via pembayaran.
  */
-export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, onRefresh }: Props) {
+export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, onRefresh, onBellPress }: Props) {
   const [filter, setFilter] = useState<ShopOrderStatus | null>(null);
   const shown = filter ? orders.filter((o) => o.status === filter) : orders;
 
   if (loading && orders.length === 0) {
     return (
       <View style={styles.screen}>
-        <UIHeader locationText="Sekitarmu" />
+        <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
         <View style={styles.content}>
           <ActivityIndicator accessibilityLabel="Memuat order" />
         </View>
@@ -42,7 +44,7 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
   }
   return (
     <View style={styles.screen}>
-      <UIHeader locationText="Sekitarmu" />
+      <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
       <View style={styles.content}>
         <Text style={styles.title}>Order Saya</Text>
 

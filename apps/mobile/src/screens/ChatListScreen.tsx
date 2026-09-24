@@ -11,14 +11,16 @@ interface Props {
   error: string | null;
   onRefresh: () => void;
   onSelect: (conv: ConversationItem) => void;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
 }
 
 /** Daftar chat 1-1 (SM-07, gaya Stitch): avatar + waktu relatif + unread, tarik-untuk-muat-ulang. */
-export function ChatListScreen({ conversations, loading, error, onRefresh, onSelect }: Props) {
+export function ChatListScreen({ conversations, loading, error, onRefresh, onSelect, onBellPress }: Props) {
   const firstLoad = loading && conversations.length === 0;
   return (
     <View style={styles.screen}>
-      <UIHeader locationText="Sekitarmu" />
+      <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
       <View style={styles.padded}>
         <Text style={styles.title}>Chat</Text>
         <UIErrorBanner message={friendlyServerError(error)} actionLabel="Coba lagi" onAction={onRefresh} />

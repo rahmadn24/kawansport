@@ -49,9 +49,17 @@ interface Props {
   onLoadMore: () => void;
   hasMore: boolean;
   onUseGps: () => Promise<{ latitude: number; longitude: number }>;
-  /** Placeholder sampai chat SM-07: tampilkan notice, jangan navigasi. */
+  /** GAP-01: kirim invite real (induk menangani POST /invites + feedback). */
   onInvite: (partner: PartnerItem) => void;
   onChat: (partner: PartnerItem) => void;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
+  /** Id partner yang undangannya sedang dikirim (tombol Ajak dinonaktifkan). */
+  invitingId?: string | null;
+  /** Buka layar Undangan Sparing (masuk/keluar + terima/tolak). */
+  onOpenInvites?: () => void;
+  /** Jumlah undangan masuk pending (badge display-only). */
+  pendingInvites?: number;
 }
 
 /**
@@ -76,6 +84,10 @@ export function SearchPartnerScreen({
   onUseGps,
   onInvite,
   onChat,
+  onBellPress,
+  invitingId,
+  onOpenInvites,
+  pendingInvites,
 }: Props) {
   const [sport, setSport] = useState<string | null>(null);
   const [skill, setSkill] = useState<SkillLevel | null>(null);
@@ -155,7 +167,7 @@ export function SearchPartnerScreen({
 
   return (
     <View style={styles.screen}>
-      <UIHeader locationText={locSet ? 'Sekitarmu' : 'Pilih lokasi'} />
+      <UIHeader locationText={locSet ? 'Sekitarmu' : 'Pilih lokasi'} onBellPress={onBellPress} />
 
       {loading && partners.length === 0 && searched ? (
         <View style={styles.padded}>
@@ -182,6 +194,20 @@ export function SearchPartnerScreen({
                   </View>
                 ) : null}
               </View>
+              {onOpenInvites ? (
+                <View style={styles.inviteRow}>
+                  <UIButton
+                    title={
+                      pendingInvites && pendingInvites > 0
+                        ? `📩 Undangan (${pendingInvites})`
+                        : '📩 Undangan Sparing'
+                    }
+                    variant="outline"
+                    onPress={onOpenInvites}
+                    accessibilityLabel="Buka undangan sparing masuk dan keluar"
+                  />
+                </View>
+              ) : null}
 
               {/* Search bar + tombol filter */}
               <UISearchBar
@@ -407,7 +433,13 @@ export function SearchPartnerScreen({
                 </Text>
                 <View style={styles.cardRow}>
                   <View style={styles.flex}>
-                    <UIButton title="Ajak Main" variant="accent" onPress={() => onInvite(item)} accessibilityLabel={`Ajak main ${name}`} />
+                    <UIButton
+                      title={invitingId === item.id ? 'Mengundang…' : 'Ajak Main'}
+                      variant="accent"
+                      onPress={() => onInvite(item)}
+                      disabled={invitingId === item.id}
+                      accessibilityLabel={`Ajak main ${name}`}
+                    />
                   </View>
                   <View style={styles.gapH} />
                   <View style={styles.flex}>
@@ -441,6 +473,7 @@ const styles = StyleSheet.create({
   padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen },
   list: { flex: 1 },
   listContent: { paddingHorizontal: SPACING.screen, paddingBottom: SPACING.screen + 96 },
+  inviteRow: { marginTop: SPACING.sm },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

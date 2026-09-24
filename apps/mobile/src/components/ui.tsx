@@ -548,10 +548,10 @@ export function UIHeader({
       <View style={styles.headerRight}>
         {/*
           Bell SELALU Touchable agar ada respons sentuh (ripple/opacity).
-          Tanpa onBellPress (riwayat notifikasi belum ada endpoint):
-          Alert jujur "Riwayat notifikasi segera hadir" — JANGAN diam.
-          TODO(GAP-01): hubungkan ke endpoint riwayat notifikasi bila tersedia,
-          lalu ganti Alert ini dengan navigasi ke layar riwayat.
+          GAP-01 SELESAI: semua layar produksi meneruskan onBellPress yang
+          membuka NotifInboxScreen (GET /notifications/me). Fallback Alert
+          di bawah hanya untuk pemakaian UIHeader di masa depan yang lupa
+          meneruskan handler — tetap jujur, JANGAN diam.
         */}
         <TouchableOpacity
           style={styles.headerBell}

@@ -24,6 +24,8 @@ interface Props {
   onSelect: (id: string) => void;
   /** Konteks event bila alur berasal dari tombol Book Court di EventDetail. */
   eventLabel: string | null;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
 }
 
 /** Layar Venue List (BK-04, Stitch UX-03): search lokal + filter sport + kartu kaya. */
@@ -38,6 +40,7 @@ export function VenueListScreen({
   onRefresh,
   onSelect,
   eventLabel,
+  onBellPress,
 }: Props) {
   const [query, setQuery] = useState('');
   // Filter lokal display-only (tak mengubah request server).
@@ -49,7 +52,7 @@ export function VenueListScreen({
     : venues;
   return (
     <View style={styles.screen}>
-      <UIHeader locationText="Sekitarmu" />
+      <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
       <View style={styles.padded}>
         {eventLabel ? (
           <View style={styles.ctx} accessibilityRole="text">

@@ -129,6 +129,22 @@ export function EditProfileScreen({
               {initial.email}
             </Text>
             <Text style={styles.emailSub}>Email tidak bisa diubah</Text>
+            {/*
+              TODO(GAP-02): wiring galeri -> uploadAvatar butuh dep native
+              react-native-image-picker (autolink RN 0.73) + pod install +
+              rebuild native; dinonaktifkan jujur sampai bisa diverifikasi
+              di device — JANGAN tambah dep tanpa verifikasi. API uploadAvatar
+              (POST /me/avatar) sudah siap di src/api/profile.ts.
+            */}
+            <View style={styles.avatarBtn}>
+              <UIButton
+                title="Ganti foto (segera hadir)"
+                variant="outline"
+                onPress={() => undefined}
+                disabled
+                accessibilityLabel="Ganti foto profil segera hadir, butuh image picker native"
+              />
+            </View>
           </View>
         </View>
 
@@ -286,6 +302,7 @@ const styles = StyleSheet.create({
   avatarMeta: { flex: 1, marginLeft: SPACING.md },
   email: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
   emailSub: { fontSize: 13, color: COLORS.faint, marginTop: 2 },
+  avatarBtn: { marginTop: SPACING.sm, maxWidth: 240 },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
   row: { flexDirection: 'row', alignItems: 'flex-start' },
   flex: { flex: 1 },

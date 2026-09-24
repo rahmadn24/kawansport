@@ -39,6 +39,8 @@ interface Props {
   venueNameByCourt?: Record<string, string>;
   /** Bayar ulang booking pending via alur existing (opsional). */
   onRepay?: (booking: BookingItem) => void;
+  /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
+  onBellPress?: () => void;
 }
 
 type StatusFilter = BookingStatus | null;
@@ -58,6 +60,7 @@ export function MyBookingsScreen({
   onCancel,
   venueNameByCourt,
   onRepay,
+  onBellPress,
 }: Props) {
   const [filter, setFilter] = useState<StatusFilter>(null);
   const shown = filter ? bookings.filter((b) => b.status === filter) : bookings;
@@ -85,7 +88,7 @@ export function MyBookingsScreen({
 
   return (
     <View style={styles.screen}>
-      <UIHeader locationText="Sekitarmu" />
+      <UIHeader locationText="Sekitarmu" onBellPress={onBellPress} />
       <View style={styles.content}>
         <Text style={styles.title}>Booking Saya</Text>
 

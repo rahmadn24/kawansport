@@ -133,7 +133,12 @@ export function LoginScreen({ loading, serverError, onSubmit, onSwitch, initialE
       <Text style={styles.terms}>
         Dengan masuk, kamu menyetujui Kode Etik Sportivitas & Aturan Privasi KawanSport.
       </Text>
-      <Text style={styles.footnote}>Lupa password? Hubungi admin KawanSport.</Text>
+      {/*
+        TODO(GAP-02): JANGAN tambah UI kirim-email lupa-password — server tak
+        punya endpoint forgot/reset (tanpa infra email; lihat ENDPOINTS.md
+        seksi GAP-02). Teks jujur "hubungi CS" di bawah adalah perilaku final V1.
+      */}
+      <Text style={styles.footnote}>Lupa password? Hubungi CS KawanSport — belum ada reset via email.</Text>
     </View>
   );
 }

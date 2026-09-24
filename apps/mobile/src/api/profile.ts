@@ -60,6 +60,7 @@ interface Http {
   get<T>(url: string): Promise<{ data: T }>;
   patch<T>(url: string, body: unknown): Promise<{ data: T }>;
   post<T>(url: string, body: unknown, config?: unknown): Promise<{ data: T }>;
+  delete<T>(url: string): Promise<{ data: T }>;
 }
 
 /** Toggle satu olahraga di daftar pilihan (murni, untuk multi-select UI). */
@@ -106,4 +107,17 @@ export async function uploadAvatar(
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data.avatarUrl;
+}
+
+/**
+ * DELETE /me — hapus akun sendiri (GAP-02).
+ * 200 `{ ok: true }` + SEMUA sesi ikut logout (refresh token hangus).
+ * 409 bila ada tanggungan (booking/order aktif, event mendatang, venue,
+ * profil seller) — pesan server memuat alasan; JANGAN ditelan, tampilkan.
+ */
+export async function deleteMyAccount(
+  http: Http = api,
+): Promise<{ ok: boolean }> {
+  const res = await http.delete<{ ok: boolean }>('/me');
+  return res.data;
 }
