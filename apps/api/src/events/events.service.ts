@@ -1,25 +1,38 @@
 import {
   ConflictException,
+  HttpException,
   Injectable,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { assertOwnerOrAdmin, type ActorInput } from '../auth/ownership';
 import { assertPhotoUrls } from '../uploads/photo-url';
 import { normalizePhotos } from '../venues/venues.service';
+import { MidtransService } from '../bookings/midtrans.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsDto } from './dto/list-events.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventParticipant } from './event-participant.entity';
+import { EventPayment } from './event-payment.entity';
+import { EventWaitlist } from './event-waitlist.entity';
 import { SportEvent, resolveEventStatus } from './event.entity';
 
 const DEFAULT_RADIUS_M = 10000;
 
 /** Batas foto event (ST-01). */
 export const MAX_EVENT_PHOTOS = 5;
+
+/**
+ * TTL payment pending join event berbayar (ST-02) — sama dengan
+ * `BOOKING_TTL_MS` (keputusan PO BK-03): 30 menit. Ditegakkan oportunistik
+ * di `join` (tidak ada cron khusus; webhook expire/cancel juga menutupnya).
+ */
+export const EVENT_PAYMENT_TTL_MS = 30 * 60 * 1000;
 
 export interface EventListItem {
   id: string;
@@ -30,6 +43,8 @@ export interface EventListItem {
   lat: number;
   lng: number;
   capacity: number;
+  /** Iuran join rupiah, IDR only (ST-02, 0 = gratis). */
+  fee: number;
   participantsCount: number;
   status: 'open' | 'full';
   photos: string[];
@@ -48,6 +63,38 @@ export interface EventParticipantItem {
   joinedAt: Date;
 }
 
+/** Info pembayaran join event berbayar (ST-02) untuk response join. */
+export interface EventPaymentItem {
+  id: string;
+  eventId: string;
+  userId: string;
+  amount: number;
+  status: string;
+  paymentRef: string;
+  snapToken: string | null;
+  redirectUrl: string | null;
+  paidAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Hasil join: event + flag peserta + payment (hanya event berbayar). */
+export type JoinResult = EventListItem & {
+  isJoined: boolean;
+  payment?: EventPaymentItem;
+};
+
+/** Item antrean untuk response waitlist (ST-03). */
+export interface WaitlistItem {
+  userId: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  position: number;
+  status: string;
+  createdAt: Date;
+}
+
 @Injectable()
 export class EventsService implements OnModuleInit {
   constructor(
@@ -55,7 +102,13 @@ export class EventsService implements OnModuleInit {
     private readonly events: Repository<SportEvent>,
     @InjectRepository(EventParticipant)
     private readonly participantRows: Repository<EventParticipant>,
+    @InjectRepository(EventPayment)
+    private readonly paymentRows: Repository<EventPayment>,
+    @InjectRepository(EventWaitlist)
+    private readonly waitlistRows: Repository<EventWaitlist>,
     private readonly users: UsersService,
+    private readonly midtrans: MidtransService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -124,6 +177,7 @@ export class EventsService implements OnModuleInit {
       lat: dto.lat,
       lng: dto.lng,
       capacity: dto.capacity,
+      fee: dto.fee ?? 0,
       participantsCount: 1,
       status: resolveEventStatus(1, dto.capacity),
       photos: validateEventPhotos(normalizePhotos(dto.photos ?? [])),
@@ -270,6 +324,7 @@ export class EventsService implements OnModuleInit {
     if (dto.photos !== undefined) {
       event.photos = validateEventPhotos(normalizePhotos(dto.photos));
     }
+    if (dto.fee !== undefined) event.fee = dto.fee;
     const saved = await this.events.save(event);
     const fresh = await this.events.findOne({
       where: { id: saved.id },
@@ -299,18 +354,29 @@ export class EventsService implements OnModuleInit {
   }
 
   /**
-   * POST /events/:id/join (SM-05) — transaksional anti-race:
-   * kunci baris event (SELECT FOR UPDATE di Postgres), tolak double-join 409
-   * dan event penuh 409, lalu insert peserta + update count/status atomik.
+   * POST /events/:id/join (SM-05 + ST-02 + ST-03) — transaksional anti-race:
+   * kunci baris event (SELECT FOR UPDATE di Postgres), tolak double-join 409.
+   *
+   * - Event GRATIS (`fee=0`): seperti SM-05 — langsung jadi peserta.
+   *   Event penuh → 409 `{ waitlisted: true, position }` + otomatis masuk
+   *   antrean ST-03 (duplikat antrean → 409).
+   * - Event BERBAYAR (`fee>0`): TIDAK langsung jadi peserta. Dibuat/dipakai
+   *   ulang `EventPayment` pending + Snap token → 201 `{ isJoined: false,
+   *   payment }`. Peserta dicatat HANYA saat webhook settlement (paid).
+   *   Payment pending TIDAK makan slot (keputusan ST-02); slot dicek dari
+   *   jumlah peserta berbayar. Event penuh (paid penuh) → jalur waitlist
+   *   yang sama seperti event gratis (tidak dibuatkan payment).
+   * - Join ulang saat masih ada pending aktif → 201 dengan payment yang sama
+   *   (idempotent, tanpa Snap baru).
    */
-  async join(
-    eventId: string,
-    userId: string,
-  ): Promise<EventListItem & { isJoined: boolean }> {
-    return this.withEventLock(eventId, () =>
-      this.events.manager.transaction(async (mgr) => {
+  async join(eventId: string, userId: string): Promise<JoinResult> {
+    try {
+      return await this.withEventLock(eventId, () =>
+        this.events.manager.transaction(async (mgr) => {
         const eventRepo = mgr.getRepository(SportEvent);
         const partRepo = mgr.getRepository(EventParticipant);
+        const payRepo = mgr.getRepository(EventPayment);
+        const waitRepo = mgr.getRepository(EventWaitlist);
 
         const event = this.isPostgres
           ? await eventRepo.findOne({
@@ -324,41 +390,137 @@ export class EventsService implements OnModuleInit {
         if (existing) throw new ConflictException('Already joined');
 
         const count = await partRepo.count({ where: { eventId } });
-        if (count >= event.capacity) throw new ConflictException('Event is full');
+        const fee = event.fee ?? 0;
 
-        try {
-          await partRepo.save(partRepo.create({ eventId, userId }));
-        } catch {
-          // Balapan antar-proses lolos dari cek di atas: unique pair melarang
-          // duplikat; baca ulang untuk pesan error yang tepat.
-          const raced = await partRepo.findOne({ where: { eventId, userId } });
-          if (raced) throw new ConflictException('Already joined');
-          const recount = await partRepo.count({ where: { eventId } });
-          if (recount >= event.capacity) throw new ConflictException('Event is full');
-          throw new ConflictException('Already joined');
+        // Event penuh (gratis maupun berbayar-yang-sudah-paid-penuh):
+        // otomatis masuk antrean ST-03 + 409 { waitlisted: true, position }.
+        // CATATAN: baris waitlist TIDAK ditulis di dalam transaksi ini —
+        // throw setelah save me-rollback insert. Posisi dilempar sebagai
+        // sinyal, ditulis setelah commit oleh catch di bawah, baru 409.
+        if (count >= event.capacity) {
+          const waitlisted = await waitRepo.findOne({
+            where: { eventId, userId },
+          });
+          if (waitlisted) {
+            throw new ConflictException('Already waitlisted');
+          }
+          const position = (await waitRepo.count({ where: { eventId } })) + 1;
+          throw new EventFullSignal(position);
         }
 
-        event.participantsCount = count + 1;
-        event.status = resolveEventStatus(count + 1, event.capacity);
-        await eventRepo.save(event);
-        const fresh = await eventRepo.findOne({
+        // Event gratis: jalur SM-05 seperti semula.
+        if (fee <= 0) {
+          try {
+            await partRepo.save(partRepo.create({ eventId, userId }));
+          } catch {
+            // Balapan antar-proses lolos dari cek di atas: unique pair melarang
+            // duplikat; baca ulang untuk pesan error yang tepat.
+            const raced = await partRepo.findOne({ where: { eventId, userId } });
+            if (raced) throw new ConflictException('Already joined');
+            const recount = await partRepo.count({ where: { eventId } });
+            if (recount >= event.capacity) {
+              throw new ConflictException('Event is full');
+            }
+            throw new ConflictException('Already joined');
+          }
+
+          event.participantsCount = count + 1;
+          event.status = resolveEventStatus(count + 1, event.capacity);
+          await eventRepo.save(event);
+          const fresh = await eventRepo.findOne({
+            where: { id: eventId },
+            relations: { host: true },
+          });
+          return { ...this.toPublic(fresh ?? event), isJoined: true };
+        }
+
+        // Event berbayar: pakai ulang pending aktif yang masih berlaku
+        // (oportunistik: yang kedaluwarsa ditandai expired dulu).
+        await this.expireDueEventPayments(payRepo, eventId);
+        const pending = await payRepo.find({
+          where: { eventId, userId, status: 'pending' },
+          order: { createdAt: 'DESC' },
+        });
+        if (pending.length > 0) {
+          const withHost = await eventRepo.findOne({
+            where: { id: eventId },
+            relations: { host: true },
+          });
+          return {
+            ...this.toPublic(withHost ?? event),
+            isJoined: false,
+            payment: toEventPaymentItem(pending[0]),
+          };
+        }
+
+        const paymentRef = generateEventPaymentRef();
+        const payment = await payRepo.save(
+          payRepo.create({
+            eventId,
+            userId,
+            amount: fee,
+            status: 'pending',
+            paymentRef,
+          }),
+        );
+        // Snap dibuat SETELAH baris tersimpan (pola BK-03: tanpa network di
+        // mode stub; transaksi tidak menahan lock selama panggilan jaringan —
+        // di Postgres lock dilepas saat commit di akhir blok ini).
+        const snap = await this.midtrans.createTransaction({
+          orderId: paymentRef,
+          grossAmount: fee,
+        });
+        payment.snapToken = snap.token;
+        payment.redirectUrl = snap.redirectUrl;
+        const saved = await payRepo.save(payment);
+        const withHost = await eventRepo.findOne({
           where: { id: eventId },
           relations: { host: true },
         });
-        return { ...this.toPublic(fresh ?? event), isJoined: true };
-      }),
-    );
+        return {
+          ...this.toPublic(withHost ?? event),
+          isJoined: false,
+          payment: toEventPaymentItem(saved),
+        };
+        }),
+      );
+    } catch (err) {
+      // Event penuh: tulis baris waitlist SETELAH commit (di dalam transaksi
+      // throw = rollback). Balapan duplikat antar-proses diamankan unique
+      // pair (event_id, user_id) → 409 'Already waitlisted'.
+      if (err instanceof EventFullSignal) {
+        try {
+          await this.waitlistRows.save(
+            this.waitlistRows.create({
+              eventId,
+              userId,
+              position: err.position,
+              status: 'waiting',
+            }),
+          );
+        } catch (saveErr) {
+          if (isUniqueViolation(saveErr)) {
+            throw new ConflictException('Already waitlisted');
+          }
+          throw saveErr;
+        }
+        throw waitlistedError(err.position);
+      }
+      throw err;
+    }
   }
 
   /**
-   * POST /events/:id/leave (SM-05) — transaksional: hapus peserta,
+   * POST /events/:id/leave (SM-05 + ST-03) — transaksional: hapus peserta,
    * hitung ulang count + status open/full atomik. Bukan peserta -> 404.
+   * Setelah slot kosong, antrean terdepan otomatis dipromosi jadi `invited`
+   * + notifikasi best-effort (ST-03).
    */
   async leave(
     eventId: string,
     userId: string,
   ): Promise<EventListItem & { isJoined: boolean }> {
-    return this.withEventLock(eventId, () =>
+    const result = await this.withEventLock(eventId, () =>
       this.events.manager.transaction(async (mgr) => {
         const eventRepo = mgr.getRepository(SportEvent);
         const partRepo = mgr.getRepository(EventParticipant);
@@ -386,6 +548,9 @@ export class EventsService implements OnModuleInit {
         return { ...this.toPublic(fresh ?? event), isJoined: false };
       }),
     );
+    // Promosi di luar transaksi leave (tidak menahan lock event).
+    await this.promoteWaitlistHead(eventId);
+    return result;
   }
 
   /** GET /events/:id/participants (SM-05) — daftar peserta urut joinedAt ASC. */
@@ -411,6 +576,119 @@ export class EventsService implements OnModuleInit {
     };
   }
 
+  /**
+   * GET /events/:id/waitlist (ST-03) — hanya host (atau super_admin),
+   * selain itu 403. Urut `position` ASC (terdepan dulu).
+   */
+  async listWaitlist(
+    eventId: string,
+    actor: ActorInput,
+  ): Promise<{ data: WaitlistItem[]; meta: { total: number } }> {
+    const event = await this.events.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+    assertOwnerOrAdmin(actor, event.hostId);
+    const rows = await this.waitlistRows.find({
+      where: { eventId },
+      relations: { user: true },
+      order: { position: 'ASC' },
+    });
+    return { data: rows.map(toWaitlistItem), meta: { total: rows.length } };
+  }
+
+  /**
+   * GET /events/:id/waitlist/me (ST-03) — posisi antreanku.
+   * Tidak masuk antrean → 404.
+   */
+  async myWaitlistPosition(
+    eventId: string,
+    userId: string,
+  ): Promise<WaitlistItem> {
+    const event = await this.events.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+    const row = await this.waitlistRows.findOne({
+      where: { eventId, userId },
+      relations: { user: true },
+    });
+    if (!row) throw new NotFoundException('Not in waitlist');
+    return toWaitlistItem(row);
+  }
+
+  /**
+   * DELETE /events/:id/waitlist/me (ST-03) — keluar dari antrean.
+   * Tidak masuk antrean → 404. Posisi peserta lain TIDAK di-reorder
+   * (mencerminkan urutan kedatangan; promosi selalu ambil yang terdepan).
+   */
+  async leaveWaitlist(
+    eventId: string,
+    userId: string,
+  ): Promise<{ ok: true; eventId: string }> {
+    const event = await this.events.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+    const row = await this.waitlistRows.findOne({
+      where: { eventId, userId },
+    });
+    if (!row) throw new NotFoundException('Not in waitlist');
+    await this.waitlistRows.remove(row);
+    return { ok: true, eventId };
+  }
+
+  /**
+   * Promosi otomatis ST-03: bila ada slot kosong, antrean terdepan
+   * (`waiting`, `position` terkecil) ditandai `invited` + notifikasi
+   * best-effort. Dipanggil setelah `leave` dan setelah webhook settlement
+   * yang (secara balapan) mendapati event sudah penuh.
+   */
+  async promoteWaitlistHead(eventId: string): Promise<void> {
+    const event = await this.events.findOne({ where: { id: eventId } });
+    if (!event) return;
+    const count = await this.participantRows.count({ where: { eventId } });
+    if (count >= event.capacity) return;
+    const head = await this.waitlistRows.find({
+      where: { eventId, status: 'waiting' },
+      order: { position: 'ASC' },
+      take: 1,
+    });
+    const first = head[0];
+    if (!first) return;
+    first.status = 'invited';
+    await this.waitlistRows.save(first);
+    // Notifikasi undangan — best-effort: tanpa device token / FCM down
+    // promosi tetap tercatat (user bisa lihat via GET waitlist/me).
+    try {
+      await this.notifications.sendToUsers({
+        userIds: [first.userId],
+        title: 'Slot event tersedia',
+        body: `Ada slot kosong di "${event.title}" — segera join sebelum penuh lagi.`,
+        data: { type: 'event', entityId: eventId },
+      });
+    } catch {
+      // Best-effort — abaikan agar leave/webhook tidak gagal.
+    }
+  }
+
+  /**
+   * Tandai payment pending yang berumur > TTL sebagai `expired`.
+   * Oportunistik (dipanggil dari `join`); webhook expire/cancel juga
+   * menutup payment. Mengembalikan jumlah yang di-expire.
+   */
+  private async expireDueEventPayments(
+    payRepo: Repository<EventPayment>,
+    eventId: string,
+  ): Promise<number> {
+    const cutoff = Date.now() - EVENT_PAYMENT_TTL_MS;
+    const pendings = await payRepo.find({
+      where: { eventId, status: 'pending' },
+    });
+    const due = pendings.filter(
+      (p) => new Date(p.createdAt).getTime() <= cutoff,
+    );
+    for (const p of due) {
+      p.status = 'expired';
+      await payRepo.save(p);
+    }
+    return due.length;
+  }
+
   toPublic(e: SportEvent, distanceMeters?: number): EventListItem {
     return {
       id: e.id,
@@ -421,6 +699,7 @@ export class EventsService implements OnModuleInit {
       lat: e.lat,
       lng: e.lng,
       capacity: e.capacity,
+      fee: e.fee ?? 0,
       participantsCount: e.participantsCount,
       status: e.status,
       photos: e.photos ?? [],
@@ -459,6 +738,70 @@ export class EventsService implements OnModuleInit {
 export function validateEventPhotos(input: string[]): string[] {
   assertPhotoUrls(input, MAX_EVENT_PHOTOS, 'Event photos');
   return input;
+}
+
+/** 409 event penuh + otomatis waitlisted (ST-03): body `{ waitlisted: true, position }`. */
+export function waitlistedError(position: number): HttpException {
+  return new HttpException(
+    { message: 'Event is full', waitlisted: true, position },
+    409,
+  );
+}
+
+/**
+ * Sinyal internal: join mendapati event penuh di dalam transaksi.
+ * Posisi antrean dihitung di dalam lock/transaksi, baris waitlist ditulis
+ * SETELAH commit oleh `join` (throw di dalam transaksi = rollback).
+ */
+class EventFullSignal {
+  constructor(public readonly position: number) {}
+}
+
+/** True bila error DB adalah pelanggaran unique (Postgres 23505 / SQLite). */
+function isUniqueViolation(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const rec = err as Record<string, unknown>;
+  if (rec.code === '23505') return true;
+  const msg = [
+    rec.message,
+    (rec.driverError as Record<string, unknown> | undefined)?.message,
+  ]
+    .filter((m) => typeof m === 'string')
+    .join(' ');
+  return /unique|UNIQUE|uq_/i.test(msg);
+}
+
+/** `payment_ref` event = Midtrans `order_id` (unik, prefix `EV-` untuk routing webhook). */
+export function generateEventPaymentRef(): string {
+  return `EV-${Date.now()}-${randomBytes(4).toString('hex')}`;
+}
+
+export function toEventPaymentItem(p: EventPayment): EventPaymentItem {
+  return {
+    id: p.id,
+    eventId: p.eventId,
+    userId: p.userId,
+    amount: p.amount,
+    status: p.status,
+    paymentRef: p.paymentRef,
+    snapToken: p.snapToken ?? null,
+    redirectUrl: p.redirectUrl ?? null,
+    paidAt: p.paidAt ?? null,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
+
+function toWaitlistItem(w: EventWaitlist): WaitlistItem {
+  return {
+    userId: w.userId,
+    email: w.user?.email ?? '',
+    displayName: w.user?.displayName ?? null,
+    avatarUrl: w.user?.avatarUrl ?? null,
+    position: w.position,
+    status: w.status,
+    createdAt: w.createdAt,
+  };
 }
 
 /** Jarak great-circle (meter) untuk filter geo fallback sqljs. */

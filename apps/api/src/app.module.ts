@@ -13,6 +13,8 @@ import { ChatModule } from './chat/chat.module';
 import { Conversation } from './chat/conversation.entity';
 import { Message } from './chat/message.entity';
 import { EventParticipant } from './events/event-participant.entity';
+import { EventPayment } from './events/event-payment.entity';
+import { EventWaitlist } from './events/event-waitlist.entity';
 import { SportEvent } from './events/event.entity';
 import { EventsModule } from './events/events.module';
 import { HealthController } from './health/health.controller';
@@ -57,13 +59,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),

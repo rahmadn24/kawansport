@@ -72,6 +72,16 @@ export class SportEvent {
   capacity!: number;
 
   /**
+   * Iuran join event dalam rupiah, IDR only (ST-02, default 0 = gratis).
+   * Diisi host saat create, bisa diubah via PATCH (ikut aturan update).
+   * Mengubah fee TIDAK memengaruhi payment pending yang sudah terbit
+   * (snapshot `EventPayment.amount` tetap dipakai webhook).
+   * Host otomatis jadi peserta #1 TANPA membayar (tidak ada payment untuk host).
+   */
+  @Column({ type: 'int', default: 0 })
+  fee!: number;
+
+  /**
    * URL/path foto event (ST-01, maks 5 — ditegakkan di DTO/service).
    * Postgres: text[] — sqljs-test: simple-array (portabel).
    */

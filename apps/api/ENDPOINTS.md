@@ -88,12 +88,38 @@ Detail + `host` + `isJoined` milik current user. 404 bila tidak ada.
 `{ data: [{ userId, email, displayName, avatarUrl, joinedAt }], meta: { total } }`, urut `joinedAt` ASC.
 
 ### `POST /events/:id/join`
-- 201: detail event + `isJoined: true`.
-- 409 bila sudah join / event penuh. Transaksional anti-race.
+- Event gratis (`fee=0`): 201 detail event + `isJoined: true`.
+- Event berbayar (`fee>0`, ST-02): 201 detail event + `isJoined: false` + `payment { id, amount (= snapshot fee), status: "pending", paymentRef (prefix EV-), snapToken, redirectUrl }`. Join ulang saat pending aktif → 201 idempotent (paymentRef sama).
+- 409 bila sudah join. Event penuh (gratis maupun paid-penuh) → 409 `{ waitlisted: true, position }` + otomatis masuk antrean (ST-03). Transaksional anti-race.
 
 ### `POST /events/:id/leave`
 - 200: detail event + `isJoined: false`.
 - 404 bila bukan peserta.
+- Setelah slot kosong, antrean terdepan otomatis dipromosi `invited` + notifikasi (ST-03).
+
+## Event berbayar (ST-02, auth)
+
+Kolom `fee` (int rupiah, IDR only, default 0 = gratis) di `SportEvent`. Diisi host saat `POST /events` (`fee? >= 0`), bisa diubah via `PATCH /events/:id` (ikut aturan host/super_admin; payment pending yang sudah terbit memakai snapshot lama). Host otomatis peserta #1 TANPA membayar. `fee` tampil di semua response event (`EventListItem.fee`).
+- Pending payment TIDAK makan slot — `participantsCount`/`status` hanya berubah saat webhook paid.
+- Webhook dipakai ulang: `POST /payments/midtrans/notification` routing prefix `EV-` (pola yang sama dengan `MP-`); verifikasi signature + `gross_amount` wajib = snapshot (beda → 409, tetap pending); idempotent (hanya `pending` yang berubah; double-hit aman).
+- `settlement` / `capture(+accept)` → `paid` + user jadi participant. Event keburu penuh saat settlement → payment tetap `paid` tetapi user masuk antrean terdepan `invited` (tidak pernah over-capacity diam-diam).
+- `capture+challenge` → tetap pending; `capture+deny` / `cancel` / `deny` / `failure` → `cancelled`; `expire` → `expired` (TTL oportunistik 30 mnt, sama dengan booking).
+- Signature invalid → 403; paymentRef tak dikenal → 404.
+
+## Waiting list (ST-03, auth)
+
+Event penuh → `POST /events/:id/join` otomatis memasukkan user ke antrean (`position` = jumlah antrean + 1, 1-based, tidak di-reorder) + 409 body `{ message: "Event is full", waitlisted: true, position }`. Duplikat antrean → 409 `Already waitlisted`.
+
+### `GET /events/:id/waitlist/me`
+Posisi antreanku `{ userId, email, displayName, avatarUrl, position, status (waiting|invited), createdAt }`. 404 bila event tidak ada / tidak masuk antrean.
+
+### `DELETE /events/:id/waitlist/me`
+Keluar dari antrean → 200 `{ ok: true, eventId }`. 404 bila event tidak ada / tidak masuk antrean.
+
+### `GET /events/:id/waitlist`
+Hanya host / super_admin (selain itu 403). `{ data: WaitlistItem[] (urut position ASC), meta: { total } }`. 404 bila event tidak ada.
+
+Promosi otomatis: saat ada slot kosong (`leave`), antrean `waiting` terdepan ditandai `invited` + notifikasi push best-effort (`type: event`). TODO(V2): undangan kedaluwarsa (V1 tidak kedaluwarsa — user invited tinggal join biasa).
 
 ## Users (SM-06, auth)
 

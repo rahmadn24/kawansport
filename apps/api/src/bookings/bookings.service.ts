@@ -11,7 +11,9 @@ import { DataSource, In, IsNull, Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
 import { assertOwnerOrAdmin } from '../auth/ownership';
 import { EventParticipant } from '../events/event-participant.entity';
-import { SportEvent } from '../events/event.entity';
+import { EventPayment } from '../events/event-payment.entity';
+import { EventWaitlist } from '../events/event-waitlist.entity';
+import { SportEvent, resolveEventStatus } from '../events/event.entity';
 import {
   ShopOrder,
   ShopOrderGroup,
@@ -605,7 +607,8 @@ export class BookingsService {
   /**
    * POST /payments/midtrans/notification (publik, terverifikasi signature).
    * Routing kanal via prefix `order_id` (MP-02): "MP-" → order marketplace
-   * (1 order + N grup seller), selain itu → booking BK-03 ("BK-").
+   * (1 order + N grup seller), "EV-" → payment join event berbayar (ST-02),
+   * selain itu → booking BK-03 ("BK-").
    * Idempotent: hanya `pending` yang bisa berubah (double-hit aman).
    */
   async handleNotification(
@@ -624,6 +627,11 @@ export class BookingsService {
     // Cabang marketplace (MP-02) — bedakan via prefix order_id.
     if (dto.order_id.startsWith('MP-')) {
       return this.handleMarketplaceNotification(dto);
+    }
+
+    // Cabang event berbayar (ST-02) — bedakan via prefix order_id.
+    if (dto.order_id.startsWith('EV-')) {
+      return this.handleEventPaymentNotification(dto);
     }
 
     const booking = await this.bookings.findOne({
@@ -724,6 +732,137 @@ export class BookingsService {
       return { ok: true, status: 'cancelled' };
     }
     return { ok: true, status: 'pending' };
+  }
+
+  /**
+   * Cabang webhook event berbayar (ST-02) — `order_id` prefix "EV-".
+   * Verifikasi signature sudah dilakukan pemanggil (sama dengan BK-03/MP-02,
+   * tanpa duplikasi). Idempotent: payment non-pending dikembalikan apa adanya.
+   * - settlement / capture(+accept) → payment `paid` + user jadi participant
+   *   (HANYA di titik ini slot dimakan — pending tidak dihitung).
+   * - gross_amount beda dari snapshot → 409, tetap pending (pola SEC-01).
+   * - capture+challenge → tetap pending; capture+deny → `cancelled`.
+   * - cancel / deny / failure → `cancelled`; expire → `expired`.
+   *
+   * Balapan settlement-vs-full: bila event keburu penuh (paid penuh) saat
+   * settlement tiba, payment TETAP `paid` (uang sudah masuk) tetapi user
+   * dimasukkan antrean ST-03 dengan status `invited` (terdepan) + promosi
+   * best-effort — tidak pernah over-capacity diam-diam.
+   */
+  private async handleEventPaymentNotification(
+    dto: MidtransNotificationDto,
+  ): Promise<{ ok: true; status: string }> {
+    const payRepo = this.dataSource.getRepository(EventPayment);
+    const payment = await payRepo.findOne({
+      where: { paymentRef: dto.order_id },
+    });
+    if (!payment) throw new NotFoundException('Event payment not found');
+    if (payment.status !== 'pending') {
+      return { ok: true, status: payment.status };
+    }
+    // SEC-01: gross_amount wajib sama dengan snapshot amount payment.
+    assertAmountMatches(dto.gross_amount, payment.amount);
+
+    const tx = dto.transaction_status;
+    const fraud = dto.fraud_status;
+
+    if (tx === 'capture') {
+      if (fraud === 'challenge') return { ok: true, status: 'pending' };
+      if (fraud === 'deny') {
+        await this.markEventPaymentTerminal(payment.id, 'cancelled');
+        return { ok: true, status: 'cancelled' };
+      }
+      await this.markEventPaymentPaid(payment.id);
+      return { ok: true, status: 'paid' };
+    }
+    if (tx === 'settlement') {
+      await this.markEventPaymentPaid(payment.id);
+      return { ok: true, status: 'paid' };
+    }
+    if (tx === 'pending') {
+      return { ok: true, status: 'pending' };
+    }
+    if (tx === 'expire') {
+      await this.markEventPaymentTerminal(payment.id, 'expired');
+      return { ok: true, status: 'expired' };
+    }
+    if (tx === 'cancel' || tx === 'deny' || tx === 'failure') {
+      await this.markEventPaymentTerminal(payment.id, 'cancelled');
+      return { ok: true, status: 'cancelled' };
+    }
+    return { ok: true, status: 'pending' };
+  }
+
+  /**
+   * Tandai EventPayment `paid` + catat participant atomik. Idempotent via
+   * status guard + unique pair (event_id, user_id) di event_participants.
+   */
+  private async markEventPaymentPaid(paymentId: string): Promise<void> {
+    await this.dataSource.transaction(async (mgr) => {
+      const payRepo = mgr.getRepository(EventPayment);
+      const partRepo = mgr.getRepository(EventParticipant);
+      const eventRepo = mgr.getRepository(SportEvent);
+      const waitRepo = mgr.getRepository(EventWaitlist);
+      const payment = await payRepo.findOneOrFail({ where: { id: paymentId } });
+      if (payment.status !== 'pending') return;
+      payment.status = 'paid';
+      payment.paidAt = new Date();
+      await payRepo.save(payment);
+
+      const already = await partRepo.findOne({
+        where: { eventId: payment.eventId, userId: payment.userId },
+      });
+      if (!already) {
+        const count = await partRepo.count({
+          where: { eventId: payment.eventId },
+        });
+        const event = await eventRepo.findOneOrFail({
+          where: { id: payment.eventId },
+        });
+        if (count < event.capacity) {
+          await partRepo.save(
+            partRepo.create({ eventId: payment.eventId, userId: payment.userId }),
+          );
+          const next = count + 1;
+          event.participantsCount = next;
+          event.status = resolveEventStatus(next, event.capacity);
+          await eventRepo.save(event);
+        } else {
+          // Event keburu penuh: uang sudah masuk → antrean terdepan invited.
+          const waitlisted = await waitRepo.findOne({
+            where: { eventId: payment.eventId, userId: payment.userId },
+          });
+          if (!waitlisted) {
+            const position =
+              (await waitRepo.count({
+                where: { eventId: payment.eventId },
+              })) + 1;
+            await waitRepo.save(
+              waitRepo.create({
+                eventId: payment.eventId,
+                userId: payment.userId,
+                position,
+                status: 'invited',
+              }),
+            );
+          } else if (waitlisted.status !== 'invited') {
+            waitlisted.status = 'invited';
+            await waitRepo.save(waitlisted);
+          }
+        }
+      }
+    });
+  }
+
+  private async markEventPaymentTerminal(
+    paymentId: string,
+    status: 'expired' | 'cancelled',
+  ): Promise<void> {
+    const payRepo = this.dataSource.getRepository(EventPayment);
+    const payment = await payRepo.findOne({ where: { id: paymentId } });
+    if (!payment || payment.status !== 'pending') return;
+    payment.status = status;
+    await payRepo.save(payment);
   }
 
   private async markMarketPaid(orderId: string): Promise<void> {

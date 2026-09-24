@@ -50,6 +50,17 @@ export class CreateEventDto {
   @Max(500)
   capacity!: number;
 
+  /**
+   * Iuran join rupiah, IDR only (ST-02). Opsional, default 0 = gratis.
+   * Pending payment TIDAK makan slot; peserta dihitung setelah paid.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1000000000)
+  fee?: number;
+
   /** Foto event (ST-01): path /uploads/... atau https, maks 5. */
   @IsOptional()
   @IsArray()

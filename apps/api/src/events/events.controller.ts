@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -75,8 +76,11 @@ export class EventsController {
   }
 
   /**
-   * Ikut event (SM-05). Sukses -> 201. Double-join / penuh -> 409.
-   * Transaksional anti-race (SELECT FOR UPDATE + unique pair + mutex).
+   * Ikut event (SM-05 + ST-02 + ST-03). Sukses -> 201. Double-join / penuh -> 409.
+   * - Event gratis: 201 detail event + `isJoined: true`.
+   * - Event berbayar: 201 detail event + `isJoined: false` + `payment`
+   *   (pending + Snap token); peserta dicatat setelah webhook paid.
+   * - Event penuh: 409 `{ waitlisted: true, position }` (otomatis antrean).
    */
   @Post(':id/join')
   join(
@@ -94,6 +98,43 @@ export class EventsController {
     @CurrentUser() user: { id: string },
   ) {
     return this.events.leave(id, user.id);
+  }
+
+  /**
+   * Daftar antrean event penuh (ST-03) — hanya host / super_admin (403).
+   * Urut `position` ASC. 404 bila event tidak ada.
+   */
+  @Get(':id/waitlist')
+  waitlist(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.events.listWaitlist(id, user);
+  }
+
+  /**
+   * Posisi antreanku (ST-03). 200 `{ userId, position, status, ... }`.
+   * 404 bila event tidak ada / tidak masuk antrean.
+   */
+  @Get(':id/waitlist/me')
+  myWaitlist(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.events.myWaitlistPosition(id, user.id);
+  }
+
+  /**
+   * Keluar dari antrean (ST-03). 200 `{ ok: true, eventId }`.
+   * 404 bila event tidak ada / tidak masuk antrean.
+   */
+  @Delete(':id/waitlist/me')
+  @HttpCode(200)
+  leaveWaitlist(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.events.leaveWaitlist(id, user.id);
   }
 
   /**

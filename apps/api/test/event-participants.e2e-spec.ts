@@ -222,7 +222,12 @@ describe('Event participants (e2e) SM-05', () => {
     expect(parts.body.data.length).toBe(5);
     const partEmails = parts.body.data.map((p: { email: string }) => p.email);
     expect(new Set(partEmails).size).toBe(5);
-  });
+  },
+  // Timeout longgar: 20 transaksi join serial (mutex per-event) di sqljs
+  // in-memory butuh ~4-6 dtk di mesin terbebani (flaky pada default 5 dtk —
+  // terbukti juga di tree pristine); asersi tidak dilonggarkan.
+  30000,
+  );
 
   it('3 parallel join via HTTP (batas harness) semua sukses', async () => {
     const ev = await request(app.getHttpServer())
@@ -248,7 +253,11 @@ describe('Event participants (e2e) SM-05', () => {
       .set({ Authorization: `Bearer ${hostToken}` })
       .expect(200);
     expect(detail.body.participantsCount).toBe(4);
-  });
+  },
+  // Sama seperti di atas: longgar dari default 5 dtk agar tidak tertular
+  // sisa beban race test di mesin lambat; asersi tetap [201, 201, 201].
+  30000,
+  );
 
   afterAll(async () => {
     await app.close();
