@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopOrder, shopOrderStatusLabel } from '../api/shop';
 import { COLORS, RADIUS, SPACING, TYPO } from '../theme';
@@ -31,7 +31,14 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
 
   const handlePay = () => {
     if (order.redirectUrl) {
-      Linking.openURL(order.redirectUrl).catch(() => undefined);
+      // Pakai snap lama (by design): JANGAN bikin charge ulang.
+      // Gagal buka link -> Alert jujur, JANGAN diam.
+      Linking.openURL(order.redirectUrl).catch(() =>
+        Alert.alert(
+          'Gagal membuka pembayaran',
+          'Tidak bisa membuka link pembayaran. Coba lagi atau pantau status di Order Saya.',
+        ),
+      );
     }
   };
   return (

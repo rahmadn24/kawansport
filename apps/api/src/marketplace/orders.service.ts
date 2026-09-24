@@ -10,10 +10,13 @@ import { randomBytes } from 'crypto';
 import { In, Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
 import { MidtransService } from '../bookings/midtrans.service';
+import { User } from '../users/user.entity';
 import { VouchersService } from '../vouchers/vouchers.service';
 import { Cart, CartItem } from './cart.entity';
 import { CheckoutDto } from './dto/checkout.dto';
+import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
 import { Product } from './product.entity';
+import { Seller } from './seller.entity';
 import {
   ShopOrder,
   ShopOrderGroup,
@@ -61,6 +64,24 @@ export interface OrderDetail {
   groups: OrderDetailGroup[];
 }
 
+/**
+ * Satu grup order dari sudut pandang seller (dashboard toko).
+ * `status` selalu mengikuti order induk. Buyer HANYA terekspos via
+ * `buyerDisplayName` — email/telepon TIDAK boleh bocor ke seller.
+ */
+export interface SellerOrderGroup {
+  groupId: string;
+  orderId: string;
+  paymentRef: string;
+  status: ShopOrderStatus;
+  subtotal: number;
+  sellerShopName: string;
+  items: OrderDetailItem[];
+  buyerDisplayName: string | null;
+  paidAt: Date | null;
+  createdAt: Date;
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -76,6 +97,10 @@ export class OrdersService {
     private readonly cartItems: Repository<CartItem>,
     @InjectRepository(Product)
     private readonly products: Repository<Product>,
+    @InjectRepository(Seller)
+    private readonly sellers: Repository<Seller>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
     private readonly midtrans: MidtransService,
     private readonly vouchers: VouchersService,
   ) {}
@@ -326,6 +351,67 @@ export class OrdersService {
       throw new ForbiddenException('Forbidden: not the order owner');
     }
     return this.toDetail(order.id);
+  }
+
+  /**
+   * GET /orders/seller — daftar grup order milik toko sendiri (satu baris
+   * per grup seller, terbaru dulu). Join order_groups milik seller saya +
+   * order induknya. Tanpa profil seller → 404 jujur (bukan array kosong)
+   * agar client bisa mengarahkan onboarding.
+   */
+  async listForSeller(
+    actor: ActorInput,
+    query: SellerDashboardQueryDto,
+  ): Promise<{
+    data: SellerOrderGroup[];
+    meta: { page: number; limit: number; total: number };
+  }> {
+    const seller = await this.sellers.findOne({
+      where: { ownerId: actor.id },
+    });
+    if (!seller) {
+      throw new NotFoundException('Belum punya toko (seller profile not found)');
+    }
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const groups = await this.groups.find({
+      where: { sellerId: seller.id },
+      relations: { order: true, seller: true },
+      order: { createdAt: 'DESC' },
+    });
+    const total = groups.length;
+    const slice = groups.slice((page - 1) * limit, page * limit);
+    const data: SellerOrderGroup[] = [];
+    for (const g of slice) {
+      const order = g.order;
+      if (!order) continue;
+      const items = await this.orderItems.find({
+        where: { groupId: g.id },
+        order: { createdAt: 'ASC' },
+      });
+      const buyer = await this.users.findOne({
+        where: { id: order.userId },
+      });
+      data.push({
+        groupId: g.id,
+        orderId: order.id,
+        paymentRef: order.paymentRef,
+        status: order.status,
+        subtotal: g.subtotal,
+        sellerShopName: g.seller?.shopName ?? seller.shopName,
+        items: items.map((it) => ({
+          productId: it.productId,
+          productName: it.productName,
+          qty: it.qty,
+          price: it.price,
+          subtotal: it.subtotal,
+        })),
+        buyerDisplayName: buyer?.displayName ?? null,
+        paidAt: order.paidAt ?? null,
+        createdAt: g.createdAt,
+      });
+    }
+    return { data, meta: { page, limit, total } };
   }
 
   /**

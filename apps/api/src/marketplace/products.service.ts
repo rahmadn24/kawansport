@@ -22,6 +22,7 @@ import { normalizePhotos } from '../venues/venues.service';
 import { assertPhotoUrls } from '../uploads/photo-url';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
+import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './product.entity';
 import { Seller } from './seller.entity';
@@ -250,6 +251,41 @@ export class ProductsService {
       order: { createdAt: 'ASC' },
     });
     return rows.map((p) => this.toPublic(p));
+  }
+
+  /**
+   * GET /products/mine — SEMUA produk milik toko sendiri (pending, approved,
+   * maupun rejected), terbaru dulu. Dipakai dashboard toko CMS (pengganti
+   * list publik yang hanya memuat approved). Tanpa profil seller → 404
+   * jujur (bukan array kosong) agar client bisa mengarahkan onboarding.
+   * Shape item = ProductItem yang sama dengan list publik + meta.
+   */
+  async listMine(
+    actor: ActorInput,
+    query: SellerDashboardQueryDto,
+  ): Promise<{
+    data: ProductItem[];
+    meta: { page: number; limit: number; total: number };
+  }> {
+    const seller = await this.sellers.findOne({
+      where: { ownerId: actor.id },
+    });
+    if (!seller) {
+      throw new NotFoundException('Belum punya toko (seller profile not found)');
+    }
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const rows = await this.products.find({
+      where: { sellerId: seller.id },
+      relations: { seller: true },
+      order: { createdAt: 'DESC' },
+    });
+    const total = rows.length;
+    const slice = rows.slice((page - 1) * limit, page * limit);
+    return {
+      data: slice.map((p) => this.toPublic(p)),
+      meta: { page, limit, total },
+    };
   }
 
   /**

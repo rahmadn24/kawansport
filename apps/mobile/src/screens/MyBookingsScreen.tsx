@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Linking,
   StyleSheet,
@@ -73,7 +74,12 @@ export function MyBookingsScreen({
       return;
     }
     if (b.redirectUrl) {
-      Linking.openURL(b.redirectUrl).catch(() => undefined);
+      Linking.openURL(b.redirectUrl).catch(() =>
+        Alert.alert(
+          'Gagal membuka pembayaran',
+          `Tidak bisa membuka link bayar booking ${b.paymentRef}. Coba lagi.`,
+        ),
+      );
     }
   };
 

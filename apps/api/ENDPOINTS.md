@@ -336,6 +336,37 @@ Daftar order milik sendiri (terbaru dulu, beserta grup+item) →
 ### `GET /orders/:id`
 Detail milik sendiri; milik orang lain → 403 (super_admin lolos); tak ada → 404.
 
+## Pesanan & produk seller (toko)
+
+Dashboard toko CMS (pengganti list publik yang hanya memuat `approved`).
+Kedua endpoint butuh JWT + profil seller milik sendiri — tanpa profil
+→ 404 `{ message: "Belum punya toko ..." }` (jujur, bukan array kosong)
+agar client bisa mengarahkan onboarding. Status profil apa pun boleh
+(pending/approved/rejected); yang dicek keberadaan profil, bukan approval.
+
+### `GET /products/mine` (auth)
+Semua produk milik toko sendiri — SEMUA status
+(pending/approved/rejected), terbaru dulu.
+Query: `page?` (default 1), `limit?` (default 20, maks 50).
+Response `{ data: ProductItem[], meta: { page, limit, total } }`
+(`ProductItem` sama dengan list publik: `id, seller{id,shopName,ownerId},
+category, name, description, price, stock, photos, status,
+rejectionReason, updatedBy, createdAt, updatedAt`).
+- Tanpa token → 401; tanpa profil seller → 404.
+- Produk seller lain TIDAK bocor (filter `sellerId` milik sendiri).
+
+### `GET /orders/seller` (auth)
+Daftar grup order milik toko sendiri (satu baris per grup seller +
+order induknya), terbaru dulu.
+Query: `page?` (default 1), `limit?` (default 20, maks 50).
+Response `{ data: SellerOrderGroup[], meta: { page, limit, total } }`.
+`SellerOrderGroup`: `{ groupId, orderId, paymentRef, status (mengikuti
+order induk), subtotal, sellerShopName, items[] (snapshot
+`productId/productName/qty/price/subtotal`), buyerDisplayName (SAJA —
+email/telepon buyer TIDAK diekspos), paidAt, createdAt }`.
+- Tanpa token → 401; tanpa profil seller → 404.
+- Seller tanpa order → `{ data: [], meta: { total: 0 } }`.
+
 ## Voucher promo + Poin Kawan (ST-04, auth kecuali webhook)
 
 Tabel `vouchers` (`code` unik uppercase, `type` percent|fixed, `value`,

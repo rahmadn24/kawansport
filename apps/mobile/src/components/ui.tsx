@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -547,13 +548,21 @@ export function UIHeader({
       <View style={styles.headerRight}>
         {/*
           Bell SELALU Touchable agar ada respons sentuh (ripple/opacity).
-          Tanpa onBellPress: no-op jujur — tanpa angka palsu & tanpa navigasi
-          palsu; label a11y menjelaskan riwayat notifikasi segera hadir.
-          (Toast tinggal di flow App.tsx dan tak terjangkau header.)
+          Tanpa onBellPress (riwayat notifikasi belum ada endpoint):
+          Alert jujur "Riwayat notifikasi segera hadir" — JANGAN diam.
+          TODO(GAP-01): hubungkan ke endpoint riwayat notifikasi bila tersedia,
+          lalu ganti Alert ini dengan navigasi ke layar riwayat.
         */}
         <TouchableOpacity
           style={styles.headerBell}
-          onPress={onBellPress ?? (() => undefined)}
+          onPress={
+            onBellPress ??
+            (() =>
+              Alert.alert(
+                'Riwayat notifikasi segera hadir',
+                'Notifikasi push tetap aktif. Riwayat notifikasi dalam aplikasi segera hadir.',
+              ))
+          }
           accessibilityRole="button"
           accessibilityLabel={
             onBellPress ? 'Buka notifikasi' : 'Notifikasi push aktif, riwayat notifikasi segera hadir'

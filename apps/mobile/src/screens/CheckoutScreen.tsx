@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   BookingItem,
   bookingStatusLabel,
@@ -53,7 +53,12 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
 
   const handlePay = () => {
     if (booking.redirectUrl) {
-      Linking.openURL(booking.redirectUrl).catch(() => undefined);
+      Linking.openURL(booking.redirectUrl).catch(() =>
+        Alert.alert(
+          'Gagal membuka pembayaran',
+          'Tidak bisa membuka link pembayaran. Coba lagi dari Booking Saya.',
+        ),
+      );
       return;
     }
     onMyBookings();

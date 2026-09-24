@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -13,6 +14,7 @@ import type { RequestUser } from '../auth/jwt-auth.guard';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OrdersService } from './orders.service';
 import { CheckoutDto } from './dto/checkout.dto';
+import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
 
 /**
  * Checkout multiseller (MP-02): POST /checkout atomik dari cart milik
@@ -46,6 +48,18 @@ export class OrdersController {
   @Get('me')
   listMine(@CurrentUser() user: RequestUser) {
     return this.orders.listMine(user);
+  }
+
+  /**
+   * Daftar grup order milik toko sendiri (dashboard toko), terbaru dulu.
+   * WAJIB sebelum rute `:id` agar `seller` tidak ditangkap sebagai UUID.
+   */
+  @Get('seller')
+  listForSeller(
+    @CurrentUser() user: RequestUser,
+    @Query() query: SellerDashboardQueryDto,
+  ) {
+    return this.orders.listForSeller(user, query);
   }
 
   /** Detail order milik sendiri (403 bila milik orang lain). */

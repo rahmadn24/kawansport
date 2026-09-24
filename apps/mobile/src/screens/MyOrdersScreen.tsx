@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, FlatList, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopOrder, ShopOrderStatus, shopOrderStatusLabel } from '../api/shop';
 import { COLORS, RADIUS, SPACING, TYPO, formatWIB } from '../theme';
@@ -125,7 +125,16 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
                   o.redirectUrl ? (
                     <TouchableOpacity
                       style={styles.payBtn}
-                      onPress={() => Linking.openURL(o.redirectUrl as string).catch(() => undefined)}
+                      // Tombol "Bayar" hanya bila status pending + redirectUrl ada.
+                      // Gagal buka link -> Alert jujur, JANGAN diam.
+                      onPress={() =>
+                        Linking.openURL(o.redirectUrl as string).catch(() =>
+                          Alert.alert(
+                            'Gagal membuka pembayaran',
+                            `Tidak bisa membuka link bayar order ${o.paymentRef}. Coba lagi.`,
+                          ),
+                        )
+                      }
                       accessibilityRole="button"
                       accessibilityLabel={`Bayar order ${o.paymentRef}, total ${formatIDR(o.total)}`}
                     >

@@ -25,6 +25,7 @@ import type { UserRole } from '../users/user.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 import { RejectDto } from './dto/reject.dto';
+import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
@@ -60,6 +61,20 @@ export class ProductsController {
   @Roles('super_admin')
   listPending() {
     return this.products.listPending();
+  }
+
+  /**
+   * Produk milik toko sendiri — SEMUA status (pending/approved/rejected),
+   * shape ProductItem yang sama + meta. WAJIB sebelum rute `:id` agar
+   * `mine` tidak ditangkap sebagai UUID.
+   */
+  @Get('mine')
+  @UseGuards(JwtAuthGuard)
+  listMine(
+    @CurrentUser() user: RequestUser,
+    @Query() query: SellerDashboardQueryDto,
+  ) {
+    return this.products.listMine(user, query);
   }
 
   /**
