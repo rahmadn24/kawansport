@@ -52,6 +52,17 @@ export const OWNER_NAV: NavItem[] = [
 ];
 
 /**
+ * NAVIGASI SELLER — dashboard toko CMS (MP-01/MP-02 + API-W08).
+ * Grup non-admin: dirender apa adanya oleh Shell (jalur otherNav).
+ */
+export const SELLER_NAV: NavItem[] = [
+  { href: '/dashboard/seller', label: 'Overview Toko', icon: '🛍️' },
+  { href: '/dashboard/seller/products', label: 'Produk Saya', icon: '📦' },
+  { href: '/dashboard/seller/orders', label: 'Pesanan', icon: '🧾' },
+  { href: '/dashboard/seller/payouts', label: 'Saldo & Payout', icon: '💸' },
+];
+
+/**
  * Kerangka global CMS: sidebar Stitch (navigasi + Server Core ID) +
  * topbar (search, status gateway, bell, user+role) + drawer mobile.
  * Search topbar: fungsional bila onSearchQuery diisi (filter tabel halaman
