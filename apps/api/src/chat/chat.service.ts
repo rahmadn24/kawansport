@@ -151,8 +151,10 @@ export class ChatService {
   }
 
   /**
-   * Kirim pesan (dipakai REST via gateway? tidak — REST tidak ada endpoint kirim;
-   * pengiriman lewat WS `message:send`). Method bersama untuk gateway.
+   * Kirim pesan — dipakai WS gateway (`message:send`) DAN REST
+   * (`POST /conversations/:id/messages`, GAP-02). Satu jalur persist:
+   * verifikasi anggota, trim + batas 2000 char, update lastMessageAt.
+   * Unread dihitung live saat baca (lihat `unreadOf` / `toItem`).
    */
   async send(
     senderId: string,

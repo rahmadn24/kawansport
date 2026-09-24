@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-02)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -147,6 +147,9 @@ Query `page? (default 1), limit? (default 20)`. History ASC + `{ data: MessageIt
 
 ### `POST /conversations/:id/read`
 Tandai semua pesan lawan sebagai dibaca. 200 `{ ok: true, marked: N }`.
+
+### `POST /conversations/:id/messages` (GAP-02)
+Kirim pesan via REST — detail di seksi GAP-02 (jalur persist sama dengan WS).
 
 ### WebSocket (Socket.io, path default `/socket.io`)
 Auth: JWT access token via `handshake.auth.token` (atau `handshake.query.token`). Tanpa token valid koneksi ditolak.
@@ -707,3 +710,44 @@ Body: `{ reason? (≤1000) }`. `requested` → `rejected` → 200 item
 Body: `{ reference (wajib non-empty, ≤255) }`. `approved` → `paid`
 (menandai transfer manual sudah dilakukan) → 200 item. Reference kosong
 → 400; status selain `approved` → 409; tak ada → 404.
+
+## Akun + kirim pesan REST (GAP-02, auth)
+
+### `POST /conversations/:id/messages`
+Kirim pesan via REST — jalur persist SAMA dengan WS (`ChatService.send`):
+verifikasi anggota dulu (bukan anggota → 403, tak ada → 404), trim +
+batas 1..2000 char, `lastMessageAt` ter-update; unread dihitung live.
+Body: `{ body (string, 1..2000 char setelah trim) }` (DTO `SendMessageDto`).
+- 201: `MessageItem` (`id, conversationId, senderId, body, createdAt, readAt`).
+- 400: body kosong / whitespace-only / >2000 char / hilang / bukan string.
+- Broadcast WS realtime (`message:new`, `conversation:update`) tetap hanya
+  lewat gateway — client REST poll `GET /conversations/:id/messages`.
+- TODO: rate-limit kirim pesan (saat ini hanya validasi; mis. N pesan/menit
+  per user bila abuse chat muncul).
+
+### `DELETE /me`
+Hapus akun sendiri → 200 `{ ok: true }`. Tanpa token → 401.
+Selalu menghapus: semua refresh token (logout SEMUA sesi — login/refresh
+berikutnya → 401) + semua device token push milik user.
+Hard delete baris `users` (repo tidak memakai soft-delete); relasi non-aktif
+lain (partisipasi event lampau, dispute, rating, cart) ikut FK CASCADE.
+
+Riwayat TIDAK dihapus diam-diam — kondisi berikut menolak dengan 409
+`Cannot delete account: <alasan; ...>` (akun tetap utuh, masih bisa login):
+- booking `pending`/`paid` milik user (batalkan dulu via
+  `POST /bookings/:id/cancel` atau tunggu kedaluwarsa; `paid` tidak bisa
+  dibatalkan — akun terkunci selama riwayat lunas ada);
+- order marketplace `pending`/`paid` milik user;
+- user host dari event mendatang (`datetime >= now`);
+- user peserta dari event mendatang (keluar dulu via `POST /events/:id/leave`);
+- user pemilik ≥1 venue (menghapus venue ikut menghapus court + booking
+  milik orang lain via cascade — alihkan/hapus venue dulu);
+- user memiliki profil seller (tutup toko dulu — cascade ke produk/order grup).
+
+### Lupa password
+TODO (jujur): TIDAK ADA endpoint forgot/reset-password — repo tidak punya
+infra email (tidak ada mailer/SMTP; grep `mailer|nodemailer|smtp` di `src/`
+hanya menemukan komentar TODO ini). Jangan mock kirim email. Bila dibutuhkan:
+tambah provider email + tabel token reset (single-use, TTL pendek, hash di DB
+seperti refresh token) + `POST /auth/forgot-password` (selalu 200 tanpa
+membocorkan keberadaan email) + `POST /auth/reset-password` + e2e.

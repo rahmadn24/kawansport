@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { ListMessagesDto } from './dto/list-messages.dto';
+import { SendMessageDto } from './dto/send-message.dto';
 
 @Controller('conversations')
 @UseGuards(JwtAuthGuard)
@@ -53,5 +54,20 @@ export class ChatController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.chat.markRead(user.id, id);
+  }
+
+  /**
+   * Kirim pesan via REST (GAP-02) — jalur persist SAMA dengan WS
+   * (`ChatService.send`: validasi anggota 403/404, trim + batas 2000 char,
+   * update lastMessageAt; unread dihitung live saat baca).
+   * Response 201 MessageItem. Broadcast WS realtime tetap lewat gateway.
+   */
+  @Post(':id/messages')
+  sendMessage(
+    @CurrentUser() user: { id: string },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SendMessageDto,
+  ) {
+    return this.chat.send(user.id, id, dto.body).then((r) => r.message);
   }
 }

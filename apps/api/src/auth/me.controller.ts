@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -18,12 +19,16 @@ import {
   avatarFileFilter,
   saveAvatarBuffer,
 } from '../users/upload.config';
+import { AccountService } from './account.service';
 import { CurrentUser } from './current-user.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('me')
 export class MeController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly account: AccountService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -64,5 +69,16 @@ export class MeController {
     const avatarUrl = await saveAvatarBuffer(user.id, file);
     await this.users.setAvatar(user.id, avatarUrl);
     return { avatarUrl };
+  }
+
+  /**
+   * Hapus akun sendiri (GAP-02). Aturan blokir 409 (booking/order aktif,
+   * event mendatang, venue, seller) + penghapusan sesi ada di AccountService
+   * dan ENDPOINTS.md seksi GAP-02.
+   */
+  @Delete()
+  @UseGuards(JwtAuthGuard)
+  async deleteMe(@CurrentUser() user: { id: string }) {
+    return this.account.deleteMe(user.id);
   }
 }

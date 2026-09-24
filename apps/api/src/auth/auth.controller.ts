@@ -7,6 +7,9 @@ import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
+  // TODO(GAP-02): lupa-password / reset-password SENGAJA tidak ada —
+  // repo tidak punya infra email (mailer). Jangan mock kirim email;
+  // tambah endpoint hanya bila ada provider email + token reset + uji e2e.
   constructor(private readonly auth: AuthService) {}
 
   @Post('register')
