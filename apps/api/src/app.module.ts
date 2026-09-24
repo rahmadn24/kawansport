@@ -20,7 +20,9 @@ import { EventsModule } from './events/events.module';
 import { HealthController } from './health/health.controller';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { DeviceToken } from './notifications/device-token.entity';
-import { NotificationsModule } from './notifications/notifications.module';import { Payout } from './payouts/payout.entity';
+import { NotificationsModule } from './notifications/notifications.module';import { NotificationHistory } from './notifications/notification-history.entity';
+import { Invite } from './invites/invite.entity';
+import { InvitesModule } from './invites/invites.module';import { Payout } from './payouts/payout.entity';
 import { PayoutsModule } from './payouts/payouts.module';import { Dispute } from './disputes/dispute.entity';
 import { DisputesModule } from './disputes/disputes.module';import { Cart, CartItem } from './marketplace/cart.entity';import { Product } from './marketplace/product.entity';
 import { Seller } from './marketplace/seller.entity';
@@ -59,13 +61,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),
@@ -81,6 +83,7 @@ import { UploadsModule } from './uploads/uploads.module';
     ChatModule,
     MarketplaceModule,
     NotificationsModule,
+    InvitesModule,
     VouchersModule,
     SettingsModule,
     DisputesModule,

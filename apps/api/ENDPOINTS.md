@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-02)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -150,6 +150,53 @@ Tandai semua pesan lawan sebagai dibaca. 200 `{ ok: true, marked: N }`.
 
 ### `POST /conversations/:id/messages` (GAP-02)
 Kirim pesan via REST — detail di seksi GAP-02 (jalur persist sama dengan WS).
+
+## Riwayat notifikasi + invite sparing (GAP-01, auth)
+
+Tabel `notification_history` (`user_id` CASCADE, `type`, `title`, `body`,
+`data` simple-json nullable, `read_at` nullable, `created_at`).
+Ditulis otomatis setiap `POST /notifications/send` untuk SEMUA target
+`userIds` (walau tanpa device) — kontrak `send` tidak berubah
+(tetap `{ sent, failed }`).
+
+### `GET /notifications/me`
+Query `page?` (default 1), `limit?` (default 20, maks 100), sort
+`createdAt` DESC → `{ data: NotificationItem[], meta: { page, limit, total } }`.
+`NotificationItem`: `{ id, type, title, body, data|null, readAt|null, createdAt }`.
+Tanpa token → 401.
+
+### `POST /notifications/:id/read`
+Tandai dibaca milik sendiri (idempotent — baca ulang tetap 200) → 200
+`NotificationItem`. Lintas user → 404; tak ada → 404; tanpa token → 401.
+
+Tabel `invites` (`from_user_id`/`to_user_id` CASCADE, `sport?` ≤60,
+`message?` ≤500, `status` pending|accepted|declined|expired default
+`pending`, `event_id?` opsional tanpa FK keras, timestamps).
+`InviteItem`: `{ id, fromUserId, toUserId, sport|null, message|null,
+status, eventId|null, createdAt, updatedAt }`.
+
+### `POST /invites`
+Body: `{ toUserId (UUID), sport?, message? (≤500), eventId? (UUID) }`
+→ 201 `InviteItem` (`status: "pending"`).
+- Diri sendiri → 400; `toUser` tak ada → 404; validasi gagal → 400.
+- Duplikat pending sama (pengirim + penerima + eventId sama, null-safe) → 409.
+- Tanpa token → 401.
+
+### `GET /invites/me`
+Default masuk (untukku, `toUserId == me`); `?dir=sent` = keluar
+(`fromUserId == me`). Terbaru dulu → `{ data: InviteItem[] }`.
+Tanpa token → 401.
+
+### `POST /invites/:id/accept`
+Hanya penerima (`toUser`); accept → `status: "accepted"` + buat/get
+conversation keduanya (reuse `ChatService.getOrCreate`) → 200
+`{ ...InviteItem, conversation: ConversationItem }`.
+- Bukan penerima → 403; tak ada → 404; sudah terminal (accept/decline
+  ulang) → 409.
+
+### `POST /invites/:id/decline`
+Hanya penerima → `status: "declined"` → 200 `InviteItem`.
+Aturan 403/404/409 sama dengan accept.
 
 ### WebSocket (Socket.io, path default `/socket.io`)
 Auth: JWT access token via `handshake.auth.token` (atau `handshake.query.token`). Tanpa token valid koneksi ditolak.

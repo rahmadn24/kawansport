@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -16,6 +16,7 @@ import type { RequestUser } from '../auth/jwt-auth.guard';
 import { DeviceToken } from './device-token.entity';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { SendNotificationDto } from './dto/send-notification.dto';
+import { NotificationHistory } from './notification-history.entity';
 
 /** Batas token per panggilan FCM multicast (dokumen Firebase). */
 const CHUNK_SIZE = 500;
@@ -44,6 +45,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(DeviceToken)
     private readonly tokens: Repository<DeviceToken>,
+    @InjectRepository(NotificationHistory)
+    private readonly history: Repository<NotificationHistory>,
   ) {}
 
   isStubMode(): boolean {
@@ -111,6 +114,23 @@ export class NotificationsService {
 
   /** Kirim ke semua device milik userIds. Hanya dipanggil dari endpoint super_admin. */
   async sendToUsers(dto: SendNotificationDto): Promise<{ sent: number; failed: number }> {
+    // Persistensi minimal GAP-01: riwayat per-user, tanpa mengubah kontrak send.
+    // Ditulis untuk SEMUA target userIds (walau tanpa device) sebelum pengiriman.
+    const type = dto.data?.type ?? 'system';
+    const dataJson = dto.data
+      ? (JSON.parse(JSON.stringify(dto.data)) as Record<string, unknown>)
+      : null;
+    const rowsToSave = dto.userIds.map((userId) =>
+      this.history.create({
+        userId,
+        type,
+        title: dto.title,
+        body: dto.body,
+        data: dataJson,
+      }),
+    );
+    await this.history.save(rowsToSave);
+
     const rows = await this.tokens.find({
       where: { userId: In(dto.userIds) },
     });
@@ -165,5 +185,42 @@ export class NotificationsService {
     }
 
     return { sent, failed };
+  }
+
+  /** GET /notifications/me — riwayat milik sendiri, terbaru dulu. */
+  async listForUser(userId: string, page: number, limit: number) {
+    const [rows, total] = await this.history.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return {
+      data: rows.map((r) => this.toItem(r)),
+      meta: { page, limit, total },
+    };
+  }
+
+  /** POST /notifications/:id/read — milik sendiri saja (lintas user → 404), idempotent. */
+  async markRead(userId: string, id: string) {
+    const row = await this.history.findOne({ where: { id, userId } });
+    if (!row) throw new NotFoundException('Notification not found');
+    if (!row.readAt) {
+      row.readAt = new Date();
+      await this.history.save(row);
+    }
+    return this.toItem(row);
+  }
+
+  private toItem(r: NotificationHistory) {
+    return {
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      body: r.body,
+      data: r.data ?? null,
+      readAt: r.readAt ?? null,
+      createdAt: r.createdAt,
+    };
   }
 }
