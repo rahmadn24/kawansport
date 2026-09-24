@@ -25,6 +25,8 @@ import {
   UISegmented,
 } from '../components/ui';
 import { bookingBadgeKind } from '../mocks/stitch';
+import { BOOKING_PAYMENT_TTL_MS } from '../api/payment';
+import { payRemainingLabel, useNowTick } from '../components/payment';
 
 interface Props {
   bookings: BookingItem[];
@@ -64,6 +66,8 @@ export function MyBookingsScreen({
 }: Props) {
   const [filter, setFilter] = useState<StatusFilter>(null);
   const shown = filter ? bookings.filter((b) => b.status === filter) : bookings;
+  // Tick 30 dtk agar label sisa waktu pending (ST-08) tetap segar.
+  const nowMs = useNowTick(30000);
 
   const venueNameOf = (b: BookingItem): string | null => {
     const fromMap = venueNameByCourt?.[b.courtId];
@@ -138,9 +142,16 @@ export function MyBookingsScreen({
                       <Text style={styles.cardSub}>
                         {formatSlotLabel(item.date, item.start, item.end)}
                       </Text>
-                      <Text style={styles.cardSub}>
+                      <Text style={styles.cardSub} selectable>
                         {formatIDR(item.amount)} • Order {item.paymentRef}
                       </Text>
+                      {/* ST-08: sisa waktu dari createdAt + TTL server 30 mnt;
+                          habis -> ajakan refresh (status server). */}
+                      {item.status === 'pending' ? (
+                        <Text style={styles.countdown}>
+                          {payRemainingLabel(item.createdAt, BOOKING_PAYMENT_TTL_MS, nowMs)}
+                        </Text>
+                      ) : null}
                       {item.code ? (
                         <Text style={styles.cardSub}>Kode check-in: {item.code}</Text>
                       ) : null}
@@ -203,6 +214,7 @@ const styles = StyleSheet.create({
   cardHead: { flex: 1, marginRight: SPACING.sm },
   cardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
   cardSub: { fontSize: 13, color: COLORS.muted, marginTop: 4 },
+  countdown: { fontSize: 12, color: COLORS.pendingFg, fontWeight: '700', marginTop: 4 },
   actions: { flexDirection: 'row', marginTop: SPACING.md },
   payBtn: {
     flex: 1,

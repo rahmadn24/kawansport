@@ -18,6 +18,10 @@ import type { BadgeKind } from '../components/ui';
 // TODO(ST-08): ganti API rincian checkout kaya — biaya layanan dari server.
 export const STITCH_SERVICE_FEE = 2500;
 
+// ST-08 SELESAI: countdown live dari createdAt + TTL server 30 mnt
+// (src/api/payment.ts + UICountdownBanner). Konstanta statis di bawah
+// TIDAK dipakai layar lagi — dipertahankan agar impor lama tak rusak.
+// TODO: hapus setelah semua consumer dimigrasi.
 // TODO: hubungkan expiry backend — timer countdown masih statis, bukan sisa waktu nyata.
 export const STITCH_COUNTDOWN_LABEL = '14:59';
 export const STITCH_COUNTDOWN_PROGRESS = 0.85;
@@ -41,7 +45,11 @@ export const STITCH_VERIFIED_BADGE_VISIBLE = false;
 // gradasi hijau + inisial, JANGAN foto palsu.
 export const STITCH_PHOTO_FALLBACK_NOTE = 'gradasi + inisial (ST-01)';
 
-/** Label metode bayar (statis UI). Nomor VA/referensi tetap dari snap backend yg ada. */
+/** Label metode bayar (statis UI).
+ * ST-08: layar checkout TIDAK lagi radio pilih-di-app (flow redirect) —
+ * pakai UISnapMethods (info statis "dipilih di halaman Midtrans").
+ * Tipe + konstanta dipertahankan agar impor lama tak rusak.
+ */
 export interface StitchPayMethod {
   id: string;
   badge: string;
@@ -132,7 +140,11 @@ export function sportIconOf(sport: string): string {
   return STITCH_SPORT_ICONS.default;
 }
 
-/** Copy proteksi: teks statis informatif, bukan angka klaim server. */
+/** Copy proteksi lama (klaim garansi).
+ * ST-08: layar checkout pakai PAYMENT_PROTECTION jujur
+ * (src/api/payment.ts — tanpa klaim escrow). Konstanta dipertahankan agar
+ * impor lama tak rusak.
+ */
 export const STITCH_PROTECTION = {
   title: 'Jaminan 100% KawanSport Proteksi',
   message:

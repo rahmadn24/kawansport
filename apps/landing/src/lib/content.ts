@@ -189,10 +189,33 @@ export const FAQS = [
   },
 ] as const;
 
-/** Nav sesuai screenshot: Fitur / Cara / Komunitas / Venue / FAQ. */
+/** Product knowledge ringkas — fakta produk final (konsisten dengan FAQ & fitur). */
+export const PRODUCT_KNOWLEDGE = [
+  {
+    // TODO-WEB: ELO (EL-00..EL-05) masih backlog — jangan klaim live sebelum rilis.
+    title: 'Level ELO per Cabor (segera hadir)',
+    desc: 'Rencana: skill Beginner, Intermediate, atau Pro dihitung terpisah per cabang olahraga dengan matchmaking seimbang. TODO-WEB · roadmap, bukan fitur live.',
+  },
+  {
+    title: 'Pembayaran Terpadu',
+    desc: 'QRIS, transfer bank (VA), e-wallet via gateway berlisensi. Opsi final tampil di halaman pembayaran Midtrans.',
+  },
+  {
+    // TODO-WEB: kebijakan reschedule/refund belum ada di backend — roadmap.
+    title: 'Perlindungan Jadwal (roadmap)',
+    desc: 'Rencana: kendala cuaca atau venue bisa dijadwalkan ulang atau saldo kembali. TODO-WEB · roadmap, syarat & ketentuan menyusul.',
+  },
+  {
+    title: 'Check-in Kode Booking & Rating Sportivitas',
+    desc: 'Masuk venue cukup tunjukkan kode booking di resepsionis. Usai main, saling menilai sportivitas untuk menjaga kualitas komunitas.',
+  },
+] as const;
+
+/** Nav sesuai screenshot + referensi Stitch: Fitur / Cara / Cabor / Komunitas / Venue / FAQ. */
 export const NAV_LINKS = [
   { href: '#fitur', label: 'Fitur' },
   { href: '#cara-kerja', label: 'Cara' },
+  { href: '#cabor', label: 'Cabor' },
   { href: '#komunitas', label: 'Komunitas' },
   { href: '#venue-b2b', label: 'Venue' },
   { href: '#faq', label: 'FAQ' },

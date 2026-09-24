@@ -13,6 +13,8 @@ export interface ShopCartProduct {
   price: number;
   stock: number;
   status: string;
+  /** ST-01: foto produk (path /uploads/... atau https). Absen pada respons lama. */
+  photos?: string[];
 }
 
 export interface ShopCartLine {

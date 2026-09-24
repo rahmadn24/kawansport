@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Hero } from '@/components/Hero';
-import { B2BBand, Faq, Features, HowItWorks, Testimonials } from '@/components/Sections';
+import { B2BBand, Faq, Features, HowItWorks, ProductKnowledge, SportsMarquee, Testimonials } from '@/components/Sections';
 import { CTA, Footer } from '@/components/CTA';
 import { BRAND, FAQS } from '@/lib/content';
 
@@ -45,7 +45,9 @@ export default function HomePage() {
       <Header />
       <main id="main">
         <Hero />
+        <SportsMarquee />
         <Features />
+        <ProductKnowledge />
         <HowItWorks />
         <B2BBand />
         <Testimonials />

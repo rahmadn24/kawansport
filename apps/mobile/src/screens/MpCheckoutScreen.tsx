@@ -10,7 +10,12 @@ import {
   UISectionTitle,
   UIStickyBar,
 } from '../components/ui';
-import { STITCH_PROTECTION, orderBadgeKind } from '../mocks/stitch';
+import {
+  UIPayRef,
+  UIProtectionBanner,
+  UISnapMethods,
+} from '../components/payment';
+import { orderBadgeKind } from '../mocks/stitch';
 
 interface Props {
   order: ShopOrder;
@@ -20,8 +25,10 @@ interface Props {
 
 /**
  * Layar Checkout marketplace (MP-02, Stitch UX-03): ringkasan 1 order +
- * N grup seller + rincian real + proteksi + sticky Total.
+ * N grup seller + salin referensi + info metode Snap + rincian real +
+ * proteksi jujur + sticky Total.
  * Nominal di sticky HARUS dari server (order.total).
+ * Order TIDAK countdown (tanpa TTL expiry server) — teks menunggu jujur.
  */
 export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
   const isStub = (order.snapToken ?? '').startsWith('stub-snap-');
@@ -74,8 +81,14 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
             </View>
           ))}
           {order.snapToken ? (
-            <Text style={styles.sub} numberOfLines={1}>
-              Kode pembayaran: {order.snapToken}
+            <UIPayRef label="Kode pembayaran" value={order.snapToken} />
+          ) : null}
+          {/* Order marketplace TIDAK punya TTL expiry server (menunggu webhook
+              Midtrans) — JANGAN countdown palsu; teks menunggu jujur. */}
+          {order.status === 'pending' ? (
+            <Text style={styles.waitPay}>
+              Menunggu pembayaran — status lunas otomatis setelah Midtrans mengonfirmasi.
+              Tarik untuk memuat ulang di Order Saya.
             </Text>
           ) : null}
           {isStub ? (
@@ -83,6 +96,13 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
               Pesananmu dicatat. Status lunas muncul otomatis setelah server mengonfirmasi — pantau di Order Saya.
             </Text>
           ) : null}
+        </UICard>
+
+        <UIPayRef label="Referensi order" value={order.paymentRef} />
+
+        <UISectionTitle>Metode Pembayaran</UISectionTitle>
+        <UICard>
+          <UISnapMethods />
         </UICard>
 
         <UISectionTitle>Rincian Pembayaran</UISectionTitle>
@@ -112,15 +132,8 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
           <Text style={styles.feeNote}>Nominal dari server.</Text>
         </UICard>
 
-        <View style={styles.protect}>
-          <View style={styles.protectIcon} accessibilityElementsHidden>
-            <Text style={styles.protectIconText}>🛡</Text>
-          </View>
-          <View style={styles.protectBody}>
-            <Text style={styles.protectTitle}>{STITCH_PROTECTION.title}</Text>
-            <Text style={styles.protectMsg}>{STITCH_PROTECTION.message}</Text>
-          </View>
-        </View>
+        {/* Proteksi: redaksi jujur ST-08 (tanpa klaim escrow) */}
+        <UIProtectionBanner />
 
         <View style={styles.gap} />
         {canPay ? (
@@ -169,25 +182,6 @@ const styles = StyleSheet.create({
   feeValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   discountValue: { color: COLORS.brand700 },
   feeNote: { fontSize: 12, color: COLORS.faint, marginTop: SPACING.xs },
-  protect: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.bgAlt,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  protectIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.brand700,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  protectIconText: { fontSize: 18 },
-  protectBody: { flex: 1 },
-  protectTitle: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
-  protectMsg: { fontSize: 13, color: COLORS.muted, marginTop: 4, lineHeight: 20 },
+  waitPay: { fontSize: 13, color: COLORS.pendingFg, fontWeight: '700', marginTop: SPACING.md, lineHeight: 20 },
   gap: { height: SPACING.md },
 });

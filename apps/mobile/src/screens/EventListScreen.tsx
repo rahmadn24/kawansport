@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SPORT_SUGGESTIONS, SportEventItem, slotsLeft } from '../api/events';
+import { firstPhoto, resolvePhotoUrl } from '../api/photos';
 import { COLORS, RADIUS, SPACING, TYPO, formatKm, formatWIB, friendlyServerError } from '../theme';
 import {
   UIAvatar,
@@ -121,9 +122,22 @@ export function EventListScreen({
                 accessibilityRole="button"
                 accessibilityLabel={`${item.title}, ${full ? 'penuh' : 'buka'}, sisa ${left} dari ${item.capacity} slot`}
               >
-                <View style={styles.thumb} accessibilityElementsHidden>
-                  <Text style={styles.thumbText}>{sportIconOf(item.sport)}</Text>
-                </View>
+                {/* ST-01: foto pertama event bila ada, else ikon olahraga. */}
+                {(() => {
+                  const thumb = firstPhoto(item.photos);
+                  return thumb ? (
+                    <Image
+                      source={{ uri: resolvePhotoUrl(thumb) }}
+                      style={styles.thumbPhoto}
+                      accessibilityRole="image"
+                      accessibilityLabel={`Foto ${item.title}`}
+                    />
+                  ) : (
+                    <View style={styles.thumb} accessibilityElementsHidden>
+                      <Text style={styles.thumbText}>{sportIconOf(item.sport)}</Text>
+                    </View>
+                  );
+                })()}
                 <View style={styles.cardRow}>
                   <View style={styles.badgeRow}>
                     <UIBadge kind={full ? 'full' : 'open'} label={full ? 'FULL' : 'BUKA'} icon={full ? '■' : '●'} />
@@ -240,6 +254,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   thumbText: { fontSize: 40 },
+  thumbPhoto: {
+    height: 88,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.line,
+    marginBottom: SPACING.md,
+  },
   cardRow: { marginBottom: 2 },
   badgeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
   sportPill: {

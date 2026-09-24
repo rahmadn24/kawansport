@@ -27,6 +27,8 @@ interface Props {
  * Layar Orders (MP-02, Stitch UX-03): badge status berwarna + nama toko
  * real + filter segmented + rincian grup per seller (FlatList).
  * Tanpa aksi cancel — order pending diselesaikan via pembayaran.
+ * ST-08: order TANPA TTL expiry server — teks menunggu jujur
+ * (JANGAN countdown palsu); referensi selectable untuk salin manual.
  */
 export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, onRefresh, onBellPress }: Props) {
   const [filter, setFilter] = useState<ShopOrderStatus | null>(null);
@@ -88,12 +90,18 @@ export function MyOrdersScreen({ orders, loading, error, expandedId, onToggle, o
               <View style={styles.card}>
                 <View style={styles.cardRow}>
                   <View style={styles.cardHead}>
-                    <Text style={styles.name} numberOfLines={1}>
+                    <Text style={styles.name} numberOfLines={1} selectable>
                       Order {o.paymentRef}
                     </Text>
                     <Text style={styles.sub}>
                       {formatIDR(o.total)} • {o.groups.length} toko • {formatWIB(o.createdAt)}
                     </Text>
+                    {o.status === 'pending' ? (
+                      <Text style={styles.pendingNote}>
+                        Menunggu pembayaran — status lunas otomatis setelah Midtrans
+                        mengonfirmasi. Tarik untuk memuat ulang.
+                      </Text>
+                    ) : null}
                   </View>
                   <UIBadge kind={orderBadgeKind(o.status)} label={shopOrderStatusLabel(o.status)} />
                 </View>
@@ -185,6 +193,7 @@ const styles = StyleSheet.create({
   cardHead: { flex: 1, marginRight: SPACING.sm },
   name: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sub: { fontSize: 13, color: COLORS.muted, marginTop: 4 },
+  pendingNote: { fontSize: 12, color: COLORS.pendingFg, fontWeight: '700', marginTop: 4 },
   group: { marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: SPACING.md },
   groupHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   groupTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: COLORS.ink, marginRight: SPACING.sm },

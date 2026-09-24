@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React from 'react';
+import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   BookingItem,
   bookingStatusLabel,
@@ -11,15 +11,16 @@ import {
   UIBadge,
   UIButton,
   UICard,
-  UIProgressBar,
   UISectionTitle,
   UIStickyBar,
 } from '../components/ui';
 import {
-  STITCH_COUNTDOWN_LABEL,
-  STITCH_COUNTDOWN_PROGRESS,
-  STITCH_PAY_METHODS,
-  STITCH_PROTECTION,
+  UICountdownBanner,
+  UIPayRef,
+  UIProtectionBanner,
+  UISnapMethods,
+} from '../components/payment';
+import {
   STITCH_SERVICE_FEE,
   bookingBadgeKind,
 } from '../mocks/stitch';
@@ -33,20 +34,21 @@ interface Props {
 }
 
 /**
- * Layar Checkout booking (BK-04, Stitch UX-03): countdown statis + venue
- * card + metode bayar radio + rincian + proteksi + sticky Total.
+ * Layar Checkout booking (BK-04, Stitch UX-03): countdown live + venue
+ * card + info metode Snap + rincian + proteksi + sticky Total.
  *
- * - Timer countdown STATIS (TODO: hubungkan expiry backend).
- * - Nomor VA/referensi dari snap backend yg ada (paymentRef/snapToken).
+ * - Countdown LIVE dari createdAt + TTL server 30 mnt (ST-08,
+ *   `src/api/payment.ts`); kedaluwarsa -> ajakan refresh (status server).
+ * - Nomor referensi dari snap backend yg ada (paymentRef/snapToken) +
+ *   tombol Salin (fallback salin manual — lib Clipboard belum dipasang).
  * - Rincian ST-04/API-W03 real dari snapshot server (subtotal, diskon
  *   voucher, poin, service fee); fee estimasi hanya fallback bila snapshot
  *   belum ada (booking lama). Kode check-in (API-W07) dari server.
  * - Nominal tombol bayar HARUS dari server (booking.amount).
+ * - Metode bayar: info statis yg didukung Snap, dipilih di halaman Midtrans
+ *   (flow redirect) — JANGAN klaim pilih-di-app.
  */
-// TODO: hubungkan expiry backend untuk countdown.
-// TODO(ST-08): rincian checkout kaya (VA per bank).
 export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Props) {
-  const [method, setMethod] = useState(STITCH_PAY_METHODS[0]?.id ?? 'bca');
   const isStub = (booking.snapToken ?? '').startsWith('stub-snap-');
   // Total tagihan dari server — JANGAN diganti nominal mock.
   const total = booking.amount;
@@ -69,16 +71,8 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad}>
         <Text style={styles.title}>Checkout Booking</Text>
 
-        {/* Banner urgency: countdown statis */}
-        <View style={styles.urgency} accessibilityRole="text">
-          <View style={styles.urgencyRow}>
-            <Text style={styles.urgencyText}>⏱ Selesaikan pembayaran dalam</Text>
-            <View style={styles.urgencyPill}>
-              <Text style={styles.urgencyTime}>{STITCH_COUNTDOWN_LABEL}</Text>
-            </View>
-          </View>
-          <UIProgressBar progress={STITCH_COUNTDOWN_PROGRESS} />
-        </View>
+        {/* Banner urgency: countdown live dari createdAt + TTL server 30 mnt */}
+        <UICountdownBanner createdAt={booking.createdAt} onExpiredAction={onMyBookings} />
 
         {/* Venue card */}
         <UICard>
@@ -104,73 +98,15 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
           </View>
         </UICard>
 
-        {/* Metode bayar */}
+        {/* Metode bayar: info statis yg didukung Snap, dipilih di halaman Midtrans */}
         <UISectionTitle>Metode Pembayaran</UISectionTitle>
         <UICard>
-          <Text style={styles.payGroup}>Virtual Account Bank</Text>
-          {STITCH_PAY_METHODS.filter((m) => m.id !== 'qris').map((m) => {
-            const active = method === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.payRow, active && styles.payRowActive]}
-                onPress={() => setMethod(m.id)}
-                accessibilityRole="radio"
-                accessibilityLabel={m.label}
-                accessibilityState={{ selected: active }}
-              >
-                <View style={styles.payBadge}>
-                  <Text style={styles.payBadgeText}>{m.badge}</Text>
-                </View>
-                <View style={styles.payInfo}>
-                  <Text style={styles.payLabel}>{m.label}</Text>
-                  <Text style={styles.paySub}>{m.sub}</Text>
-                </View>
-                <View style={[styles.radio, active && styles.radioActive]}>
-                  {active ? <View style={styles.radioDot} /> : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-          <Text style={styles.payGroup}>E-Wallet & QRIS Instant</Text>
-          {STITCH_PAY_METHODS.filter((m) => m.id === 'qris').map((m) => {
-            const active = method === m.id;
-            return (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.payRow, active && styles.payRowActive]}
-                onPress={() => setMethod(m.id)}
-                accessibilityRole="radio"
-                accessibilityLabel={m.label}
-                accessibilityState={{ selected: active }}
-              >
-                <View style={styles.payBadge}>
-                  <Text style={styles.payBadgeText}>{m.badge}</Text>
-                </View>
-                <View style={styles.payInfo}>
-                  <Text style={styles.payLabel}>{m.label}</Text>
-                  <Text style={styles.paySub}>{m.sub}</Text>
-                </View>
-                <View style={[styles.radio, active && styles.radioActive]}>
-                  {active ? <View style={styles.radioDot} /> : null}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-          {/* Nomor referensi dari backend (bukan nomor VA palsu). */}
-          <View style={styles.vaBox}>
-            <View style={styles.vaInfo}>
-              <Text style={styles.vaLabel}>Referensi pembayaran:</Text>
-              <Text style={styles.vaValue} selectable>
-                {booking.paymentRef}
-              </Text>
-              {booking.snapToken ? (
-                <Text style={styles.vaSub} numberOfLines={1}>
-                  Kode pembayaran: {booking.snapToken}
-                </Text>
-              ) : null}
-            </View>
-          </View>
+          <UISnapMethods />
+          {/* Nomor referensi dari backend (bukan nomor VA palsu) + tombol Salin. */}
+          <UIPayRef label="Referensi pembayaran" value={booking.paymentRef} />
+          {booking.snapToken ? (
+            <UIPayRef label="Kode pembayaran" value={booking.snapToken} />
+          ) : null}
           {isStub ? (
             <Text style={styles.stub}>
               Pembayaranmu dicatat. Status lunas muncul otomatis setelah server mengonfirmasi — pantau di Booking Saya.
@@ -232,16 +168,8 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
           </View>
         </UICard>
 
-        {/* Proteksi */}
-        <View style={styles.protect}>
-          <View style={styles.protectIcon} accessibilityElementsHidden>
-            <Text style={styles.protectIconText}>🛡</Text>
-          </View>
-          <View style={styles.protectBody}>
-            <Text style={styles.protectTitle}>{STITCH_PROTECTION.title}</Text>
-            <Text style={styles.protectMsg}>{STITCH_PROTECTION.message}</Text>
-          </View>
-        </View>
+        {/* Proteksi: redaksi jujur ST-08 (tanpa klaim escrow) */}
+        <UIProtectionBanner />
 
         <View style={styles.gap} />
         <UIButton title="Lihat Booking Saya" variant="outline" onPress={onMyBookings} />
@@ -266,16 +194,6 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollPad: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.screen, paddingBottom: SPACING.screen },
   title: { ...TYPO.title, color: COLORS.ink, marginBottom: SPACING.md, textAlign: 'center' },
-  urgency: {
-    backgroundColor: COLORS.accentSoft,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  urgencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  urgencyText: { fontSize: 13, fontWeight: '700', color: COLORS.pendingFg },
-  urgencyPill: { backgroundColor: COLORS.bg, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
-  urgencyTime: { fontSize: 14, fontWeight: '800', color: COLORS.accent },
   venueRow: { flexDirection: 'row', alignItems: 'center' },
   venueThumb: {
     width: 56,
@@ -301,55 +219,6 @@ const styles = StyleSheet.create({
   },
   sessionText: { fontSize: 13, fontWeight: '700', color: COLORS.ink },
   sessionDur: { fontSize: 12, color: COLORS.muted },
-  payGroup: { fontSize: 12, fontWeight: '700', color: COLORS.muted, marginTop: SPACING.md, marginBottom: SPACING.sm },
-  payRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    backgroundColor: COLORS.bg,
-  },
-  payRowActive: { borderColor: COLORS.brand700, backgroundColor: COLORS.bgAlt },
-  payBadge: {
-    minWidth: 44,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: COLORS.bgAlt,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    marginRight: SPACING.md,
-  },
-  payBadgeText: { fontSize: 11, fontWeight: '800', color: COLORS.ink },
-  payInfo: { flex: 1 },
-  payLabel: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
-  paySub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: COLORS.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioActive: { borderColor: COLORS.brand700 },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.brand700 },
-  vaBox: {
-    backgroundColor: COLORS.bgAlt,
-    borderRadius: RADIUS.sm,
-    padding: SPACING.md,
-    marginTop: SPACING.sm,
-  },
-  vaInfo: {},
-  vaLabel: { fontSize: 12, color: COLORS.muted },
-  vaValue: { fontSize: 15, fontWeight: '800', color: COLORS.ink, marginTop: 2 },
-  vaSub: { fontSize: 12, color: COLORS.faint, marginTop: 4 },
   stub: { fontSize: 13, color: COLORS.pendingFg, marginTop: SPACING.md },
   feeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },
   feeLabel: { fontSize: 14, color: COLORS.muted },
@@ -368,25 +237,5 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
   totalSub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
   totalValue: { ...TYPO.angka, color: COLORS.ink },
-  protect: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.bgAlt,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-  },
-  protectIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.brand700,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  protectIconText: { fontSize: 18 },
-  protectBody: { flex: 1 },
-  protectTitle: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
-  protectMsg: { fontSize: 13, color: COLORS.muted, marginTop: 4, lineHeight: 20 },
   gap: { height: SPACING.md },
 });

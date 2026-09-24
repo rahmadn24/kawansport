@@ -15,6 +15,7 @@ import {
   UISkeleton,
 } from '../components/ui';
 import { sportIconOf } from '../mocks/stitch';
+import { PhotoGallery } from '../components/PhotoGallery';
 
 interface Props {
   event: EventDetail | null;
@@ -33,7 +34,7 @@ interface Props {
   onBookCourt: () => void;
 }
 
-// TODO(ST-01): ganti hero gradasi dengan foto asli event.
+// TODO(ST-01-upload): upload foto event baru (POST /uploads) butuh file picker native.
 // TODO(ST-10): fasilitas venue & sewa alat DISEMBUNYIKAN sampai API ada.
 
 /**
@@ -74,8 +75,9 @@ export function EventDetailScreen({
       ) : event ? (
         <>
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            {/* Hero: gradasi + ikon olahraga (foto asli menyusul ST-01) */}
+            {/* Hero: galeri foto asli ST-01 + ikon olahraga */}
             <View style={styles.hero} accessibilityRole="header">
+              <PhotoGallery photos={event.photos} label={event.title} height={180} />
               <Text style={styles.heroIcon} accessibilityElementsHidden>
                 {sportIconOf(event.sport)}
               </Text>

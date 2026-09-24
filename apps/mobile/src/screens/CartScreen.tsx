@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopCart } from '../api/shop';
+import { firstPhoto, resolvePhotoUrl } from '../api/photos';
 import { formatPoints } from '../api/vouchers';
 import { COLORS, RADIUS, SPACING, TYPO, initialsOf } from '../theme';
 import {
@@ -44,13 +45,14 @@ interface Props {
  *
  * - Search & kategori = filter LOKAL display-only (tak menyentuh server).
  * - Badge verified DISEMBUNYIKAN (TODO ST-05) — jangan tampilkan badge palsu.
- * - Gambar produk = placeholder lokal (TODO ST-01).
+ * - Gambar produk: foto pertama ST-01 bila ada, else placeholder inisial jujur.
+ *   Upload baru disabled (POST /uploads butuh file picker native).
  * - Shipping DISEMBUNYIKAN (TODO ST-05).
  * - Voucher ST-04 real: kode dikirim ke POST /checkout, diskon dibaca dari
  *   snapshot order; saldo poin dari GET /me (empty/error jujur bila gagal).
  * - Total sticky dari server (cart.total).
  */
-// TODO(ST-01): foto produk asli dari API media.
+// TODO(ST-01-upload): upload foto produk baru (POST /uploads) butuh file picker native.
 // TODO(ST-05): seller verified + opsi shipping dari API marketplace kaya.
 // TODO(ST-09): search/katalog + banner promo dari API.
 export function CartScreen({
@@ -171,12 +173,24 @@ export function CartScreen({
               </View>
               {g.lines.map((line) => (
                 <View key={line.productId} style={styles.item}>
-                  {/* Placeholder gambar lokal (TODO ST-01), bukan foto palsu. */}
-                  <View style={styles.thumb} accessibilityElementsHidden>
-                    <Text style={styles.thumbText}>
-                      {initialsOf(line.product.name || line.productId)}
-                    </Text>
-                  </View>
+                  {/* ST-01: foto produk pertama bila ada, else inisial (jujur). */}
+                  {(() => {
+                    const thumb = firstPhoto(line.product.photos);
+                    return thumb ? (
+                      <Image
+                        source={{ uri: resolvePhotoUrl(thumb) }}
+                        style={styles.thumbPhoto}
+                        accessibilityRole="image"
+                        accessibilityLabel={`Foto ${line.product.name || 'produk'}`}
+                      />
+                    ) : (
+                      <View style={styles.thumb} accessibilityElementsHidden>
+                        <Text style={styles.thumbText}>
+                          {initialsOf(line.product.name || line.productId)}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                   <View style={styles.itemBody}>
                     <View style={styles.itemTop}>
                       <Text style={styles.itemName} numberOfLines={2}>
@@ -342,6 +356,13 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   thumbText: { color: COLORS.lime, fontSize: 18, fontWeight: '800' },
+  thumbPhoto: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.line,
+    marginRight: SPACING.md,
+  },
   itemBody: { flex: 1 },
   itemTop: { flexDirection: 'row', alignItems: 'flex-start' },
   itemName: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.ink, marginRight: SPACING.sm },

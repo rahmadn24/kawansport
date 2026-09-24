@@ -16,6 +16,8 @@ export interface RatingUser {
 export interface ReviewItem {
   id: string;
   comment: string | null;
+  /** ST-01: foto review (path /uploads/... atau https, maks 3). Absen pada respons lama. */
+  photos?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -42,11 +44,18 @@ export interface CreateRatingInput {
   courtId?: string | null;
   score: number;
   comment?: string;
+  /**
+   * ST-01: foto review. Display didukung; PENGIRIMAN disabled jujur di mobile
+   * (POST /uploads butuh file picker native — lihat PhotoUploadDisabled).
+   */
+  photos?: string[];
 }
 
 export interface UpdateRatingInput {
   score?: number;
   comment?: string;
+  /** ST-01: foto review (display didukung; pengiriman disabled — lihat di atas). */
+  photos?: string[];
 }
 
 export interface RatingSummary {

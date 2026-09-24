@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { VenueItem } from '../api/venues';
+import { firstPhoto, resolvePhotoUrl } from '../api/photos';
 import { formatDistance } from '../api/partners';
 import { formatIDR } from '../api/bookings';
 import { COLORS, RADIUS, SPACING, TYPO, formatKm, initialsOf } from '../theme';
@@ -30,7 +31,7 @@ interface Props {
 
 /** Layar Venue List (BK-04, Stitch UX-03): search lokal + filter sport + kartu kaya. */
 // TODO(ST-06): rating venue di kartu DISEMBUNYIKAN sampai API rating tersedia.
-// TODO(ST-01): ganti thumb gradasi dengan foto asli venue.
+// ST-01: thumb = foto pertama venue bila ada, else placeholder inisial jujur.
 export function VenueListScreen({
   venues,
   loading,
@@ -109,9 +110,21 @@ export function VenueListScreen({
                   accessibilityLabel={`Buka ${item.name}`}
                 >
                   <View style={styles.cardTop}>
-                    <View style={styles.thumb} accessibilityElementsHidden>
-                      <Text style={styles.thumbText}>{initialsOf(item.name)}</Text>
-                    </View>
+                    {(() => {
+                      const thumb = firstPhoto(item.photos);
+                      return thumb ? (
+                        <Image
+                          source={{ uri: resolvePhotoUrl(thumb) }}
+                          style={styles.thumbPhoto}
+                          accessibilityRole="image"
+                          accessibilityLabel={`Foto ${item.name}`}
+                        />
+                      ) : (
+                        <View style={styles.thumb} accessibilityElementsHidden>
+                          <Text style={styles.thumbText}>{initialsOf(item.name)}</Text>
+                        </View>
+                      );
+                    })()}
                     <View style={styles.cardHead}>
                       <Text style={styles.cardTitle} numberOfLines={1}>
                         {item.name}
@@ -174,6 +187,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.brand900,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  thumbPhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: COLORS.line,
     marginRight: SPACING.md,
   },
   thumbText: { color: COLORS.lime, fontSize: 20, fontWeight: '800' },

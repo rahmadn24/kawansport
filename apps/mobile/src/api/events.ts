@@ -30,6 +30,8 @@ export interface SportEventItem {
   status: EventStatus;
   /** ST-02: iuran per orang (rupiah, default 0 = gratis). Absen pada respons lama. */
   fee?: number;
+  /** ST-01: foto event (path /uploads/... atau https). Absen pada respons lama. */
+  photos?: string[];
   host: EventHost;
   distanceMeters?: number;
   createdAt?: string;

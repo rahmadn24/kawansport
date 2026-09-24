@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { RatingStarsInput } from './RatingStars';
+import { PhotoUploadDisabled } from './PhotoGallery';
 import { CreateRatingInput } from '../api/ratings';
 import { COLORS, RADIUS, SPACING } from '../theme';
 // TODO(ST-06): form rating kaya (aspek fasilitas, tag sorotan, foto suasana)
@@ -189,8 +190,12 @@ export function RatingFormModal({
               />
             </View>
 
-            {/* TODO(ST-06): aspek fasilitas, tag sorotan, dan foto suasana
+            {/* TODO(ST-06): aspek fasilitas, tag sorotan
                 DISEMBUNYIKAN sampai API review kaya tersedia. */}
+            {/* ST-01: foto review ditampilkan di ReviewCard; upload baru
+                DISABLED jujur (POST /uploads butuh file picker native). */}
+            {/* TODO(ST-01-upload): aktifkan upload setelah file picker native ada. */}
+            <PhotoUploadDisabled context="foto ulasan" />
 
             {/* Error message */}
             {error && <Text style={styles.errorText}>{error}</Text>}

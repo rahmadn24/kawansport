@@ -3,6 +3,8 @@ import { StyleSheet, Text, View, TouchableOpacity, ViewStyle } from 'react-nativ
 import { RatingItem } from '../api/ratings';
 import { RatingStarsDisplay } from './RatingStars';
 import { UIAvatar } from './ui';
+import { PhotoGallery } from './PhotoGallery';
+import { sanitizePhotos } from '../api/photos';
 import { formatDateShort } from '../api/bookings';
 import { COLORS, RADIUS, SPACING } from '../theme';
 
@@ -76,6 +78,18 @@ export function ReviewCard({
           <Text style={styles.reviewText}>{rating.review!.comment}</Text>
         </View>
       )}
+
+      {/* ST-01: foto review (display-only; kosong/tak aman = tak dirender). */}
+      {sanitizePhotos(rating.review?.photos).length > 0 ? (
+        <View style={styles.photosWrap}>
+          <PhotoGallery
+            photos={rating.review?.photos}
+            label="ulasan"
+            height={120}
+            testID={`review-photos-${rating.id}`}
+          />
+        </View>
+      ) : null}
 
       {/* Court info jika rating untuk court spesifik */}
       {rating.courtId && (
@@ -155,6 +169,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: COLORS.ink,
+  },
+  photosWrap: {
+    marginTop: SPACING.sm,
   },
   courtBadge: {
     marginTop: SPACING.sm,

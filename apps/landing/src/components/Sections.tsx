@@ -9,6 +9,8 @@ import {
   FAQS,
   FEATURES,
   HOW_IT_WORKS,
+  PRODUCT_KNOWLEDGE,
+  SPORTS_MARQUEE,
   STORE_LINKS,
   TESTIMONIALS,
 } from '@/lib/content';
@@ -87,6 +89,45 @@ function FeatureVisual({ kind }: { kind: string }) {
         <span><b>Sewa Grip &amp; Raket</b><small>Pick-up resepsionis</small></span>
       </div>
     </div>
+  );
+}
+
+/** Band "Ekosistem Cabor" ala referensi Stitch — render SPORTS_MARQUEE (statis, tanpa angka). */
+export function SportsMarquee() {
+  return (
+    <div className="marquee" id="cabor" role="region" aria-label="Cabang olahraga yang didukung KawanSport">
+      <div className="marquee__track">
+        {SPORTS_MARQUEE.map((s) => (
+          <span className="marquee__pill" key={s}>● {s}</span>
+        ))}
+        {SPORTS_MARQUEE.map((s) => (
+          <span className="marquee__pill" aria-hidden="true" key={`loop-${s}`}>● {s}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Product knowledge ringkas — fakta produk final, 100% statis, tanpa placeholder. */
+export function ProductKnowledge() {
+  return (
+    <section className="section" id="pengetahuan" aria-labelledby="pengetahuan-title">
+      <div className="container">
+        <header className="section-header reveal">
+          <span className="eyebrow">Kenali produknya</span>
+          <h2 id="pengetahuan-title">Yang perlu kamu tahu sebelum main</h2>
+          <p className="section-header__desc">Empat hal inti cara kerja KawanSport — transparan sejak awal, tanpa biaya tersembunyi.</p>
+        </header>
+        <div className="grid grid--4">
+          {PRODUCT_KNOWLEDGE.map((k) => (
+            <article className="card reveal" key={k.title}>
+              <h3>{k.title}</h3>
+              <p>{k.desc}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

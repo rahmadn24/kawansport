@@ -12,6 +12,7 @@ import { formatDateShort, formatIDR } from '../api/bookings';
 import { useAuth } from '../auth/AuthContext';
 import { RatingStarsDisplay } from '../components/RatingStars';
 import { RatingFormModal } from '../components/RatingFormModal';
+import { PhotoGallery } from '../components/PhotoGallery';
 import { RatingReviewScreen } from './venue/RatingReviewScreen';
 import { useVenueRatingSummary, useUserRatingCheck, useRatingMutations } from '../hooks/useRatings';
 import { CreateRatingInput } from '../api/ratings';
@@ -57,11 +58,12 @@ interface Props {
  * date strip + legenda + sesi grup + slot cards + sticky total.
  * Plus Rating & Review section (SM-08, di bawah slot).
  *
- * - FOTO ASLI belum ada -> fallback gradasi + inisial, JANGAN foto palsu.
+ * - FOTO ASLI: galeri ST-01 di hero (foto aman saja; kosong = placeholder
+ *   jujur). Upload baru disabled (butuh file picker native).
  * - Sewa alat & fasilitas DISEMBUNYIKAN (butuh ST-10).
  */
 // TODO(ST-10): tampilkan section sewa alat & fasilitas dari API.
-// TODO(ST-01): ganti hero gradasi dengan foto asli venue.
+// TODO(ST-01-upload): upload foto venue baru (POST /uploads) butuh file picker native.
 export function VenueDetailScreen({
   venue,
   loading,
@@ -294,7 +296,7 @@ export function VenueDetailScreen({
       {venue ? (
         <>
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad}>
-            {/* Hero: gradasi hijau + inisial + badge rating real */}
+            {/* Hero: galeri foto asli ST-01 + info venue */}
             <View style={styles.hero} accessibilityRole="header">
               <TouchableOpacity
                 onPress={onBack}
@@ -304,6 +306,7 @@ export function VenueDetailScreen({
               >
                 <Text style={styles.heroBackText}>‹ Kembali</Text>
               </TouchableOpacity>
+              <PhotoGallery photos={venue.photos} label={venue.name} height={180} />
               <View style={styles.heroRow}>
                 <View style={styles.heroAvatar} accessibilityElementsHidden>
                   <Text style={styles.heroAvatarText}>{initialsOf(venue.name)}</Text>
