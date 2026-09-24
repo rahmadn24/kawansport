@@ -2,6 +2,7 @@ import {
   bookEventCourt,
   bookingStatusLabel,
   cancelBooking,
+  checkInBooking,
   createBooking,
   eventDayKey,
   formatDateShort,
@@ -9,6 +10,7 @@ import {
   formatSlotLabel,
   getBookingDetail,
   listMyBookings,
+  lookupBookingByCode,
   next14Days,
   toDateKey,
   validateBookingInput,
@@ -17,9 +19,16 @@ import {
   activeCourts,
   getCourtAvailability,
   getVenueDetail,
+  isBookable,
   listVenues,
   validateAvailabilityDate,
 } from '../src/api/venues';
+import {
+  formatPoints,
+  getLoyaltyBalance,
+  normalizeVoucherCode,
+  validateVoucherCode,
+} from '../src/api/vouchers';
 
 describe('bookings api (BK-04)', () => {
   it('createBooking POST /bookings', async () => {
@@ -59,6 +68,22 @@ describe('bookings api (BK-04)', () => {
     });
     expect(post).toHaveBeenCalledWith('/bookings/b1/cancel', {});
   });
+
+  it('lookupBookingByCode GET /bookings/by-code/:code (API-W07)', async () => {
+    const get = jest.fn().mockResolvedValue({ data: { id: 'b1', code: 'KS-ABCDEF' } });
+    await expect(lookupBookingByCode('ks-abcdef', { get } as never)).resolves.toMatchObject({
+      code: 'KS-ABCDEF',
+    });
+    expect(get).toHaveBeenCalledWith('/bookings/by-code/ks-abcdef');
+  });
+
+  it('checkInBooking POST /bookings/:id/check-in (API-W07)', async () => {
+    const post = jest.fn().mockResolvedValue({ data: { id: 'b1', checkedInAt: '2030-06-17T09:00:00Z' } });
+    await expect(checkInBooking('b1', { post } as never)).resolves.toMatchObject({
+      id: 'b1',
+    });
+    expect(post).toHaveBeenCalledWith('/bookings/b1/check-in', {});
+  });
 });
 
 describe('venues api (BK-04)', () => {
@@ -94,6 +119,13 @@ describe('venues api (BK-04)', () => {
       ],
     } as never;
     expect(activeCourts(venue).map((c) => c.id)).toEqual(['a']);
+  });
+
+  it('isBookable hanya free (blocked ditutup owner, API-W06)', () => {
+    expect(isBookable({ status: 'free' })).toBe(true);
+    expect(isBookable({ status: 'held' })).toBe(false);
+    expect(isBookable({ status: 'booked' })).toBe(false);
+    expect(isBookable({ status: 'blocked' })).toBe(false);
   });
 
   it('validateAvailabilityDate menolak format/kalender invalid', () => {
@@ -154,5 +186,27 @@ describe('booking helpers/format (BK-04)', () => {
     expect(validateBookingInput({ courtId: 'c1', date: '2030-06-17', start: '25:00' })).toBe(
       'Jam mulai tidak valid (HH:MM)',
     );
+  });
+});
+
+describe('voucher + poin (ST-04)', () => {
+  it('normalizeVoucherCode uppercase + trim', () => {
+    expect(normalizeVoucherCode(' hemat10 ')).toBe('HEMAT10');
+  });
+
+  it('validateVoucherCode menolak format invalid', () => {
+    expect(validateVoucherCode('HEMAT10')).toBeNull();
+    expect(validateVoucherCode('  ')).toBe('Kode voucher wajib diisi');
+    expect(validateVoucherCode('ab')).toBe('Kode voucher 3–32 karakter (huruf/angka/-/_)');
+  });
+
+  it('getLoyaltyBalance GET /me -> loyaltyPoints', async () => {
+    const get = jest.fn().mockResolvedValue({ data: { loyaltyPoints: 150 } });
+    await expect(getLoyaltyBalance({ get } as never)).resolves.toBe(150);
+    expect(get).toHaveBeenCalledWith('/me');
+  });
+
+  it('formatPoints 1 poin = Rp1', () => {
+    expect(formatPoints(1500)).toBe('1.500 poin (= Rp1.500)');
   });
 });

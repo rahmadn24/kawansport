@@ -1,10 +1,13 @@
 import {
   createEvent,
   getEventDetail,
+  getMyWaitlist,
   joinEvent,
   leaveEvent,
+  leaveWaitlist,
   listEvents,
   listParticipants,
+  listWaitlist,
   slotsLeft,
   validateCreateEvent,
   CreateEventInput,
@@ -67,15 +70,48 @@ describe('events api (SM-04)', () => {
   });
 });
 
-describe('event participants api (SM-05)', () => {
-  it('joinEvent POST /events/:id/join', async () => {
+describe('event participants api (SM-05 + ST-02/ST-03)', () => {
+  it('joinEvent gratis -> { event (isJoined true), payment null }', async () => {
     const post = jest
       .fn()
       .mockResolvedValue({ data: { id: 'e1', isJoined: true, participantsCount: 2 } });
     await expect(joinEvent('e1', { post } as never)).resolves.toMatchObject({
-      isJoined: true,
+      event: { isJoined: true },
+      payment: null,
     });
     expect(post).toHaveBeenCalledWith('/events/e1/join', {});
+  });
+
+  it('joinEvent berbayar -> { event (isJoined false), payment pending }', async () => {
+    const payment = { id: 'p1', amount: 50000, status: 'pending', paymentRef: 'EV-ABC', snapToken: 'tok', redirectUrl: 'https://pay' };
+    const post = jest
+      .fn()
+      .mockResolvedValue({ data: { id: 'e1', isJoined: false, payment } });
+    await expect(joinEvent('e1', { post } as never)).resolves.toMatchObject({
+      event: { isJoined: false },
+      payment: { paymentRef: 'EV-ABC' },
+    });
+  });
+
+  it('joinEvent penuh (409 waitlisted) -> { event, waitlisted, position }, bukan throw', async () => {
+    const post = jest.fn().mockRejectedValue({
+      response: { status: 409, data: { message: 'Event is full', waitlisted: true, position: 2 } },
+    });
+    const get = jest.fn().mockResolvedValue({ data: { id: 'e1', isJoined: false } });
+    await expect(joinEvent('e1', { post, get } as never)).resolves.toMatchObject({
+      event: { id: 'e1' },
+      waitlisted: true,
+      position: 2,
+    });
+  });
+
+  it('joinEvent 409 non-waitlist (sudah join) tetap throw', async () => {
+    const post = jest.fn().mockRejectedValue({
+      response: { status: 409, data: { message: 'Already joined' } },
+    });
+    await expect(joinEvent('e1', { post } as never)).rejects.toMatchObject({
+      response: { status: 409 },
+    });
   });
 
   it('leaveEvent POST /events/:id/leave', async () => {
@@ -96,5 +132,32 @@ describe('event participants api (SM-05)', () => {
       meta: { total: 1 },
     });
     expect(get).toHaveBeenCalledWith('/events/e1/participants');
+  });
+});
+
+describe('event waitlist api (ST-03)', () => {
+  it('getMyWaitlist GET /events/:id/waitlist/me', async () => {
+    const get = jest.fn().mockResolvedValue({ data: { userId: 'u1', position: 1, status: 'waiting' } });
+    await expect(getMyWaitlist('e1', { get } as never)).resolves.toMatchObject({
+      position: 1,
+    });
+    expect(get).toHaveBeenCalledWith('/events/e1/waitlist/me');
+  });
+
+  it('leaveWaitlist DELETE /events/:id/waitlist/me', async () => {
+    const del = jest.fn().mockResolvedValue({ data: { ok: true, eventId: 'e1' } });
+    await expect(leaveWaitlist('e1', { delete: del } as never)).resolves.toEqual({
+      ok: true,
+      eventId: 'e1',
+    });
+    expect(del).toHaveBeenCalledWith('/events/e1/waitlist/me');
+  });
+
+  it('listWaitlist GET /events/:id/waitlist', async () => {
+    const get = jest.fn().mockResolvedValue({ data: { data: [], meta: { total: 0 } } });
+    await expect(listWaitlist('e1', { get } as never)).resolves.toMatchObject({
+      meta: { total: 0 },
+    });
+    expect(get).toHaveBeenCalledWith('/events/e1/waitlist');
   });
 });

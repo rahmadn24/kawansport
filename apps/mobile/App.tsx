@@ -56,6 +56,12 @@ import {
   getVenueDetail,
   listVenues,
 } from './src/api/venues';
+import { api } from './src/api/client';
+import {
+  getLoyaltyBalance,
+  normalizeVoucherCode,
+  validateVoucherCode,
+} from './src/api/vouchers';
 import {
   CreateEventInput,
   EventDetail,
@@ -388,7 +394,33 @@ function EventsFlow({
       .finally(() => setMutating(false));
   };
 
-  const handleJoin = () => mutateJoin(joinEvent, 'Kamu ikut event ini. Sampai jumpa di lapangan! 🎉');
+  /**
+   * Join via JoinEventResult: gratis -> toast ikut; berbayar (ST-02) ->
+   * toast info paymentRef; penuh (ST-03) -> 409 ditangkap di api sebagai
+   * `{ waitlisted: true, position }`, bukan error.
+   */
+  const handleJoin = () => {
+    if (route.name !== 'detail') return;
+    const id = route.id;
+    setMutating(true);
+    setJoinError(null);
+    joinEvent(id)
+      .then((res) => {
+        if (res.event) {
+          setDetail(res.event);
+          loadParticipants(id);
+        }
+        if (res.waitlisted) {
+          setToast(`Event penuh — kamu masuk antrean posisi ${res.position ?? '?'}.`);
+        } else if (res.payment) {
+          setToast(`Event berbayar — selesaikan pembayaran ${res.payment.paymentRef}.`);
+        } else {
+          setToast('Kamu ikut event ini. Sampai jumpa di lapangan! 🎉');
+        }
+      })
+      .catch((e) => setJoinError(toErrorMessage(e)))
+      .finally(() => setMutating(false));
+  };
   const handleLeave = () => mutateJoin(leaveEvent, 'Kamu keluar dari event.');
 
   const submitCreate = (input: CreateEventInput) => {
@@ -756,6 +788,10 @@ function ShopFlow() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  /** ST-04: kode voucher untuk checkout + saldo Poin Kawan (display). */
+  const [voucherCode, setVoucherCode] = useState('');
+  const [loyaltyBalance, setLoyaltyBalance] = useState<number | null>(null);
+  const [loyaltyError, setLoyaltyError] = useState<string | null>(null);
 
   const loadCart = useCallback(async () => {
     setLoading(true);
@@ -771,6 +807,10 @@ function ShopFlow() {
 
   useEffect(() => {
     loadCart().catch(() => undefined);
+    // ST-04: saldo poin best-effort; gagal -> pesan jujur di section voucher.
+    getLoyaltyBalance()
+      .then(setLoyaltyBalance)
+      .catch((e) => setLoyaltyError(toErrorMessage(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -793,10 +833,21 @@ function ShopFlow() {
   };
 
   const handleCheckout = () => {
+    const code = normalizeVoucherCode(voucherCode);
+    if (voucherCode.trim()) {
+      const invalid = validateVoucherCode(voucherCode);
+      if (invalid) {
+        setMutateError(invalid);
+        return;
+      }
+    }
     setMutating(true);
     setMutateError(null);
-    checkoutCart()
-      .then((order) => setRoute({ name: 'checkout', order }))
+    checkoutCart(api, code ? { voucherCode: code } : undefined)
+      .then((order) => {
+        setVoucherCode('');
+        setRoute({ name: 'checkout', order });
+      })
       .catch((e) => setMutateError(toErrorMessage(e)))
       .finally(() => setMutating(false));
   };
@@ -851,6 +902,10 @@ function ShopFlow() {
       onSetQty={handleSetQty}
       onClear={() => mutateCart(clearCart)}
       onCheckout={handleCheckout}
+      voucherCode={voucherCode}
+      onVoucherCodeChange={setVoucherCode}
+      loyaltyBalance={loyaltyBalance}
+      loyaltyError={loyaltyError}
     />
   );
 }

@@ -38,13 +38,13 @@ interface Props {
  *
  * - Timer countdown STATIS (TODO: hubungkan expiry backend).
  * - Nomor VA/referensi dari snap backend yg ada (paymentRef/snapToken).
- * - Biaya layanan Rp2.500 statis bertanda TODO(ST-08), BELUM termasuk total.
- * - Voucher DISEMBUNYIKAN (TODO ST-04).
+ * - Rincian ST-04/API-W03 real dari snapshot server (subtotal, diskon
+ *   voucher, poin, service fee); fee estimasi hanya fallback bila snapshot
+ *   belum ada (booking lama). Kode check-in (API-W07) dari server.
  * - Nominal tombol bayar HARUS dari server (booking.amount).
  */
 // TODO: hubungkan expiry backend untuk countdown.
-// TODO(ST-08): rincian checkout kaya (VA per bank, fee server).
-// TODO(ST-04): voucher/poin — section disembunyikan sampai API ada.
+// TODO(ST-08): rincian checkout kaya (VA per bank).
 export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Props) {
   const [method, setMethod] = useState(STITCH_PAY_METHODS[0]?.id ?? 'bca');
   const isStub = (booking.snapToken ?? '').startsWith('stub-snap-');
@@ -173,21 +173,50 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
           ) : null}
         </UICard>
 
-        {/* Rincian */}
+        {/* Rincian: snapshot server (ST-04/API-W03), fallback estimasi utk booking lama */}
         <UISectionTitle>Rincian Pembayaran</UISectionTitle>
         <UICard>
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>Sewa lapangan</Text>
-            <Text style={styles.feeValue}>{formatIDR(booking.amount)}</Text>
+            <Text style={styles.feeValue}>{formatIDR(booking.subtotal ?? booking.amount)}</Text>
           </View>
+          {(booking.discount ?? 0) > 0 ? (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>
+                Diskon voucher{booking.voucherCode ? ` (${booking.voucherCode})` : ''}
+              </Text>
+              <Text style={[styles.feeValue, styles.discountValue]}>
+                −{formatIDR(booking.discount ?? 0)}
+              </Text>
+            </View>
+          ) : null}
+          {(booking.pointsUsed ?? 0) > 0 ? (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Poin Kawan dipakai</Text>
+              <Text style={[styles.feeValue, styles.discountValue]}>
+                −{formatIDR(booking.pointsUsed ?? 0)}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>Biaya layanan komunitas</Text>
-            <Text style={styles.feeValue}>{formatIDR(STITCH_SERVICE_FEE)}</Text>
+            <Text style={styles.feeValue}>
+              {formatIDR(booking.serviceFee ?? STITCH_SERVICE_FEE)}
+            </Text>
           </View>
-          <Text style={styles.feeNote}>
-            Biaya layanan estimasi & belum termasuk total — menunggu ST-08.
-          </Text>
-          {/* TODO(ST-04): section voucher DISEMBUNYIKAN sampai API ada. */}
+          {booking.serviceFee == null ? (
+            <Text style={styles.feeNote}>
+              Biaya layanan estimasi (booking lama, tanpa snapshot server).
+            </Text>
+          ) : null}
+          {booking.code ? (
+            <View style={styles.codeBox}>
+              <Text style={styles.codeLabel}>Kode check-in di venue:</Text>
+              <Text style={styles.codeValue} selectable>
+                {booking.code}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.divider} />
           <View style={styles.feeRow}>
             <View>
@@ -320,7 +349,16 @@ const styles = StyleSheet.create({
   feeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACING.sm },
   feeLabel: { fontSize: 14, color: COLORS.muted },
   feeValue: { fontSize: 14, fontWeight: '600', color: COLORS.ink },
+  discountValue: { color: COLORS.brand700 },
   feeNote: { fontSize: 12, color: COLORS.faint, marginTop: SPACING.xs },
+  codeBox: {
+    backgroundColor: COLORS.bgAlt,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  codeLabel: { fontSize: 12, color: COLORS.muted },
+  codeValue: { fontSize: 18, fontWeight: '800', color: COLORS.ink, marginTop: 2, letterSpacing: 1 },
   divider: { height: 1, backgroundColor: COLORS.line, marginVertical: SPACING.md },
   totalLabel: { fontSize: 15, fontWeight: '700', color: COLORS.ink },
   totalSub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },

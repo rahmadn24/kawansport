@@ -39,6 +39,10 @@ export interface UserProfile {
   lat: number | null;
   lng: number | null;
   avatarUrl: string | null;
+  /** AD-01: role user (super_admin | venue_owner | seller | user). */
+  role?: string;
+  /** ST-04: saldo Poin Kawan (1 poin = Rp1 saat redeem; +50 per review). */
+  loyaltyPoints?: number;
   createdAt?: string;
   updatedAt?: string;
 }

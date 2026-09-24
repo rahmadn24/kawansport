@@ -59,6 +59,17 @@ export interface ShopOrder {
   createdAt: string;
   updatedAt: string;
   groups: ShopOrderGroup[];
+  /** ST-04: snapshot akuntansi (subtotal → diskon voucher → poin → total). */
+  subtotal?: number;
+  discount?: number;
+  voucherCode?: string | null;
+  pointsUsed?: number;
+}
+
+/** ST-04: body opsional checkout (tanpa body = checkout normal MP-02). */
+export interface CheckoutOptions {
+  voucherCode?: string;
+  usePoints?: number;
 }
 
 interface Http {
@@ -93,8 +104,11 @@ export async function clearCart(http: Http = api): Promise<ShopCart> {
 }
 
 /** POST /checkout — checkout atomik → 1 order + N grup seller + Snap. */
-export async function checkoutCart(http: Http = api): Promise<ShopOrder> {
-  const res = await http.post<ShopOrder>('/checkout', {});
+export async function checkoutCart(
+  http: Http = api,
+  options?: CheckoutOptions,
+): Promise<ShopOrder> {
+  const res = await http.post<ShopOrder>('/checkout', options ?? {});
   return res.data;
 }
 

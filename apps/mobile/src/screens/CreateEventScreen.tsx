@@ -44,6 +44,8 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [capacity, setCapacity] = useState(10);
+  /** ST-02: iuran per orang rupiah (string input, default gratis). */
+  const [fee, setFee] = useState('0');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const chosenSport = sport.trim() || customSport.trim();
@@ -66,6 +68,7 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
   };
 
   const submit = () => {
+    const feeNum = Number(fee.trim().replace(/\./g, ''));
     const input: CreateEventInput = {
       sport: chosenSport,
       title: title.trim(),
@@ -74,6 +77,7 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
       lat: Number(lat.trim().replace(',', '.')),
       lng: Number(lng.trim().replace(',', '.')),
       capacity,
+      fee: feeNum,
     };
     const errs: Record<string, string> = {};
     if (!chosenSport) errs.sport = 'Pilih atau ketik olahraga';
@@ -82,6 +86,9 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
     if (!locSet) errs.location = 'Tandai lokasi via GPS atau isi manual';
     if (!Number.isInteger(capacity) || capacity < 2 || capacity > 500) {
       errs.capacity = 'Kapasitas 2–500 orang';
+    }
+    if (!Number.isInteger(feeNum) || feeNum < 0) {
+      errs.fee = 'Iuran harus bilangan bulat >= 0 (0 = gratis)';
     }
     const serverSide = validateCreateEvent(input);
     if (serverSide && Object.keys(errs).length === 0) errs.form = serverSide;
@@ -246,6 +253,17 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
         </View>
         {fieldErrors.capacity ? <Text style={styles.inlineError}>⚠ {fieldErrors.capacity}</Text> : null}
 
+        <UISectionTitle>S6 • Iuran per orang (ST-02)</UISectionTitle>
+        <UITextInput
+          label="Iuran (Rp, 0 = gratis)"
+          testID="create-fee"
+          placeholder="0"
+          keyboardType="numeric"
+          value={fee}
+          onChangeText={setFee}
+          error={fieldErrors.fee}
+        />
+
         <UISectionTitle>Ringkasan</UISectionTitle>
         <UICard>
           <Text style={styles.sumTitle}>{title.trim() || 'Judul event'}</Text>
@@ -254,6 +272,9 @@ export function CreateEventScreen({ saving, serverError, onSubmit, onCancel }: P
           </Text>
           <Text style={styles.sumLine}>
             {capacity} orang • {locSet ? 'Lokasi ditandai ✓' : 'Lokasi belum ditandai'}
+          </Text>
+          <Text style={styles.sumLine}>
+            Iuran: {fee.trim() === '' || Number(fee.trim().replace(/\./g, '')) <= 0 ? 'Gratis' : `Rp${fee.trim()}/orang`}
           </Text>
         </UICard>
 

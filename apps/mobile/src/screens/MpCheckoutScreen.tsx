@@ -82,8 +82,26 @@ export function MpCheckoutScreen({ order, onDone, onMyOrders }: Props) {
         <UICard>
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>Total order ({itemCount} item)</Text>
-            <Text style={styles.feeValue}>{formatIDR(order.total)}</Text>
+            <Text style={styles.feeValue}>{formatIDR(order.subtotal ?? order.total)}</Text>
           </View>
+          {(order.discount ?? 0) > 0 ? (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>
+                Diskon voucher{order.voucherCode ? ` (${order.voucherCode})` : ''}
+              </Text>
+              <Text style={[styles.feeValue, styles.discountValue]}>
+                −{formatIDR(order.discount ?? 0)}
+              </Text>
+            </View>
+          ) : null}
+          {(order.pointsUsed ?? 0) > 0 ? (
+            <View style={styles.feeRow}>
+              <Text style={styles.feeLabel}>Poin Kawan dipakai</Text>
+              <Text style={[styles.feeValue, styles.discountValue]}>
+                −{formatIDR(order.pointsUsed ?? 0)}
+              </Text>
+            </View>
+          ) : null}
           <Text style={styles.feeNote}>Nominal dari server.</Text>
         </UICard>
 
@@ -142,6 +160,7 @@ const styles = StyleSheet.create({
   feeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   feeLabel: { fontSize: 14, color: COLORS.muted },
   feeValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  discountValue: { color: COLORS.brand700 },
   feeNote: { fontSize: 12, color: COLORS.faint, marginTop: SPACING.xs },
   protect: {
     flexDirection: 'row',

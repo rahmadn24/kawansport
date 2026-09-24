@@ -8,10 +8,9 @@ import { EmptyState, formatIDR } from '@/components/ui';
 import { apiFetch, disp, type AdminListResponse, type AdminRow } from '@/lib/api';
 import { getAccessToken, useAuth } from '@/lib/auth';
 
-// TODO API-W03: nilai fee read-only dari konstanta klien sampai endpoint
-// konfigurasi fee tersedia. Jangan anggap sebagai data server.
-const SERVICE_FEE_RP = 2500;
-const COMMISSION_RATE = 0.05; // komisi final platform 5% dari GMV
+// Fallback klien — dipakai HANYA bila GET /admin/settings gagal (label jelas di UI).
+const SERVICE_FEE_RP_FALLBACK = 2500;
+const COMMISSION_PERCENT_FALLBACK = 5;
 
 interface StatsData {
   range: { from: string; to: string };
@@ -20,6 +19,46 @@ interface StatsData {
   bookings: { total: number; paid: number; pending: number; expired: number; cancelled: number; gmv: number };
   orders: { total: number; paid: number; pending: number; expired: number; cancelled: number; gmv: number };
   topSports: { sport: string; count: number }[];
+}
+
+interface SettingItem {
+  key: string;
+  value: boolean | number | string | null;
+  raw: string | null;
+  updatedAt: string;
+}
+
+interface SettingsRes {
+  data: SettingItem[];
+  meta: { total: number };
+}
+
+interface DisputeItem {
+  id: string;
+  targetType: string;
+  targetId: string;
+  category: string;
+  description: string;
+  status: string;
+  createdAt: string;
+}
+
+interface DisputesRes {
+  data: DisputeItem[];
+  meta: { total: number };
+}
+
+interface ActivityItem {
+  type: string;
+  at: string;
+  title: string;
+  detail?: string;
+  refType?: string;
+  refId?: string;
+}
+
+interface ActivityRes {
+  data: ActivityItem[];
 }
 
 /** Hub superadmin — data riil GET /admin/stats + antrean pending (AD-02). */
@@ -50,6 +89,19 @@ function AdminContent() {
   const [to, setTo] = useState('');
   const [query, setQuery] = useState('');
 
+  // Konfigurasi fee real dari GET /admin/settings (API-W03).
+  const [settings, setSettings] = useState<SettingItem[] | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  // Moderasi real dari GET /disputes?status=open (API-W02).
+  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
+  const [disputesTotal, setDisputesTotal] = useState<number | null>(null);
+  const [disputesError, setDisputesError] = useState<string | null>(null);
+
+  // Aktivitas real dari GET /admin/activity?limit=10 (API-W04).
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
   const fetchHub = useCallback(async (f: string, t: string) => {
     setLoading(true);
     setError(null);
@@ -76,6 +128,46 @@ function AdminContent() {
     }
   }, []);
 
+  // Meta hub (tidak tergantung rentang tanggal): settings + dispute + aktivitas.
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setSettingsError('Tidak ada token akses.');
+      setDisputesError('Tidak ada token akses.');
+      setActivityError('Tidak ada token akses.');
+      return;
+    }
+    apiFetch<SettingsRes>('/admin/settings', token)
+      .then((r) => {
+        setSettings(r.data ?? []);
+        setSettingsError(null);
+      })
+      .catch((e: unknown) => {
+        setSettings(null);
+        setSettingsError(e instanceof Error ? e.message : 'Gagal memuat pengaturan');
+      });
+    apiFetch<DisputesRes>('/disputes?status=open', token)
+      .then((r) => {
+        setDisputes(r.data ?? []);
+        setDisputesTotal(r.meta?.total ?? (r.data ?? []).length);
+        setDisputesError(null);
+      })
+      .catch((e: unknown) => {
+        setDisputes([]);
+        setDisputesTotal(null);
+        setDisputesError(e instanceof Error ? e.message : 'Gagal memuat dispute');
+      });
+    apiFetch<ActivityRes>('/admin/activity?limit=10', token)
+      .then((r) => {
+        setActivity(r.data ?? []);
+        setActivityError(null);
+      })
+      .catch((e: unknown) => {
+        setActivity([]);
+        setActivityError(e instanceof Error ? e.message : 'Gagal memuat aktivitas');
+      });
+  }, []);
+
   useEffect(() => {
     void fetchHub(from, to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,9 +184,21 @@ function AdminContent() {
     setTo(t);
   };
 
+  // Nilai fee: server bila tersedia, fallback konstanta klien bila fetch gagal.
+  const settingsByKey = useMemo(() => new Map((settings ?? []).map((s) => [s.key, s.value])), [settings]);
+  const settingsOk = settings !== null;
+  const feeEnabled = settingsOk ? settingsByKey.get('service_fee_enabled') !== false : true;
+  const feeAmountRaw = settingsOk ? settingsByKey.get('service_fee_amount') : SERVICE_FEE_RP_FALLBACK;
+  const feeAmount = typeof feeAmountRaw === 'number' && feeAmountRaw >= 0 ? feeAmountRaw : SERVICE_FEE_RP_FALLBACK;
+  const commissionRaw = settingsOk ? settingsByKey.get('commission_percent') : COMMISSION_PERCENT_FALLBACK;
+  const commissionPercent = typeof commissionRaw === 'number' && commissionRaw >= 0 && commissionRaw <= 100
+    ? commissionRaw
+    : COMMISSION_PERCENT_FALLBACK;
+  const feeSourceLabel = settingsOk ? 'sumber: server (GET /admin/settings)' : 'fallback klien — GET /admin/settings gagal';
+
   const gmv = (stats?.bookings.gmv ?? 0) + (stats?.orders.gmv ?? 0);
-  // Komisi final 5% dari GMV — dihitung di klien, bukan angka server.
-  const platformFee = Math.round(gmv * COMMISSION_RATE);
+  // Komisi platform dari GET /admin/settings (fallback 5% bila fetch gagal).
+  const platformFee = Math.round((gmv * commissionPercent) / 100);
   const paidBookings = stats?.bookings.paid ?? 0;
   const totalBookings = stats?.bookings.total ?? 0;
   const conv = totalBookings > 0 ? (paidBookings / totalBookings) * 100 : 0;
@@ -201,9 +305,9 @@ function AdminContent() {
               <p className="ks-muted-text ks-sub">Aktif 7 hari: {stats.users.active7d} · 30 hari: {stats.users.active30d}</p>
             </div>
             <div className="ks-card ks-card-hl">
-              <p className="label">🏦 Platform Fee (komisi final 5% dari GMV — dihitung di klien)</p>
+              <p className="label">🏦 Platform Fee (komisi {commissionPercent}% dari GMV — {feeSourceLabel})</p>
               <p className="value sm">{formatIDR(platformFee)}</p>
-              <p className="ks-muted-text ks-sub">= {formatIDR(gmv)} × 5%</p>
+              <p className="ks-muted-text ks-sub">= {formatIDR(gmv)} × {commissionPercent}%</p>
             </div>
           </section>
 
@@ -268,7 +372,7 @@ function AdminContent() {
               <h2 id="h-sport" className="ks-panel-title">Transaksi per Olahraga</h2>
               <p className="ks-muted-text ks-sub">
                 Jumlah transaksi riil per olahraga. Rincian GMV per olahraga belum disediakan API
-                sehingga tidak ditampilkan. <span className="ks-code">TODO API-W05: stats-per-sport</span>
+                sehingga tidak ditampilkan.
               </p>
               {(stats.topSports ?? []).length === 0 ? (
                 <EmptyState icon="📊" title="Belum ada data olahraga" desc="Tidak ada transaksi per olahraga pada rentang ini." />
@@ -292,13 +396,14 @@ function AdminContent() {
               )}
             </section>
 
-            {/* Fee config — read-only dari konstanta */}
+            {/* Fee config — real dari GET /admin/settings (API-W03) */}
             <section className="ks-card ks-section" aria-labelledby="h-fee">
               <div className="ks-sec-head">
                 <div>
                   <h2 id="h-fee" className="ks-panel-title">Konfigurasi Fee Platform</h2>
                   <p className="ks-muted-text ks-sub">
-                    Nilai read-only dari konstanta klien. <span className="ks-code">TODO API-W03: endpoint konfigurasi fee</span>
+                    Nilai real dari server · {feeSourceLabel}
+                    {settingsError ? ` · ⚠️ ${settingsError}` : ''}
                   </p>
                 </div>
                 <span className="ks-chip">Live Monetization</span>
@@ -306,43 +411,118 @@ function AdminContent() {
               <dl className="ks-fee">
                 <div>
                   <dt>Biaya layanan pemain (per order checkout)</dt>
-                  <dd>{formatIDR(SERVICE_FEE_RP)} / order · Aktif</dd>
+                  <dd>{feeEnabled ? `${formatIDR(feeAmount)} / order · Aktif` : 'Nonaktif (fee dimatikan di server)'}</dd>
                 </div>
                 <div>
                   <dt>Komisi venue rekanan (dari GMV)</dt>
-                  <dd>{(COMMISSION_RATE * 100).toFixed(0)}% · komisi final</dd>
+                  <dd>{commissionPercent}% · komisi efektif server</dd>
                 </div>
               </dl>
               <div className="ks-fee-actions">
-                <button type="button" className="ks-btn ks-btn-ghost ks-btn-sm" disabled title="TODO API-W03: edit margin menunggu endpoint konfigurasi fee">
+                <button type="button" className="ks-btn ks-btn-ghost ks-btn-sm" disabled title="Edit margin hanya via API PUT /admin/settings di backend">
                   Edit Margin
                 </button>
-                {/* TODO: halaman voucher belum ada — jangan arahkan ke rute kosong. */}
-                <button type="button" className="ks-btn ks-btn-primary ks-btn-sm" disabled title="TODO: halaman voucher belum ada">
+                <button type="button" className="ks-btn ks-btn-primary ks-btn-sm" disabled title="Halaman voucher belum ada di CMS">
                   🎟 Buat Voucher (segera)
                 </button>
               </div>
             </section>
           </div>
 
-          {/* Moderasi/dispute — DISEMBUNYIKAN, tanpa tiket palsu */}
-          <section className="ks-card ks-section" aria-labelledby="h-mod">
-            <h2 id="h-mod" className="ks-panel-title">Pusat Moderasi Sparing & Laporan Sportivitas</h2>
-            <EmptyState
-              icon="🛡"
-              title="Moderasi belum tersambung"
-              desc="Belum ada endpoint dispute/moderasi. Bagian ini disembunyikan sampai data riil tersedia (TODO API-W02) — tidak ada tiket palsu yang ditampilkan."
-            />
+          {/* Moderasi/dispute — real dari GET /disputes?status=open (API-W02) */}
+          <section className="ks-card ks-section" aria-labelledby="h-mod" id="moderasi">
+            <div className="ks-sec-head">
+              <div>
+                <h2 id="h-mod" className="ks-panel-title">Pusat Moderasi Sparing & Laporan Sportivitas</h2>
+                <p className="ks-muted-text ks-sub">
+                  {disputesTotal === null
+                    ? 'Antrean laporan status open (GET /disputes?status=open).'
+                    : `${disputesTotal} laporan open · menampilkan ${disputes.length} terbaru`}
+                </p>
+              </div>
+              <a className="ks-btn ks-btn-ghost ks-btn-sm" href="#moderasi" aria-label="Tautan ke seksi moderasi">
+                #moderasi
+              </a>
+            </div>
+            {disputesError && <p className="ks-error" role="alert">⚠️ {disputesError}</p>}
+            {!disputesError && disputes.length === 0 ? (
+              <EmptyState
+                icon="🛡"
+                title="Tidak ada laporan open"
+                desc="Belum ada dispute berstatus open. Laporan baru dari pemain akan tampil di sini (data real, bukan tiket contoh)."
+              />
+            ) : !disputesError && (
+              <div className="ks-table-wrap">
+                <table className="ks-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Kategori & target</th>
+                      <th scope="col">Deskripsi</th>
+                      <th scope="col">Dilaporkan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {disputes.map((d) => (
+                      <tr key={d.id} id={`mod-${d.id}`}>
+                        <td>
+                          <strong>{disp(d.category)}</strong>
+                          <div className="ks-history">{disp(d.targetType)} · {disp(d.targetId).slice(0, 24)}</div>
+                        </td>
+                        <td>{disp(d.description).slice(0, 140)}</td>
+                        <td>{disp(d.createdAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
-          {/* Aktivitas — DISEMBUNYIKAN, tanpa log palsu */}
-          <section className="ks-card ks-section" aria-labelledby="h-act">
-            <h2 id="h-act" className="ks-panel-title">Aktivitas Ekosistem Real-Time</h2>
-            <EmptyState
-              icon="📡"
-              title="Log aktivitas belum tersedia"
-              desc="Belum ada endpoint streaming aktivitas. Bagian ini disembunyikan sampai data riil tersedia (TODO API-W04) — tidak ada log palsu yang ditampilkan."
-            />
+          {/* Aktivitas — real dari GET /admin/activity?limit=10 (API-W04) */}
+          <section className="ks-card ks-section" aria-labelledby="h-act" id="aktivitas">
+            <div className="ks-sec-head">
+              <div>
+                <h2 id="h-act" className="ks-panel-title">Aktivitas Ekosistem Real-Time</h2>
+                <p className="ks-muted-text ks-sub">
+                  10 peristiwa terbaru lintas tabel (GET /admin/activity?limit=10).
+                </p>
+              </div>
+              <a className="ks-btn ks-btn-ghost ks-btn-sm" href="#aktivitas" aria-label="Tautan ke seksi aktivitas">
+                #aktivitas
+              </a>
+            </div>
+            {activityError && <p className="ks-error" role="alert">⚠️ {activityError}</p>}
+            {!activityError && activity.length === 0 ? (
+              <EmptyState
+                icon="📡"
+                title="Belum ada aktivitas"
+                desc="Tidak ada peristiwa ekosistem yang tercatat saat ini."
+              />
+            ) : !activityError && (
+              <div className="ks-table-wrap">
+                <table className="ks-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Waktu</th>
+                      <th scope="col">Peristiwa</th>
+                      <th scope="col">Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activity.map((a, i) => (
+                      <tr key={`${a.refType ?? a.type}-${a.refId ?? i}-${a.at}`}>
+                        <td>{disp(a.at)}</td>
+                        <td>
+                          <strong>{disp(a.title)}</strong>
+                          <div className="ks-history">{disp(a.type)}</div>
+                        </td>
+                        <td>{disp(a.detail ?? (a.refId ? `${a.refType ?? ''} ${a.refId}` : '—'))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}

@@ -24,9 +24,24 @@ export interface BookingItem {
   redirectUrl: string | null;
   /** Id event asal (BK-04); null bila booking langsung. */
   eventId: string | null;
+  /** API-W07: kode check-in unik (KS-XXXXXX); null untuk baris pra-W07. */
+  code: string | null;
+  /** API-W06: kanal booking (walk-in dicatat owner, tanpa Midtrans). */
+  channel: 'app' | 'walkin';
+  /** API-W06: nama pembeli walk-in; null untuk channel app. */
+  buyerName?: string | null;
+  /** API-W07: waktu check-in; null bila belum check-in. */
+  checkedInAt?: string | null;
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** ST-04: snapshot akuntansi (subtotal → diskon voucher → poin → total). */
+  subtotal?: number;
+  discount?: number;
+  voucherCode?: string | null;
+  pointsUsed?: number;
+  /** API-W03: snapshot service fee (0 bila fee off). */
+  serviceFee?: number;
 }
 
 export interface CreateBookingInput {
@@ -37,6 +52,9 @@ export interface CreateBookingInput {
   start?: string;
   startMinute?: number;
   durationMinutes?: number;
+  /** ST-04: kode voucher (uppercase) + poin dipakai (1 poin = Rp1). */
+  voucherCode?: string;
+  usePoints?: number;
 }
 
 export interface BookEventInput {
@@ -46,6 +64,9 @@ export interface BookEventInput {
   start?: string;
   startMinute?: number;
   durationMinutes?: number;
+  /** ST-04: kode voucher (uppercase) + poin dipakai. */
+  voucherCode?: string;
+  usePoints?: number;
 }
 
 interface Http {
@@ -96,6 +117,24 @@ export async function cancelBooking(
     `/bookings/${id}/cancel`,
     {},
   );
+  return res.data;
+}
+
+/** GET /bookings/by-code/:code — lookup kasir (owner venue / super_admin, case-insensitive). */
+export async function lookupBookingByCode(
+  code: string,
+  http: Http = api,
+): Promise<BookingItem> {
+  const res = await http.get<BookingItem>(`/bookings/by-code/${code.trim()}`);
+  return res.data;
+}
+
+/** POST /bookings/:id/check-in — check-in sekali saja (owner venue / super_admin). */
+export async function checkInBooking(
+  id: string,
+  http: Http = api,
+): Promise<BookingItem> {
+  const res = await http.post<BookingItem>(`/bookings/${id}/check-in`, {});
   return res.data;
 }
 

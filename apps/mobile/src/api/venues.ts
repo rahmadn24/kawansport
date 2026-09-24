@@ -48,7 +48,7 @@ export interface ListVenuesResult {
   meta: { page: number; limit: number; total: number };
 }
 
-export type SlotStatus = 'free' | 'held' | 'booked';
+export type SlotStatus = 'free' | 'held' | 'booked' | 'blocked';
 
 export interface SlotItem {
   date: string;
@@ -103,6 +103,14 @@ export async function getCourtAvailability(
 /** Court aktif saja (yang inactive tidak bisa dibooking → 409 di server). */
 export function activeCourts(venue: Pick<VenueItem, 'courts'>): CourtItem[] {
   return (venue.courts ?? []).filter((c) => c.status === 'active');
+}
+
+/**
+ * Slot bisa dibooking hanya saat `free` (API-W06: `blocked` = ditutup owner
+ * untuk maintenance — beda dari `booked` agar statistik okupansi jujur).
+ */
+export function isBookable(slot: Pick<SlotItem, 'status'>): boolean {
+  return slot.status === 'free';
 }
 
 /** Validasi sisi klien sebelum GET availability; pesan error atau null bila valid. */

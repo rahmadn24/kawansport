@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { EventDetail, EventParticipantItem, slotsLeft } from '../api/events';
+import { EventDetail, EventParticipantItem, formatEventFee, slotsLeft } from '../api/events';
 import { bookingStatusLabel, formatIDR, formatSlotLabel } from '../api/bookings';
 import { COLORS, RADIUS, SPACING, TYPO, formatWIB, friendlyServerError } from '../theme';
 import {
@@ -34,7 +34,6 @@ interface Props {
 }
 
 // TODO(ST-01): ganti hero gradasi dengan foto asli event.
-// TODO(ST-03): waiting list event penuh — tombolAntre DISABLED sampai API ada.
 // TODO(ST-10): fasilitas venue & sewa alat DISEMBUNYIKAN sampai API ada.
 
 /**
@@ -119,6 +118,10 @@ export function EventDetailScreen({
             <UISectionTitle>Info & Aturan Mabar</UISectionTitle>
             <UICard>
               {event.description ? <Text style={styles.desc}>{event.description}</Text> : null}
+              {/* ST-02: iuran per orang dari server (0/absen = Gratis). */}
+              <Text style={styles.detailLine}>
+                🎟 Iuran: {formatEventFee(event.fee)}
+              </Text>
               {event.booking ? (
                 <Text style={styles.detailLine}>
                   🏟 Lapangan: {formatSlotLabel(event.booking.date, event.booking.start, event.booking.end)} •{' '}
@@ -189,12 +192,14 @@ export function EventDetailScreen({
                 accessibilityLabel="Keluar dari event"
               />
             ) : isFull ? (
+              /* ST-03: join saat penuh otomatis masuk antrean (409 ditangkap api). */
               <UIButton
-                title="Antre"
+                title="Masuk Antrean"
                 variant="outline"
-                onPress={() => undefined}
-                disabled
-                accessibilityLabel="Event penuh, antre segera hadir"
+                onPress={onJoin}
+                loading={mutating}
+                loadingTitle="Memproses…"
+                accessibilityLabel="Event penuh, masuk antrean waiting list"
               />
             ) : (
               <UIButton

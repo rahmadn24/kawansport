@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
 import { ShopCart } from '../api/shop';
+import { formatPoints } from '../api/vouchers';
 import { COLORS, RADIUS, SPACING, TYPO, initialsOf } from '../theme';
 import {
   UICard,
@@ -10,6 +11,7 @@ import {
   UIErrorBanner,
   UISearchBar,
   UIStickyBar,
+  UITextInput,
 } from '../components/ui';
 import {
   STITCH_PICKUP_BANNER,
@@ -28,6 +30,12 @@ interface Props {
   onSetQty: (productId: string, qty: number) => void;
   onClear: () => void;
   onCheckout: () => void;
+  /** ST-04: kode voucher (diterapkan server saat checkout). */
+  voucherCode?: string;
+  onVoucherCodeChange?: (code: string) => void;
+  /** ST-04: saldo Poin Kawan (1 poin = Rp1); null = belum termuat. */
+  loyaltyBalance?: number | null;
+  loyaltyError?: string | null;
 }
 
 /**
@@ -37,13 +45,14 @@ interface Props {
  * - Search & kategori = filter LOKAL display-only (tak menyentuh server).
  * - Badge verified DISEMBUNYIKAN (TODO ST-05) — jangan tampilkan badge palsu.
  * - Gambar produk = placeholder lokal (TODO ST-01).
- * - Shipping & voucher DISEMBUNYIKAN (TODO ST-05 / ST-04).
+ * - Shipping DISEMBUNYIKAN (TODO ST-05).
+ * - Voucher ST-04 real: kode dikirim ke POST /checkout, diskon dibaca dari
+ *   snapshot order; saldo poin dari GET /me (empty/error jujur bila gagal).
  * - Total sticky dari server (cart.total).
  */
 // TODO(ST-01): foto produk asli dari API media.
 // TODO(ST-05): seller verified + opsi shipping dari API marketplace kaya.
 // TODO(ST-09): search/katalog + banner promo dari API.
-// TODO(ST-04): voucher/poin — section disembunyikan sampai API ada.
 export function CartScreen({
   cart,
   loading,
@@ -54,6 +63,10 @@ export function CartScreen({
   onSetQty,
   onClear,
   onCheckout,
+  voucherCode = '',
+  onVoucherCodeChange = () => undefined,
+  loyaltyBalance = null,
+  loyaltyError = null,
 }: Props) {
   const [query, setQuery] = useState('');
   const [catIndex, setCatIndex] = useState(0);
@@ -219,7 +232,34 @@ export function CartScreen({
           ))
         )}
 
-        {/* TODO(ST-05): section shipping DISEMBUNYIKAN. TODO(ST-04): voucher DISEMBUNYIKAN. */}
+        {/* TODO(ST-05): section shipping DISEMBUNYIKAN. */}
+
+        {/* ST-04: voucher & poin — kode dikirim saat checkout, diskon dari server. */}
+        {count > 0 ? (
+          <UICard>
+            <Text style={styles.rincTitle}>Voucher & Poin</Text>
+            <UITextInput
+              label="Kode voucher (opsional)"
+              placeholder="cth. HEMAT10"
+              value={voucherCode}
+              onChangeText={onVoucherCodeChange}
+              autoCapitalize="characters"
+              testID="cart-voucher-code"
+            />
+            {loyaltyError ? (
+              <Text style={styles.voucherError}>⚠ {loyaltyError}</Text>
+            ) : loyaltyBalance != null ? (
+              <Text style={styles.voucherMeta}>
+                Poin Kawan kamu: {formatPoints(loyaltyBalance)}
+              </Text>
+            ) : (
+              <Text style={styles.voucherMeta}>Memuat saldo poin…</Text>
+            )}
+            <Text style={styles.rincNote}>
+              Diskon & poin dihitung server saat checkout — rincian final ada di layar berikutnya.
+            </Text>
+          </UICard>
+        ) : null}
 
         {mutateError ? <Text style={styles.error}>{mutateError}</Text> : null}
         <UIErrorBanner message={loading ? null : error} actionLabel="Coba lagi" onAction={onRefresh} />
@@ -329,6 +369,8 @@ const styles = StyleSheet.create({
   rincLabel: { fontSize: 13, color: COLORS.muted },
   rincValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   rincNote: { fontSize: 12, color: COLORS.faint, marginTop: SPACING.sm },
+  voucherError: { fontSize: 13, color: COLORS.danger, marginTop: SPACING.sm },
+  voucherMeta: { fontSize: 13, color: COLORS.brand700, fontWeight: '600', marginTop: SPACING.sm },
   error: { fontSize: 14, color: COLORS.danger, marginTop: SPACING.sm, textAlign: 'center' },
   bottomPad: { height: SPACING.md },
 });

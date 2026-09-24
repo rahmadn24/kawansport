@@ -132,6 +132,9 @@ export function MyBookingsScreen({
                       <Text style={styles.cardSub}>
                         {formatIDR(item.amount)} • Order {item.paymentRef}
                       </Text>
+                      {item.code ? (
+                        <Text style={styles.cardSub}>Kode check-in: {item.code}</Text>
+                      ) : null}
                     </View>
                     <UIBadge kind={bookingBadgeKind(item.status)} label={bookingStatusLabel(item.status)} />
                   </View>

@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CourtItem, SlotItem, VenueItem, activeCourts } from '../api/venues';
+import { CourtItem, SlotItem, VenueItem, activeCourts, isBookable } from '../api/venues';
 import { formatDateShort, formatIDR } from '../api/bookings';
 import { useAuth } from '../auth/AuthContext';
 import { RatingStarsDisplay } from '../components/RatingStars';
@@ -108,19 +108,19 @@ export function VenueDetailScreen({
     [createRating, clearError],
   );
 
-  const freeCount = slots.filter((s) => s.status === 'free').length;
-  const selectedSlot = slots.find((s) => s.start === selectedStart && s.status === 'free') ?? null;
+  const freeCount = slots.filter(isBookable).length;
+  const selectedSlot = slots.find((s) => s.start === selectedStart && isBookable(s)) ?? null;
   // Nominal sticky HARUS dari server: tarif per jam court yg dipilih.
   const stickyTotal = court ? formatIDR(court.pricePerHour) : formatIDR(0);
   const { pagi, malam } = groupSlotsBySession(slots);
 
   const toggleSlot = (s: SlotItem) => {
-    if (s.status !== 'free') return;
+    if (!isBookable(s)) return;
     setSelectedStart((prev) => (prev === s.start ? null : s.start));
   };
 
   const renderSlotCard = (s: SlotItem) => {
-    const taken = s.status !== 'free';
+    const taken = !isBookable(s);
     const selected = selectedSlot?.start === s.start;
     return (
       <TouchableOpacity
@@ -173,7 +173,7 @@ export function VenueDetailScreen({
               selected && styles.slotPriceSelected,
             ]}
           >
-            {taken ? (s.status === 'held' ? 'Ditahan' : 'Penuh') : selected ? 'Terpilih' : slotDurationLabel(s)}
+            {taken ? (s.status === 'held' ? 'Ditahan' : s.status === 'blocked' ? 'Ditutup' : 'Penuh') : selected ? 'Terpilih' : slotDurationLabel(s)}
           </Text>
         </View>
       </TouchableOpacity>
@@ -776,6 +776,13 @@ const styles = StyleSheet.create({
 /** Badge status slot kecil (dipakai bila perlu di luar kartu). */
 export function SlotStatusBadge({ status }: { status: SlotItem['status'] }) {
   const kind = status === 'free' ? 'open' : status === 'held' ? 'pending' : 'full';
-  const label = status === 'free' ? 'Tersedia' : status === 'held' ? 'Ditahan' : 'Penuh';
+  const label =
+    status === 'free'
+      ? 'Tersedia'
+      : status === 'held'
+        ? 'Ditahan'
+        : status === 'blocked'
+          ? 'Ditutup'
+          : 'Penuh';
   return <UIBadge kind={kind} label={label} />;
 }

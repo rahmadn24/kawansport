@@ -1,12 +1,26 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { RoleGuard } from '@/components/RoleGuard';
 import { OWNER_NAV, Shell } from '@/components/Shell';
-import { useAuth } from '@/lib/auth';
+import { EmptyState, StatusBadge } from '@/components/ui';
+import { apiFetch, disp } from '@/lib/api';
+import { getAccessToken, useAuth } from '@/lib/auth';
 
-/** Entri venue manager owner (WEB-03, Trello #81). */
+interface MineVenue {
+  id: string;
+  name: string;
+  status: string;
+  courtsCount: number;
+}
+
+interface MineRes {
+  data: MineVenue[];
+  meta: { total: number };
+}
+
+/** Entri venue manager owner (WEB-03) — daftar real GET /venues/mine (API-W05). */
 export default function OwnerVenuesPage() {
   return (
     <RoleGuard allowed={['venue_owner']}>
@@ -15,25 +29,37 @@ export default function OwnerVenuesPage() {
   );
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function VenuesEntry() {
   const { me, logout } = useAuth();
-  const router = useRouter();
-  const [venueId, setVenueId] = useState('');
+  const [venues, setVenues] = useState<MineVenue[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // super_admin boleh ?all=true untuk semua venue (non-admin all=true → 403).
+  const [showAll, setShowAll] = useState(false);
 
-  function openVenue(e: React.FormEvent) {
-    e.preventDefault();
-    const id = venueId.trim();
-    if (!UUID_RE.test(id)) {
-      setError('ID venue harus UUID valid (contoh: 123e4567-e89b-12d3-a456-426614174000).');
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      setError('Tidak ada token akses.');
+      setLoading(false);
       return;
     }
+    setLoading(true);
     setError(null);
-    router.push(`/dashboard/owner/venues/${id}`);
-  }
+    const qs = showAll ? '?all=true' : '';
+    apiFetch<MineRes>(`/venues/mine${qs}`, token)
+      .then((r) => {
+        setVenues(r.data ?? []);
+        setTotal(r.meta?.total ?? (r.data ?? []).length);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : 'Gagal memuat daftar venue');
+        setVenues([]);
+        setTotal(null);
+      })
+      .finally(() => setLoading(false));
+  }, [showAll]);
 
   return (
     <Shell
@@ -43,48 +69,76 @@ function VenuesEntry() {
       title="Venue Saya"
       subtitle="Kelola operasional venue Anda: jadwal slot, check-in, dan ulasan pemain."
     >
-      <section className="ks-card">
-        <h2 className="ks-panel-title">Buka venue manager</h2>
-        <p className="ks-muted-text" style={{ fontSize: 13, margin: '0 0 12px' }}>
-          Tempel ID (UUID) venue milik Anda untuk membuka halaman pengelolaannya.
-          Halaman berikutnya memverifikasi kepemilikan (ID owner venue vs akun
-          login) sebelum menampilkan data.
-        </p>
-        <form onSubmit={openVenue} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <label style={{ flex: '1 1 280px', fontSize: 13 }}>
-            ID venue
-            <input
-              className="ks-input"
-              style={{ marginTop: 4 }}
-              value={venueId}
-              onChange={(e) => setVenueId(e.target.value)}
-              placeholder="UUID venue, mis. 123e4567-…"
-              aria-label="ID venue (UUID)"
-              spellCheck={false}
-            />
-          </label>
-          <button className="ks-btn ks-btn-primary" type="submit" style={{ alignSelf: 'flex-end' }}>
-            Buka →
-          </button>
-        </form>
+      <section className="ks-card" aria-labelledby="h-mine">
+        <div className="ks-sec-head">
+          <div>
+            <h2 id="h-mine" className="ks-panel-title">Daftar venue saya</h2>
+            <p className="ks-muted-text" style={{ fontSize: 13, margin: 0 }}>
+              {total === null
+                ? 'Data real dari GET /venues/mine.'
+                : `${total} venue · data real dari GET /venues/mine${showAll ? '?all=true' : ''}.`}
+            </p>
+          </div>
+          {me?.role === 'super_admin' && (
+            <label style={{ fontSize: 13, display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                aria-label="Tampilkan semua venue (super_admin)"
+              />
+              Semua venue (super_admin)
+            </label>
+          )}
+        </div>
+
         {error && (
           <p className="ks-error" role="alert" style={{ marginTop: 12 }}>
             ⚠️ {error}
           </p>
         )}
-      </section>
+        {loading && <p className="ks-muted-text">Memuat daftar venue…</p>}
 
-      <section className="ks-card" style={{ marginTop: 16 }}>
-        <h2 className="ks-panel-title">TODO API-W05 — daftar venue milik owner</h2>
-        <p className="ks-muted-text" style={{ fontSize: 13, margin: 0 }}>
-          Belum ada endpoint daftar venue milik owner di API
-          (<span className="ks-code">GET /venues</span> hanya mengembalikan venue{' '}
-          <span className="ks-code">approved</span> publik tanpa filter owner, dan tidak
-          ada <span className="ks-code">GET /venues/mine</span>). Karena itu daftar
-          pilihan venue belum bisa ditampilkan; owner hanya boleh membuka venue
-          sendiri via ID manual, dan halaman detail menolak venue milik orang lain
-          di sisi klien (selain mengandalkan guard server).
-        </p>
+        {!loading && !error && venues.length === 0 && (
+          <EmptyState
+            icon="🏟️"
+            title="Belum ada venue"
+            desc="Akun ini belum memiliki venue. Hubungi super_admin untuk pembuatan venue."
+          />
+        )}
+
+        {!loading && !error && venues.length > 0 && (
+          <div className="ks-table-wrap">
+            <table className="ks-table">
+              <thead>
+                <tr>
+                  <th scope="col">Nama venue</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Lapangan</th>
+                  <th scope="col">Kelola</th>
+                </tr>
+              </thead>
+              <tbody>
+                {venues.map((v) => (
+                  <tr key={v.id}>
+                    <td><strong>{disp(v.name)}</strong></td>
+                    <td><StatusBadge status={v.status} /></td>
+                    <td>{v.courtsCount}</td>
+                    <td>
+                      <Link
+                        className="ks-btn ks-btn-primary ks-btn-sm"
+                        href={`/dashboard/owner/venues/${v.id}`}
+                        aria-label={`Kelola venue ${v.name}`}
+                      >
+                        Buka →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </Shell>
   );
