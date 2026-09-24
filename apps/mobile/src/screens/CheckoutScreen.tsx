@@ -121,6 +121,17 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
             <Text style={styles.feeLabel}>Sewa lapangan</Text>
             <Text style={styles.feeValue}>{formatIDR(booking.subtotal ?? booking.amount)}</Text>
           </View>
+          <View style={styles.feeRow}>
+            <Text style={styles.feeLabel}>Biaya layanan komunitas</Text>
+            <Text style={styles.feeValue}>
+              {formatIDR(booking.serviceFee ?? STITCH_SERVICE_FEE)}
+            </Text>
+          </View>
+          {booking.serviceFee == null ? (
+            <Text style={styles.feeNote}>
+              Biaya layanan estimasi (booking lama, tanpa snapshot server).
+            </Text>
+          ) : null}
           {(booking.discount ?? 0) > 0 ? (
             <View style={styles.feeRow}>
               <Text style={styles.feeLabel}>
@@ -139,17 +150,6 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
               </Text>
             </View>
           ) : null}
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Biaya layanan komunitas</Text>
-            <Text style={styles.feeValue}>
-              {formatIDR(booking.serviceFee ?? STITCH_SERVICE_FEE)}
-            </Text>
-          </View>
-          {booking.serviceFee == null ? (
-            <Text style={styles.feeNote}>
-              Biaya layanan estimasi (booking lama, tanpa snapshot server).
-            </Text>
-          ) : null}
           {booking.code ? (
             <View style={styles.codeBox}>
               <Text style={styles.codeLabel}>Kode check-in di venue:</Text>
@@ -162,7 +162,7 @@ export function CheckoutScreen({ booking, courtLabel, onDone, onMyBookings }: Pr
           <View style={styles.feeRow}>
             <View>
               <Text style={styles.totalLabel}>Total Tagihan</Text>
-              <Text style={styles.totalSub}>Nominal dari server</Text>
+              <Text style={styles.totalSub}>Sudah termasuk pajak & biaya layanan</Text>
             </View>
             <Text style={styles.totalValue}>{formatIDR(total)}</Text>
           </View>

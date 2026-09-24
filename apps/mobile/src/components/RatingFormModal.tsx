@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     minHeight: 48,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.brand700,
+    backgroundColor: COLORS.accent,
     minWidth: 140,
     alignItems: 'center',
     justifyContent: 'center',

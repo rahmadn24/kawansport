@@ -72,6 +72,16 @@ export function ChatRoomScreen({
   const live = connected && !socketError && !polling;
   const status = live ? 'Terhubung langsung' : 'Menyambung…';
 
+  /** Balasan cepat statis: mengisi draf, pengiriman tetap via tombol Kirim. */
+  const QUICK_REPLIES = ['Siap, gas! 🏸', 'Bisa patungan?', 'Share loc pintu 1', 'Gas! 🔥'];
+
+  /** "14.32" (id-ID) -> "14:32 WIB" seperti ref Stitch. */
+  const clockLabel = (iso: string): string => {
+    const base = formatClockWIB(iso);
+    if (!base) return '';
+    return `${base.replace('.', ':')} WIB`;
+  };
+
   const firstLoad = loading && messages.length === 0;
 
   return (
@@ -132,6 +142,8 @@ export function ChatRoomScreen({
           }
           renderItem={({ item }) => {
             const mine = myId != null && item.senderId === myId;
+            const timeLabel = clockLabel(item.createdAt);
+            const sendLabel = mine ? (item.readAt ? 'Dibaca' : 'Terkirim') : null;
             return (
               <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
                 <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
@@ -140,10 +152,10 @@ export function ChatRoomScreen({
                       Kawan main
                     </Text>
                   ) : null}
-                  <Text style={styles.bubbleText}>{item.body}</Text>
+                  <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>{item.body}</Text>
                   <Text style={[styles.bubbleTime, mine ? styles.bubbleTimeMine : styles.bubbleTimeTheirs]}>
-                    {formatClockWIB(item.createdAt)}
-                    {mine && item.readAt ? ' • Dibaca' : ''}
+                    {timeLabel}
+                    {sendLabel ? ` • ${sendLabel}` : ''}
                   </Text>
                 </View>
               </View>
@@ -155,6 +167,20 @@ export function ChatRoomScreen({
       <View style={styles.foot}>
         <UINoticeBar message={fallbackNotice} />
         <UIErrorBanner message={friendlyServerError(sendError)} />
+        <View style={styles.quickRow} accessibilityRole="radiogroup" accessibilityLabel="Balasan cepat">
+          {QUICK_REPLIES.map((q) => (
+            <TouchableOpacity
+              key={q}
+              style={styles.quickChip}
+              onPress={() => setDraft(q)}
+              disabled={sending}
+              accessibilityRole="button"
+              accessibilityLabel={`Balasan cepat: ${q}`}
+            >
+              <Text style={styles.quickChipText} numberOfLines={1}>{q}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
@@ -216,7 +242,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
   },
-  bubbleMine: { backgroundColor: COLORS.brand100, borderBottomRightRadius: 6 },
+  bubbleMine: { backgroundColor: COLORS.brand700, borderBottomRightRadius: 6 },
+  bubbleTextMine: { color: COLORS.bg },
   bubbleTheirs: {
     backgroundColor: COLORS.bg,
     borderWidth: 1,
@@ -226,7 +253,7 @@ const styles = StyleSheet.create({
   senderName: { fontSize: 12, fontWeight: '700', color: COLORS.brand700, marginBottom: 2 },
   bubbleText: { fontSize: 14, color: COLORS.ink, lineHeight: 20 },
   bubbleTime: { fontSize: 11, color: COLORS.faint, marginTop: 4, textAlign: 'right' },
-  bubbleTimeMine: {},
+  bubbleTimeMine: { color: COLORS.brand100 },
   bubbleTimeTheirs: {},
   foot: {
     backgroundColor: COLORS.bg,
@@ -237,12 +264,24 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.screen,
   },
   composer: { flexDirection: 'row', alignItems: 'center' },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SPACING.sm },
+  quickChip: {
+    backgroundColor: COLORS.bgAlt,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    marginRight: SPACING.sm,
+    marginBottom: SPACING.sm,
+    minHeight: 44,
+    justifyContent: 'center',
+    maxWidth: '48%',
+  },
+  quickChipText: { fontSize: 13, fontWeight: '600', color: COLORS.ink },
   input: {
     flex: 1,
     minHeight: 48,
     borderWidth: 1,
     borderColor: COLORS.line,
-    borderRadius: RADIUS.sm,
+    borderRadius: RADIUS.full,
     paddingHorizontal: SPACING.md,
     fontSize: 15,
     color: COLORS.ink,

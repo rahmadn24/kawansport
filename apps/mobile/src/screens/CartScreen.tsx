@@ -242,6 +242,12 @@ export function CartScreen({
                   </View>
                 </View>
               ))}
+              <View style={styles.sellerSub}>
+                <Text style={styles.sellerSubLabel}>
+                  Subtotal toko ({g.lines.reduce((n, l) => n + l.qty, 0)} item)
+                </Text>
+                <Text style={styles.sellerSubValue}>{formatIDR(g.subtotal)}</Text>
+              </View>
             </UICard>
           ))
         )}
@@ -283,7 +289,7 @@ export function CartScreen({
           <UICard>
             <Text style={styles.rincTitle}>Rincian Pembayaran</Text>
             <View style={styles.rincRow}>
-              <Text style={styles.rincLabel}>Total ({count} produk)</Text>
+              <Text style={styles.rincLabel}>Subtotal Gear ({count} item)</Text>
               <Text style={styles.rincValue}>{formatIDR(total)}</Text>
             </View>
             <Text style={styles.rincNote}>
@@ -342,23 +348,34 @@ const styles = StyleSheet.create({
   clearBtn: { minHeight: 44, justifyContent: 'center' },
   clearText: { fontSize: 12, fontWeight: '700', color: COLORS.danger },
   groupCard: { marginBottom: SPACING.md },
+  sellerSub: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.line,
+  },
+  sellerSubLabel: { fontSize: 13, color: COLORS.muted },
+  sellerSubValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sellerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
   sellerName: { flex: 1, fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sellerMeta: { fontSize: 12, color: COLORS.faint, marginLeft: SPACING.sm },
   item: { flexDirection: 'row', marginTop: SPACING.md },
   thumb: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.brand900,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
-  thumbText: { color: COLORS.lime, fontSize: 18, fontWeight: '800' },
+  thumbText: { color: COLORS.lime, fontSize: 20, fontWeight: '800' },
   thumbPhoto: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.line,
     marginRight: SPACING.md,

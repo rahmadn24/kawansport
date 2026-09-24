@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { COLORS } from '../theme';
 
 export interface RatingStarsProps {
   /** Nilai rating 0-5 (bisa desimal untuk display, integer untuk input) */
@@ -8,9 +9,9 @@ export interface RatingStarsProps {
   maxStars?: number;
   /** Ukuran bintang (default 24) */
   size?: number;
-  /** Warna bintang aktif (default '#FFC107') */
+  /** Warna bintang aktif (default token `star`) */
   activeColor?: string;
-  /** Warna bintang tidak aktif (default '#E0E0E0') */
+  /** Warna bintang tidak aktif (default token `line`) */
   inactiveColor?: string;
   /** Jika true, bintang bisa diklik untuk input rating */
   interactive?: boolean;
@@ -33,8 +34,8 @@ export function RatingStars({
   value,
   maxStars = 5,
   size = 24,
-  activeColor = '#F59E0B',
-  inactiveColor = '#E2E8F0',
+  activeColor = COLORS.star,
+  inactiveColor = COLORS.line,
   interactive = false,
   onChange,
   accessibilityLabel,
@@ -112,10 +113,14 @@ const styles = StyleSheet.create({
   },
   starTouch: {
     padding: 2,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   valueText: {
     fontWeight: '600',
-    color: '#333',
+    color: COLORS.ink,
     marginLeft: 2,
   },
 });
@@ -125,8 +130,8 @@ export function RatingStarsDisplay({
   value,
   maxStars = 5,
   size = 16,
-  activeColor = '#F59E0B',
-  inactiveColor = '#E2E8F0',
+  activeColor = COLORS.star,
+  inactiveColor = COLORS.line,
   showValue = true,
   style,
 }: Omit<RatingStarsProps, 'interactive' | 'onChange'>) {
@@ -150,8 +155,8 @@ export function RatingStarsInput({
   onChange,
   maxStars = 5,
   size = 32,
-  activeColor = '#F59E0B',
-  inactiveColor = '#E2E8F0',
+  activeColor = COLORS.star,
+  inactiveColor = COLORS.line,
   accessibilityLabel = 'Pilih rating',
   style,
 }: Pick<RatingStarsProps, 'value' | 'onChange' | 'maxStars' | 'size' | 'activeColor' | 'inactiveColor' | 'accessibilityLabel' | 'style'>) {

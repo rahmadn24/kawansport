@@ -111,8 +111,7 @@ export function VenueDetailScreen({
   );
 
   const freeCount = slots.filter(isBookable).length;
-  const selectedSlot = slots.find((s) => s.start === selectedStart && isBookable(s)) ?? null;
-  // Nominal sticky HARUS dari server: tarif per jam court yg dipilih.
+  const selectedSlot = slots.find((s) => s.start === selectedStart && isBookable(s)) ?? null;  // Nominal sticky HARUS dari server: tarif per jam court yg dipilih.
   const stickyTotal = court ? formatIDR(court.pricePerHour) : formatIDR(0);
   const { pagi, malam } = groupSlotsBySession(slots);
 
@@ -121,8 +120,27 @@ export function VenueDetailScreen({
     setSelectedStart((prev) => (prev === s.start ? null : s.start));
   };
 
+  /** Jam sudah lewat hari ini (display-only): slot dinonaktifkan jujur di klien.
+   * Server tetap sumber kebenaran status; ini hanya mencegah ketuk slot basi. */
+  const isSlotPast = (dateKey: string, s: SlotItem): boolean => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+    if (!m) return false;
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (dateKey !== todayKey) return false;
+    return s.endMinute <= now.getHours() * 60 + now.getMinutes();
+  };
+
+  const slotStatusLabel = (s: SlotItem, past: boolean): string => {
+    if (past) return 'Lewat';
+    if (s.status === 'held') return 'Ditahan';
+    if (s.status === 'blocked') return 'Ditutup';
+    return 'Penuh';
+  };
+
   const renderSlotCard = (s: SlotItem) => {
-    const taken = !isBookable(s);
+    const past = isSlotPast(date, s);
+    const taken = !isBookable(s) || past;
     const selected = selectedSlot?.start === s.start;
     return (
       <TouchableOpacity
@@ -135,7 +153,7 @@ export function VenueDetailScreen({
         onPress={() => toggleSlot(s)}
         disabled={taken}
         accessibilityRole="button"
-        accessibilityLabel={`Slot ${s.start} sampai ${s.end}, ${taken ? 'penuh' : formatIDR(court?.pricePerHour ?? 0)}`}
+        accessibilityLabel={`Slot ${s.start} sampai ${s.end}, ${taken ? slotStatusLabel(s, past).toLowerCase() : `${formatIDR(court?.pricePerHour ?? 0)} per jam`}`}
         accessibilityState={{ selected, disabled: taken }}
       >
         {selected ? (
@@ -175,7 +193,7 @@ export function VenueDetailScreen({
               selected && styles.slotPriceSelected,
             ]}
           >
-            {taken ? (s.status === 'held' ? 'Ditahan' : s.status === 'blocked' ? 'Ditutup' : 'Penuh') : selected ? 'Terpilih' : slotDurationLabel(s)}
+            {taken ? slotStatusLabel(s, past) : selected ? 'Terpilih' : slotDurationLabel(s)}
           </Text>
         </View>
       </TouchableOpacity>
@@ -241,7 +259,7 @@ export function VenueDetailScreen({
                   summary.totalRatings > 0 ? (count / summary.totalRatings) * 100 : 0;
                 return (
                   <View key={star} style={styles.miniBarRow}>
-                    <Text style={styles.miniBarLabel}>{star}</Text>
+                    <Text style={styles.miniBarLabel}>{star}★</Text>
                     <View style={styles.miniBarTrack}>
                       <View
                         style={[
@@ -250,6 +268,7 @@ export function VenueDetailScreen({
                         ]}
                       />
                     </View>
+                    <Text style={styles.miniBarCount}>{count}</Text>
                   </View>
                 );
               })}
@@ -572,12 +591,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
     minHeight: 56,
   },
-  courtPillActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
+  courtPillActive: { backgroundColor: COLORS.brand700, borderColor: COLORS.brand700 },
   courtDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.lime, marginRight: 6 },
   courtName: { fontSize: 13, fontWeight: '700', color: COLORS.ink },
   courtNameActive: { color: COLORS.bg },
   courtPrice: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
-  courtPriceActive: { color: COLORS.lime },
+  courtPriceActive: { color: COLORS.bg },
   dateHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dateLabel: { fontSize: 12, fontWeight: '700', color: COLORS.brand700, marginTop: SPACING.lg },
   dateRow: { flexDirection: 'row', paddingBottom: SPACING.xs },
@@ -729,7 +748,7 @@ const styles = StyleSheet.create({
     height: 14,
   },
   miniBarLabel: {
-    width: 20,
+    width: 28,
     fontSize: 11,
     fontWeight: '600',
     color: COLORS.faint,
@@ -740,6 +759,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.line,
     borderRadius: 3,
     overflow: 'hidden',
+  },
+  miniBarCount: {
+    width: 28,
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.muted,
+    textAlign: 'right',
   },
   miniBarFill: {
     height: '100%',

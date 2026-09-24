@@ -177,13 +177,13 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: COLORS.brand100,
     borderRadius: RADIUS.full,
     alignSelf: 'flex-start',
   },
   courtBadgeText: {
     fontSize: 12,
-    color: COLORS.navy,
+    color: COLORS.brand900,
     fontWeight: '700',
   },
   actions: {
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.brand700,
-    minHeight: 40,
+    minHeight: 44,
     justifyContent: 'center',
   },
   editButtonText: {
