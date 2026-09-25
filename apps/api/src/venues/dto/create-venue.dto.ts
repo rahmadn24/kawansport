@@ -35,6 +35,16 @@ export class CreateVenueDto {
   @IsString({ each: true })
   sports!: string[];
 
+  /**
+   * Fasilitas venue (ST-10, opsional): subset allowlist
+   * (parkir, shower, wifi, kantin, mushola, toilet, loker, tribun).
+   * Normalisasi + tolak asing 400 di service.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  facilities?: string[];
+
   /** Foto venue (ST-01): path /uploads/... atau https, maks 5. */
   @IsOptional()
   @IsArray()

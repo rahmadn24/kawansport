@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -27,6 +28,15 @@ export class CreateCourtDto {
   @IsInt()
   @Min(0)
   pricePerHour!: number;
+
+  /**
+   * Fasilitas spesifik court (ST-10, opsional, allowlist sama dengan venue).
+   * Normalisasi + tolak asing 400 di service.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  facilities?: string[];
 
   @IsOptional()
   @IsObject()

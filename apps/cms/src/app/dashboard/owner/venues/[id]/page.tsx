@@ -16,6 +16,8 @@ interface CourtInfo {
   name: string;
   pricePerHour: number;
   status: string;
+  /** Fasilitas spesifik court (ST-10). */
+  facilities?: string[];
 }
 
 interface VenueDocument {
@@ -35,6 +37,8 @@ interface VenueDetail {
   address: string;
   sports: string[];
   status: string;
+  /** Fasilitas venue (ST-10). */
+  facilities?: string[];
   owner: { id: string; email: string; displayName: string | null };
   courts: CourtInfo[];
   documents?: VenueDocument[];
@@ -124,6 +128,24 @@ interface PayoutItem {
 
 interface PayoutsMeRes {
   data: PayoutItem[];
+}
+
+/** Item sewa venue (ST-10) — mirror respons GET /venues/:id/rentals. */
+interface RentalItem {
+  id: string;
+  venueId: string;
+  name: string;
+  price: number;
+  stock: number;
+  unit: string | null;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RentalsRes {
+  data: RentalItem[];
+  meta: { total: number };
 }
 
 /* ---------- Util tanggal lokal (kemarin/hari ini/besok + manual) ---------- */
@@ -230,6 +252,18 @@ function ManagerContent({ venueId }: { venueId: string }) {
   const [docUrl, setDocUrl] = useState('');
   const [docMsg, setDocMsg] = useState<string | null>(null);
   const [docBusy, setDocBusy] = useState(false);
+
+  // Rental & gear real (ST-10): GET/POST/PATCH/DELETE /venues/:id/rentals.
+  const [rentals, setRentals] = useState<RentalItem[]>([]);
+  const [rentalError, setRentalError] = useState<string | null>(null);
+  const [rentalMsg, setRentalMsg] = useState<string | null>(null);
+  const [rentalBusy, setRentalBusy] = useState(false);
+  const [rentName, setRentName] = useState('');
+  const [rentPrice, setRentPrice] = useState('');
+  const [rentStock, setRentStock] = useState('');
+  const [rentUnit, setRentUnit] = useState('');
+  const [editingRentId, setEditingRentId] = useState<string | null>(null);
+  const [editRent, setEditRent] = useState({ name: '', price: '', stock: '', unit: '', status: 'active' });
 
   const [selected, setSelected] = useState<Sel | null>(null);
 
@@ -597,6 +631,139 @@ function ManagerContent({ venueId }: { venueId: string }) {
       setDocMsg(`Hapus gagal: ${errMsg(e)}`);
     } finally {
       setDocBusy(false);
+    }
+  }
+
+  /* ----- Rental & gear (ST-10): katalog milik venue sendiri ----- */
+  const refreshRentals = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || !venue || ownershipDenied) {
+      setRentals([]);
+      return;
+    }
+    setRentalError(null);
+    try {
+      const r = await apiFetch<RentalsRes>(`/venues/${venue.id}/rentals`, token);
+      setRentals(r.data ?? []);
+    } catch (e: unknown) {
+      // 403 lintas owner / 404 venue tersembunyi: tampilkan pesan server.
+      setRentalError(errMsg(e));
+      setRentals([]);
+    }
+  }, [venue, ownershipDenied]);
+
+  useEffect(() => {
+    void refreshRentals();
+  }, [refreshRentals]);
+
+  async function submitRental(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getAccessToken();
+    if (!token || !venue) {
+      setRentalMsg('Tidak ada token akses.');
+      return;
+    }
+    const price = Number(rentPrice);
+    const stock = Number(rentStock);
+    if (!rentName.trim()) {
+      setRentalMsg('Isi nama item sewa.');
+      return;
+    }
+    if (!Number.isInteger(price) || price < 0) {
+      setRentalMsg('Harga harus bilangan bulat ≥ 0 rupiah.');
+      return;
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      setRentalMsg('Stok harus bilangan bulat ≥ 0.');
+      return;
+    }
+    setRentalBusy(true);
+    setRentalMsg(null);
+    try {
+      const body: Record<string, unknown> = {
+        name: rentName.trim(),
+        price,
+        stock,
+      };
+      if (rentUnit.trim()) body['unit'] = rentUnit.trim();
+      const r = await apiFetch<RentalItem>(`/venues/${venue.id}/rentals`, token, { method: 'POST', body });
+      setRentalMsg(`Item tersimpan: ${r.name} · ${formatIDR(r.price)} · stok ${r.stock}.`);
+      setRentName('');
+      setRentPrice('');
+      setRentStock('');
+      setRentUnit('');
+      await refreshRentals();
+    } catch (e: unknown) {
+      setRentalMsg(`Tambah gagal: ${errMsg(e)}`);
+    } finally {
+      setRentalBusy(false);
+    }
+  }
+
+  function startEditRental(r: RentalItem) {
+    setEditingRentId(r.id);
+    setEditRent({
+      name: r.name,
+      price: String(r.price),
+      stock: String(r.stock),
+      unit: r.unit ?? '',
+      status: r.status,
+    });
+    setRentalMsg(null);
+  }
+
+  async function saveEditRental(rentalId: string) {
+    const token = getAccessToken();
+    if (!token || !venue) return;
+    const price = Number(editRent.price);
+    const stock = Number(editRent.stock);
+    if (!editRent.name.trim()) {
+      setRentalMsg('Nama item tidak boleh kosong.');
+      return;
+    }
+    if (!Number.isInteger(price) || price < 0) {
+      setRentalMsg('Harga harus bilangan bulat ≥ 0 rupiah.');
+      return;
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      setRentalMsg('Stok harus bilangan bulat ≥ 0.');
+      return;
+    }
+    setRentalBusy(true);
+    try {
+      await apiFetch<RentalItem>(`/venues/${venue.id}/rentals/${rentalId}`, token, {
+        method: 'PATCH',
+        body: {
+          name: editRent.name.trim(),
+          price,
+          stock,
+          unit: editRent.unit.trim(),
+          status: editRent.status,
+        },
+      });
+      setRentalMsg('Item diperbarui.');
+      setEditingRentId(null);
+      await refreshRentals();
+    } catch (e: unknown) {
+      setRentalMsg(`Ubah gagal: ${errMsg(e)}`);
+    } finally {
+      setRentalBusy(false);
+    }
+  }
+
+  async function deleteRental(rentalId: string) {
+    const token = getAccessToken();
+    if (!token || !venue) return;
+    setRentalBusy(true);
+    try {
+      await apiFetch<unknown>(`/venues/${venue.id}/rentals/${rentalId}`, token, { method: 'DELETE' });
+      setRentalMsg('Item dihapus — booking lama menyimpan snapshot sehingga riwayat utuh.');
+      if (editingRentId === rentalId) setEditingRentId(null);
+      await refreshRentals();
+    } catch (e: unknown) {
+      setRentalMsg(`Hapus gagal: ${errMsg(e)}`);
+    } finally {
+      setRentalBusy(false);
     }
   }
 
@@ -1339,13 +1506,217 @@ function ManagerContent({ venueId }: { venueId: string }) {
             {docMsg && <p className="ks-muted-text" role="status" style={{ fontSize: 13, marginTop: 8 }}>{docMsg}</p>}
           </section>
 
-          {/* Panel Rental & gear DISEMBUNYIKAN — belum ada endpoint inventaris rental. */}
-          <section className="ks-card" style={{ marginTop: 16 }} aria-label="Rental dan gear">
-            <h2 className="ks-panel-title">🎒 Rental &amp; Gear Add-On</h2>
-            <p className="ks-muted-text" style={{ fontSize: 13, margin: 0 }}>
-              Disembunyikan — belum ada endpoint inventaris rental,
-              sehingga stok/unit tidak ditampilkan (tanpa angka palsu).
-            </p>
+          {/* ---------- Panel Rental & gear (ST-10, real) ---------- */}
+          <section className="ks-card" style={{ marginTop: 16 }} aria-labelledby="h-rental">
+            <div className="ks-sec-head">
+              <div>
+                <h2 id="h-rental" className="ks-panel-title">🎒 Rental &amp; Gear Add-On</h2>
+                <p className="ks-muted-text" style={{ fontSize: 13, margin: 0 }}>
+                  Katalog sewa venue ini (upsell di slot picker mobile). Stok hanya
+                  dicek saat booking — tidak di-decrement (barang diambil di tempat).
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ks-btn ks-btn-ghost ks-btn-sm"
+                onClick={() => void refreshRentals()}
+                disabled={rentalBusy}
+              >
+                🔄 Muat ulang
+              </button>
+            </div>
+            {(venue.facilities ?? []).length > 0 && (
+              <p style={{ fontSize: 13, margin: '0 0 8px' }}>
+                🏷️ Fasilitas venue:{' '}
+                {(venue.facilities ?? []).map((f) => (
+                  <span key={f} className="ks-chip">{f}</span>
+                ))}
+              </p>
+            )}
+            {rentalError && <p className="ks-error" role="alert">⚠️ {rentalError}</p>}
+            {!rentalError && rentals.length === 0 ? (
+              <EmptyState icon="🎒" title="Belum ada item sewa" desc="Tambahkan item pertama via formulir di bawah (mis. bola, sepatu, raket)." />
+            ) : !rentalError && (
+              <div className="ks-table-wrap">
+                <table className="ks-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Item</th>
+                      <th scope="col">Harga</th>
+                      <th scope="col">Stok</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rentals.map((r) => (
+                      <tr key={r.id}>
+                        <td>
+                          {editingRentId === r.id ? (
+                            <input
+                              className="ks-input"
+                              value={editRent.name}
+                              onChange={(e) => setEditRent({ ...editRent, name: e.target.value })}
+                              aria-label="Nama item sewa"
+                              maxLength={120}
+                            />
+                          ) : (
+                            <strong>{disp(r.name)}{r.unit ? ` (${disp(r.unit)})` : ''}</strong>
+                          )}
+                        </td>
+                        <td>
+                          {editingRentId === r.id ? (
+                            <input
+                              className="ks-input"
+                              value={editRent.price}
+                              onChange={(e) => setEditRent({ ...editRent, price: e.target.value })}
+                              aria-label="Harga sewa dalam rupiah"
+                              inputMode="numeric"
+                            />
+                          ) : (
+                            formatIDR(r.price)
+                          )}
+                        </td>
+                        <td>
+                          {editingRentId === r.id ? (
+                            <input
+                              className="ks-input"
+                              value={editRent.stock}
+                              onChange={(e) => setEditRent({ ...editRent, stock: e.target.value })}
+                              aria-label="Stok item sewa"
+                              inputMode="numeric"
+                            />
+                          ) : (
+                            r.stock
+                          )}
+                        </td>
+                        <td>
+                          {editingRentId === r.id ? (
+                            <select
+                              className="ks-input"
+                              value={editRent.status}
+                              onChange={(e) => setEditRent({ ...editRent, status: e.target.value })}
+                              aria-label="Status item sewa"
+                            >
+                              <option value="active">active</option>
+                              <option value="inactive">inactive</option>
+                            </select>
+                          ) : (
+                            <StatusBadge status={r.status} />
+                          )}
+                        </td>
+                        <td>
+                          {editingRentId === r.id ? (
+                            <>
+                              <input
+                                className="ks-input"
+                                style={{ marginBottom: 4 }}
+                                value={editRent.unit}
+                                onChange={(e) => setEditRent({ ...editRent, unit: e.target.value })}
+                                placeholder="Satuan (mis. pcs)"
+                                aria-label="Satuan item sewa"
+                                maxLength={30}
+                              />
+                              <button
+                                type="button"
+                                className="ks-btn ks-btn-primary ks-btn-sm"
+                                disabled={rentalBusy}
+                                onClick={() => void saveEditRental(r.id)}
+                              >
+                                Simpan
+                              </button>{' '}
+                              <button
+                                type="button"
+                                className="ks-btn ks-btn-ghost ks-btn-sm"
+                                disabled={rentalBusy}
+                                onClick={() => setEditingRentId(null)}
+                              >
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="ks-btn ks-btn-ghost ks-btn-sm"
+                                disabled={rentalBusy}
+                                onClick={() => startEditRental(r)}
+                                aria-label={`Ubah ${r.name}`}
+                              >
+                                Ubah
+                              </button>{' '}
+                              <button
+                                type="button"
+                                className="ks-btn ks-btn-ghost ks-btn-sm"
+                                disabled={rentalBusy}
+                                onClick={() => void deleteRental(r.id)}
+                                aria-label={`Hapus ${r.name}`}
+                              >
+                                Hapus
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <form onSubmit={submitRental} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+              <label style={{ flex: '1 1 180px', fontSize: 13 }}>
+                Nama item
+                <input
+                  className="ks-input"
+                  style={{ marginTop: 4 }}
+                  value={rentName}
+                  onChange={(e) => setRentName(e.target.value)}
+                  placeholder="Mis. Bola futsal"
+                  aria-label="Nama item sewa baru"
+                  maxLength={120}
+                />
+              </label>
+              <label style={{ flex: '0 1 140px', fontSize: 13 }}>
+                Harga (Rp)
+                <input
+                  className="ks-input"
+                  style={{ marginTop: 4 }}
+                  value={rentPrice}
+                  onChange={(e) => setRentPrice(e.target.value)}
+                  placeholder="Mis. 20000"
+                  aria-label="Harga sewa dalam rupiah"
+                  inputMode="numeric"
+                />
+              </label>
+              <label style={{ flex: '0 1 110px', fontSize: 13 }}>
+                Stok
+                <input
+                  className="ks-input"
+                  style={{ marginTop: 4 }}
+                  value={rentStock}
+                  onChange={(e) => setRentStock(e.target.value)}
+                  placeholder="Mis. 5"
+                  aria-label="Stok item sewa"
+                  inputMode="numeric"
+                />
+              </label>
+              <label style={{ flex: '0 1 120px', fontSize: 13 }}>
+                Satuan (opsional)
+                <input
+                  className="ks-input"
+                  style={{ marginTop: 4 }}
+                  value={rentUnit}
+                  onChange={(e) => setRentUnit(e.target.value)}
+                  placeholder="pcs"
+                  aria-label="Satuan item sewa"
+                  maxLength={30}
+                />
+              </label>
+              <button className="ks-btn ks-btn-primary" type="submit" disabled={rentalBusy} style={{ alignSelf: 'flex-end' }}>
+                {rentalBusy ? 'Menyimpan…' : 'Tambah Item'}
+              </button>
+            </form>
+            {rentalMsg && <p className="ks-muted-text" role="status" style={{ fontSize: 13, marginTop: 8 }}>{rentalMsg}</p>}
           </section>
         </>
       )}

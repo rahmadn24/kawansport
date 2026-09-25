@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-10)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -23,6 +23,7 @@ Ringkasan per SM:
 | API-W04 | Activity feed admin (agregasi read-only) | `GET /admin/activity?limit=` (super_admin) |
 | API-W08 | Payout & withdraw mitra (manual) | `POST/GET /payouts[/me|/balance]`, `POST /payouts/:id/{approve,reject,pay}` |
 | API-W02 | Dispute center | `POST/GET /disputes[/me]`, `GET /disputes?status=`, `POST /disputes/:id/{investigate,resolve}` |
+| ST-10 | Fasilitas venue/court + rental gear + booking dengan sewa | `facilities` di venue/court, `POST/GET/PATCH/DELETE /venues/:id/rentals[/:rentalId]`, `POST /bookings` (+`rentals?`) |
 | MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
 | MP-02 | Cart multiseller + checkout + orders per seller | `GET/PUT /cart`, `POST /checkout`, `GET /orders/me`, `GET /orders/:id` (webhook sama `POST /payments/midtrans/notification`, prefix `MP-`) |
 
@@ -291,6 +292,8 @@ entity — melainkan membuat CR `pending` (publik tetap data lama).
 - Edit non-sensitif atas approved langsung berlaku tanpa mengubah status;
   edit owner atas produk `rejected` me-reset ke `pending` (pengajuan ulang).
 - Admin / entity non-approved → langsung ubah seperti sebelumnya.
+- ST-10: `facilities` venue/court non-sensitif (PATCH langsung 200 walau
+  approved; allowlist + tolak asing 400 — lihat seksi ST-10).
 - Audit: kolom `updated_by` di venue/court/product (diisi editor langsung
   maupun admin saat approve CR) + baris CR (`requested_by`, `reviewed_by`).
 
@@ -370,10 +373,15 @@ JANGAN hardcode key — selalu via env (`MIDTRANS_SERVER_KEY`,
 `MIDTRANS_CLIENT_KEY`, `MIDTRANS_IS_PRODUCTION`, `MIDTRANS_SNAP_URL`).
 
 ### `POST /bookings`
-Body: `{ courtId, date, start: "HH:MM" | startMinute, durationMinutes? (default 60) }`.
+Body: `{ courtId, date, start: "HH:MM" | startMinute, durationMinutes? (default 60), voucherCode?, usePoints?, rentals? ([{ rentalId, qty }], ST-10) }`.
 Slot langsung di-confirmed (anti-race, 409 bila booked/held orang lain) → 201
-booking `pending` + `paymentRef/amount/snapToken/redirectUrl`.
+booking `pending` + `paymentRef/amount/snapToken/redirectUrl` + snapshot `rentals`/`rentalsTotal` (ST-10).
 - 400 bila slot di luar `open_hours` hari itu; 404 bila court tak ada.
+- ST-10: `rentals` opsional (maks 20 baris, `qty` 1..999). Item harus milik
+  venue court tsb (else 400), harus `active` + `qty` ≤ `stock` (else 409).
+  Duplikat `rentalId` digabung (qty dijumlah). `amount`/`subtotal` sudah
+  termasuk `rentalsTotal` (= sum(price×qty)); voucher/poin menutup gabungan
+  tarif court + sewa, fee tetap ditambah di atas (pola API-W03).
 
 ### `GET /bookings/me`
 Daftar booking milik sendiri, sort `createdAt` DESC → `{ data: BookingItem[] }`.
@@ -520,10 +528,11 @@ Parsial; ganti `code` setelah dipakai → 409.
 ### `POST /admin/vouchers/:id/deactivate` (super_admin)
 `active=false` (idempotent, 200). Redeem berikutnya → 400.
 
-### `POST /bookings` (+ `voucherCode?`, `usePoints?`)
+### `POST /bookings` (+ `voucherCode?`, `usePoints?`, `rentals?` ST-10)
 Field lama utuh; response/detail `BookingItem` tambah
 `subtotal, discount, voucherCode, pointsUsed` + `serviceFee` (API-W03,
-snapshot fee; `amount` sudah termasuk fee bila enabled).
+snapshot fee; `amount` sudah termasuk fee bila enabled) + `rentals`,
+`rentalsTotal` (ST-10; `subtotal` sudah termasuk total sewa).
 
 ### `POST /checkout` (body opsional `{ voucherCode?, usePoints? }`)
 Tanpa body = checkout normal MP-02. Response/detail `OrderDetail` tambah
@@ -635,6 +644,54 @@ lain → 404.
 Body: `{ status: verified|rejected, note? (≤1000) }` → 200 item dokumen.
 Status selain itu (termasuk `pending`) → 400; non-admin → 403;
 dokumen tak ada / milik venue lain → 404.
+
+## Fasilitas + rental gear + booking dengan sewa (ST-10, auth kecuali katalog publik)
+
+Kolom `facilities` (string[]) di venue DAN court — subset allowlist FINAL
+(keputusan PO): `parkir, shower, wifi, kantin, mushola, toilet, loker,
+tribun`. Diisi saat `POST /venues` / `POST /venues/:id/courts` (opsional)
+atau `PATCH` keduanya. Normalisasi: trim + lowercase + buang kosong +
+dedupe (jaga urutan). Nilai asing DITOLAK 400 (bukan di-strip diam-diam
+agar typo owner ketahuan). Tampil di semua respons venue/court
+(`VenueItem.facilities`, `CourtItem.facilities`, `[]` bila belum diisi).
+
+KEPUTUSAN AD-02: `facilities` = NON-SENSITIF — PATCH langsung berlaku
+(200) walau venue sudah `approved`, tanpa change request (seperti
+`sports`/`address`; bukan identitas/harga yang butuh moderasi). Daftar
+sensitif TIDAK berubah: venue `name`; court `name, pricePerHour,
+openHours` (bila venue induk `approved`).
+
+Tabel `rental_items` (`venue_id` CASCADE, `name` ≤120, `price` int ≥0
+rupiah per booking, `stock` int ≥0, `unit` opsional ≤30 mis. "pcs",
+`status` active|inactive default `active`). Stok HANYA dicek saat booking
+(tanpa decrement — barang diambil di tempat; keputusan ST-10: tanpa kolom
+reserved, tanpa race decrement). Booking menyimpan snapshot
+(`rentals: [{ rentalId, name, price, qty, subtotal }]`, `rentalsTotal`)
+sehingga riwayat utuh walau item diubah/dihapus owner kemudian.
+
+### `POST /venues/:id/rentals` (owner venue / super_admin)
+Body: `{ name, price (≥0), stock (≥0), unit?, status? (default active) }`
+→ 201 item. Lintas owner → 403; venue tak ada → 404; validasi gagal → 400.
+
+### `GET /venues/:id/rentals`
+Katalog sewa. Visibilitas mengikuti detail venue: venue `approved` →
+publik (HANYA item `active`, auth opsional); venue non-approved →
+404 kecuali owner/admin (melihat SEMUA status untuk pengelolaan CMS).
+→ `{ data: RentalItem[], meta: { total } }`. Dipakai mobile sebagai upsell
+opsional di slot picker (qty stepper → `rentals` di `POST /bookings`).
+
+### `PATCH /venues/:id/rentals/:rentalId` (owner venue / super_admin)
+Parsial (`name?, price?, stock?, unit?, status?`) → 200 item. Langsung
+berlaku (inventaris operasional, bukan AD-02 CR). Lintas owner → 403;
+item tak ada / milik venue lain → 404.
+
+### `DELETE /venues/:id/rentals/:rentalId` (owner venue / super_admin)
+→ 204. Guard sama dengan PATCH. Booking lama tidak rusak (snapshot).
+
+`BookingItem` tambah `rentals` (snapshot, `[]` bila tanpa sewa) +
+`rentalsTotal` (sudah termasuk `subtotal`/`amount`). Aturan validasi
+booking: lihat `POST /bookings` di atas (lintas venue → 400; inactive /
+stok kurang → 409).
 
 ## Walk-in + blokir slot (API-W06, auth)
 

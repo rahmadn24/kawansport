@@ -23,6 +23,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { isPendingChange } from '../change-requests/change-requests.service';
 import type { UserRole } from '../users/user.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
+import { CreateRentalDto } from './dto/create-rental.dto';
+import { UpdateRentalDto } from './dto/update-rental.dto';
 import { CreateVenueDocumentDto } from './dto/create-venue-document.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { ListVenuesDto } from './dto/list-venues.dto';
@@ -258,6 +260,63 @@ export class VenuesController {
     @Body() dto: VerifyVenueDocumentDto,
   ) {
     return this.venues.verifyDocument(id, docId, dto);
+  }
+
+  /**
+   * Tambah item sewa venue (ST-10, owner venue / super_admin).
+   * Lintas owner → 403 (cek DB di service, pola API-W05).
+   */
+  @Post(':id/rentals')
+  @UseGuards(JwtAuthGuard)
+  createRental(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateRentalDto,
+  ) {
+    return this.venues.createRental(id, user, dto);
+  }
+
+  /**
+   * Katalog sewa venue (ST-10). Publik bila venue `approved` (hanya item
+   * `active`); venue non-approved hanya owner/admin (semua status, 404
+   * untuk selainnya agar tidak bocor). Auth opsional seperti detail.
+   */
+  @Get(':id/rentals')
+  listRentals(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: Request,
+  ) {
+    return this.venues.listRentals(id, this.extractOptionalActor(req));
+  }
+
+  /**
+   * Ubah item sewa (ST-10, owner venue / super_admin).
+   * Lintas owner → 403; item tak ada / milik venue lain → 404.
+   */
+  @Patch(':id/rentals/:rentalId')
+  @UseGuards(JwtAuthGuard)
+  updateRental(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('rentalId', new ParseUUIDPipe()) rentalId: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UpdateRentalDto,
+  ) {
+    return this.venues.updateRental(id, rentalId, user, dto);
+  }
+
+  /**
+   * Hapus item sewa (ST-10, owner venue / super_admin).
+   * Lintas owner → 403; item tak ada / milik venue lain → 404.
+   */
+  @Delete(':id/rentals/:rentalId')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  async removeRental(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('rentalId', new ParseUUIDPipe()) rentalId: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<void> {
+    await this.venues.removeRental(id, rentalId, user);
   }
 
   /**

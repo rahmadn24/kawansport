@@ -262,6 +262,9 @@ export class ChangeRequestsService {
       assertPhotoUrls(photos, 5, 'Venue photos');
       venue.photos = photos;
     }
+    if (patch.facilities !== undefined) {
+      venue.facilities = patch.facilities;
+    }
   }
 
   private applyToCourt(court: Court, payload: Record<string, unknown>): void {
@@ -271,6 +274,7 @@ export class ChangeRequestsService {
     if (patch.pricePerHour !== undefined) court.pricePerHour = patch.pricePerHour;
     if (patch.openHours !== undefined) court.openHours = patch.openHours;
     if (patch.status !== undefined) court.status = patch.status;
+    if (patch.facilities !== undefined) court.facilities = patch.facilities;
   }
 
   private applyToProduct(

@@ -85,6 +85,17 @@ export class Venue {
   )
   photos?: string[] | null;
 
+  /**
+   * Fasilitas venue (ST-10, allowlist di `facilities.ts`, AD-02 non-sensitif).
+   * Postgres: text[] — sqljs-test: simple-array (portabel, comma-separated).
+   */
+  @Column(
+    isSqljs
+      ? { type: 'simple-array', nullable: true }
+      : { type: 'text', array: true, default: [] as string[] },
+  )
+  facilities?: string[] | null;
+
   @Column({ name: 'owner_id' })
   ownerId!: string;
 

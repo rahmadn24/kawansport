@@ -13,6 +13,8 @@ export interface CourtItem {
   pricePerHour: number;
   openHours: Record<string, unknown> | null;
   status: 'active' | 'inactive';
+  /** Fasilitas spesifik court (ST-10, chips di VenueDetail). */
+  facilities?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -25,6 +27,8 @@ export interface VenueItem {
   lng: number;
   sports: string[];
   photos: string[];
+  /** Fasilitas venue (ST-10, chips di VenueDetail). */
+  facilities?: string[];
   owner: { id: string; email: string; displayName: string | null };
   status: string;
   rejectionReason: string | null;
@@ -69,6 +73,30 @@ interface Http {
   get<T>(url: string, config?: { params?: unknown }): Promise<{ data: T }>;
 }
 
+/** Item sewa venue (ST-10) — katalog upsell di slot picker. */
+export interface RentalItem {
+  id: string;
+  venueId: string;
+  name: string;
+  price: number;
+  stock: number;
+  unit: string | null;
+  status: 'active' | 'inactive';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ListRentalsResult {
+  data: RentalItem[];
+  meta: { total: number };
+}
+
+/** Pilihan sewa user di slot picker (diteruskan ke createBooking). */
+export interface RentalSelection {
+  rentalId: string;
+  qty: number;
+}
+
 /** GET /venues — daftar venue approved (filter sport/geo + pagination). */
 export async function listVenues(
   filter: ListVenuesFilter = {},
@@ -85,6 +113,50 @@ export async function getVenueDetail(
 ): Promise<VenueItem> {
   const res = await http.get<VenueItem>(`/venues/${id}`);
   return res.data;
+}
+
+/** GET /venues/:id/rentals — katalog sewa (hanya item active untuk publik). */
+export async function getVenueRentals(
+  venueId: string,
+  http: Http = api,
+): Promise<RentalItem[]> {
+  const res = await http.get<ListRentalsResult>(`/venues/${venueId}/rentals`);
+  return res.data.data;
+}
+
+/** Total sewa = sum(price*qty) untuk pilihan user (display sticky total). */
+export function rentalsTotal(
+  catalog: Pick<RentalItem, 'id' | 'price'>[],
+  selection: RentalSelection[],
+): number {
+  const priceById = new Map(catalog.map((r) => [r.id, r.price]));
+  return selection.reduce(
+    (sum, s) => sum + (priceById.get(s.rentalId) ?? 0) * s.qty,
+    0,
+  );
+}
+
+/**
+ * Validasi pilihan sewa sisi klien; pesan error atau null bila valid.
+ * Stok dicek ulang di server (sumber kebenaran); ini hanya cegah input absurd.
+ */
+export function validateRentalSelection(
+  catalog: RentalItem[],
+  selection: RentalSelection[],
+): string | null {
+  const byId = new Map(catalog.map((r) => [r.id, r]));
+  for (const s of selection) {
+    const item = byId.get(s.rentalId);
+    if (!item) return 'Item sewa tidak dikenal';
+    if (item.status !== 'active') return `${item.name} sedang tidak tersedia`;
+    if (!Number.isInteger(s.qty) || s.qty < 1) {
+      return `Jumlah ${item.name} minimal 1`;
+    }
+    if (s.qty > item.stock) {
+      return `Stok ${item.name} tersisa ${item.stock}`;
+    }
+  }
+  return null;
 }
 
 /** GET /courts/:id/availability?date=YYYY-MM-DD — slot + status real-time. */

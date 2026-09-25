@@ -30,6 +30,18 @@ export const BOOKING_STATUSES: BookingStatus[] = [
 /** true saat berjalan di atas sql.js in-memory (hanya untuk e2e test). */
 const isSqljs = process.env.DB_DRIVER === 'sqljs';
 
+/**
+ * Satu baris snapshot item sewa dalam booking (ST-10).
+ * `price` = harga satuan saat booking; `subtotal` = price*qty.
+ */
+export interface RentalSnapshot {
+  rentalId: string;
+  name: string;
+  price: number;
+  qty: number;
+  subtotal: number;
+}
+
 @Entity('bookings')
 @Unique('uq_bookings_payment_ref', ['paymentRef'])
 export class Booking {
@@ -116,6 +128,22 @@ export class Booking {
   /** Klaim slot (`slot_claims.id`) yang di-confirmed untuk booking ini. */
   @Column({ name: 'slot_claim_id', type: 'varchar', length: 36, nullable: true })
   slotClaimId?: string | null;
+
+  /**
+   * Snapshot item sewa (ST-10): `[{ rentalId, name, price, qty, subtotal }]`.
+   * Disalin saat booking dibuat agar riwayat utuh walau item rental diubah/
+   * dihapus owner kemudian. simple-json portabel postgres maupun sqljs-test.
+   */
+  @Column({ name: 'rentals', type: 'simple-json', nullable: true })
+  rentals?: RentalSnapshot[] | null;
+
+  /**
+   * Total sewa (`sum(price*qty)`, ST-10, snapshot rupiah). Sudah termasuk
+   * dalam `subtotal` (dan karenanya `amount`); kolom sendiri agar CMS/
+   * kasir bisa menampilkan rincian tanpa menjumlah ulang.
+   */
+  @Column({ name: 'rentals_total', type: 'int', default: 0 })
+  rentalsTotal!: number;
 
   /**
    * Event asal booking ini (BK-04, nullable). Booking langsung via

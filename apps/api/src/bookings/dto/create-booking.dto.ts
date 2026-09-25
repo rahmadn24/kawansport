@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -9,7 +11,24 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+
+/**
+ * Satu item sewa dalam POST /bookings (ST-10, opsional).
+ * Validasi bisnis di service: milik venue court tsb (else 400) + stok
+ * cukup + aktif (else 409). Stok hanya dicek, tidak di-decrement.
+ */
+export class BookingRentalDto {
+  @IsUUID()
+  rentalId!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(999)
+  qty!: number;
+}
 
 /**
  * POST /bookings — booking satu slot lapangan.
@@ -65,4 +84,15 @@ export class CreateBookingDto {
   @IsInt()
   @Min(0)
   usePoints?: number;
+
+  /**
+   * Item sewa opsional (ST-10, upsell di slot picker mobile).
+   * Duplikat `rentalId` digabung (qty dijumlah) di service.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => BookingRentalDto)
+  rentals?: BookingRentalDto[];
 }

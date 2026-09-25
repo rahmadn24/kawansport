@@ -14,6 +14,9 @@ export type CourtStatus = 'active' | 'inactive';
 
 export const COURT_STATUSES: CourtStatus[] = ['active', 'inactive'];
 
+/** true saat berjalan di atas sql.js in-memory (hanya untuk e2e test). */
+const isSqljs = process.env.DB_DRIVER === 'sqljs';
+
 @Entity('courts')
 export class Court {
   @PrimaryGeneratedColumn('uuid')
@@ -45,6 +48,18 @@ export class Court {
 
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status!: CourtStatus;
+
+  /**
+   * Fasilitas spesifik court (ST-10, allowlist di `facilities.ts`,
+   * AD-02 non-sensitif — PATCH langsung berlaku).
+   * Postgres: text[] — sqljs-test: simple-array (portabel).
+   */
+  @Column(
+    isSqljs
+      ? { type: 'simple-array', nullable: true }
+      : { type: 'text', array: true, default: [] as string[] },
+  )
+  facilities?: string[] | null;
 
   /**
    * Id user yang terakhir mengubah (AD-02, jejak audit).

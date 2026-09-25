@@ -12,6 +12,8 @@ import { normalizeSports } from '../users/users.service';
  * ST-01: foto venue dikelola langsung owner/admin TANPA change request
  * (endpoint POST/DELETE /venues/:id/photos + PATCH photos langsungimpan);
  * venue tetap harus `approved` agar tampil publik.
+ * ST-10: `facilities` SENGAJA non-sensitif (langsung berlaku) — info
+ * operasional faktual seperti sports/address, bukan identitas/harga.
  */
 export const VENUE_SENSITIVE_FIELDS = ['name'] as const;
 
@@ -50,6 +52,20 @@ export function normalizePhotoList(input: unknown[]): string[] {
   return out;
 }
 
+/** Trim + lowercase + buang kosong + dedupe — mirror `normalizeFacilities` tanpa tolak (allowlist sudah dicek service). */
+export function normalizeFacilityList(input: unknown[]): string[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of input) {
+    const s = String(raw ?? '').trim().toLowerCase();
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
 export interface VenuePatch {
   name?: string;
   address?: string;
@@ -57,6 +73,8 @@ export interface VenuePatch {
   lng?: number;
   sports?: string[];
   photos?: string[];
+  /** ST-10: fasilitas ternormalisasi (allowlist, asing sudah ditolak 400). */
+  facilities?: string[];
 }
 
 /** Normalisasi patch venue dari DTO edit langsung maupun payload CR. */
@@ -73,6 +91,11 @@ export function buildVenuePayload(dto: Record<string, any>): VenuePatch {
   if (dto.photos !== undefined) {
     patch.photos = normalizePhotoList(dto.photos as unknown[]);
   }
+  if (dto.facilities !== undefined) {
+    // ST-10: nilai sudah lolos allowlist di service; builder hanya
+    // menormalisasi ulang (trim/lower/dedupe) agar approve CR identik.
+    patch.facilities = normalizeFacilityList(dto.facilities as unknown[]);
+  }
   return patch;
 }
 
@@ -82,6 +105,8 @@ export interface CourtPatch {
   pricePerHour?: number;
   openHours?: Record<string, unknown> | null;
   status?: 'active' | 'inactive';
+  /** ST-10: fasilitas court ternormalisasi (AD-02 non-sensitif). */
+  facilities?: string[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,6 +121,9 @@ export function buildCourtPayload(dto: Record<string, any>): CourtPatch {
     patch.openHours = (dto.openHours ?? null) as Record<string, unknown> | null;
   }
   if (dto.status !== undefined) patch.status = dto.status;
+  if (dto.facilities !== undefined) {
+    patch.facilities = normalizeFacilityList(dto.facilities as unknown[]);
+  }
   return patch;
 }
 

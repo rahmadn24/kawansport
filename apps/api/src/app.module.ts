@@ -36,6 +36,7 @@ import { UsersModule } from './users/users.module';
 import { PlatformSetting } from './settings/platform-setting.entity';
 import { SettingsModule } from './settings/settings.module';
 import { Court } from './venues/court.entity';
+import { RentalItem } from './venues/rental-item.entity';
 import { VenueDocument } from './venues/venue-document.entity';
 import { Voucher, VoucherRedemption } from './vouchers/voucher.entity';
 import { VouchersModule } from './vouchers/vouchers.module';
@@ -61,13 +62,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),

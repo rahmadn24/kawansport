@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CourtItem, SlotItem, VenueItem, activeCourts, isBookable } from '../api/venues';
+import { CourtItem, RentalItem, RentalSelection, SlotItem, VenueItem, activeCourts, isBookable, rentalsTotal, validateRentalSelection } from '../api/venues';
 import { formatDateShort, formatIDR } from '../api/bookings';
 import { useAuth } from '../auth/AuthContext';
 import { RatingStarsDisplay } from '../components/RatingStars';
@@ -49,7 +49,10 @@ interface Props {
   /** Proses booking slot sedang berjalan (per start, mis. "09:00"). */
   bookingStart: string | null;
   bookError: string | null;
-  onBook: (slot: SlotItem) => void;
+  /** Katalog sewa venue (ST-10, upsell opsional di slot picker). */
+  rentals: RentalItem[];
+  rentalsLoading: boolean;
+  onBook: (slot: SlotItem, rentals: RentalSelection[]) => void;
   onBack: () => void;
 }
 
@@ -60,10 +63,10 @@ interface Props {
  *
  * - FOTO ASLI: galeri ST-01 di hero (foto aman saja; kosong = placeholder
  *   jujur). Upload baru disabled (butuh file picker native).
- * - Sewa alat & fasilitas DISEMBUNYIKAN (butuh ST-10).
+ * - FASILITAS (ST-10): chips venue + court terpilih dari API.
+ * - SEWA ALAT (ST-10): katalog rental sebagai upsell opsional (qty stepper)
+ *   di slot picker; diteruskan sebagai `rentals` ke createBooking.
  */
-// TODO(ST-10): tampilkan section sewa alat & fasilitas dari API.
-// TODO(ST-01-upload): upload foto venue baru (POST /uploads) butuh file picker native.
 export function VenueDetailScreen({
   venue,
   loading,
@@ -78,6 +81,8 @@ export function VenueDetailScreen({
   slotsError,
   bookingStart,
   bookError,
+  rentals,
+  rentalsLoading,
   onBook,
   onBack,
 }: Props) {
@@ -85,6 +90,8 @@ export function VenueDetailScreen({
   const courts = venue ? activeCourts(venue) : [];
   /** Slot terpilih lokal (display-only); request booking tetap 1 slot real via onBook. */
   const [selectedStart, setSelectedStart] = useState<string | null>(null);
+  /** Qty sewa per rentalId (ST-10, upsell opsional). */
+  const [rentalQty, setRentalQty] = useState<Record<string, number>>({});
 
   // Rating hooks
   const { summary, loading: summaryLoading, error: summaryError, refetch: refetchSummary } = useVenueRatingSummary(
@@ -111,8 +118,22 @@ export function VenueDetailScreen({
   );
 
   const freeCount = slots.filter(isBookable).length;
-  const selectedSlot = slots.find((s) => s.start === selectedStart && isBookable(s)) ?? null;  // Nominal sticky HARUS dari server: tarif per jam court yg dipilih.
-  const stickyTotal = court ? formatIDR(court.pricePerHour) : formatIDR(0);
+  const selectedSlot = slots.find((s) => s.start === selectedStart && isBookable(s)) ?? null;
+  /** Pilihan sewa valid (ST-10): join katalog + clamp stok, tanpa qty 0. */
+  const rentalSelection: RentalSelection[] = rentals
+    .filter((r) => r.status === 'active')
+    .flatMap((r) => {
+      const qty = Math.max(
+        0,
+        Math.min(Math.floor(rentalQty[r.id] ?? 0), r.stock),
+      );
+      return qty > 0 ? [{ rentalId: r.id, qty }] : [];
+    });
+  const rentalInvalid = validateRentalSelection(rentals, rentalSelection);
+  const rentalAdd = rentalsTotal(rentals, rentalSelection);
+  // Nominal sticky HARUS dari server saat bayar; di sini display jujur:
+  // tarif court + total sewa pilihan (tanpa fee/voucher/poin).
+  const stickyTotal = formatIDR((court?.pricePerHour ?? 0) + rentalAdd);
   const { pagi, malam } = groupSlotsBySession(slots);
 
   const toggleSlot = (s: SlotItem) => {
@@ -216,6 +237,99 @@ export function VenueDetailScreen({
           </View>
         </View>
         <View style={styles.slotGrid}>{list.map(renderSlotCard)}</View>
+      </View>
+    );
+  };
+
+  // Render fasilitas venue + court terpilih (ST-10, chips, jujur kosong).
+  const renderFacilities = () => {
+    if (!venue) return null;
+    const venueFac = venue.facilities ?? [];
+    const courtFac = court?.facilities ?? [];
+    if (venueFac.length === 0 && courtFac.length === 0) return null;
+    return (
+      <View>
+        <UISectionTitle>Fasilitas</UISectionTitle>
+        {venueFac.length > 0 ? (
+          <View style={styles.chipRow} accessibilityLabel={`Fasilitas venue: ${venueFac.join(', ')}`}>
+            {venueFac.map((f) => (
+              <View key={`v-${f}`} style={styles.chip}>
+                <Text style={styles.chipText}>{facilityLabel(f)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {court && courtFac.length > 0 ? (
+          <>
+            <Text style={styles.facCourtLabel}>{court.name}</Text>
+            <View style={styles.chipRow} accessibilityLabel={`Fasilitas ${court.name}: ${courtFac.join(', ')}`}>
+              {courtFac.map((f) => (
+                <View key={`c-${f}`} style={[styles.chip, styles.chipCourt]}>
+                  <Text style={[styles.chipText, styles.chipCourtText]}>{facilityLabel(f)}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
+      </View>
+    );
+  };
+
+  // Render katalog sewa upsell (ST-10): qty stepper per item active.
+  const renderRentals = () => {
+    if (rentalsLoading) {
+      return (
+        <View>
+          <UISectionTitle>Sewa Alat (Opsional)</UISectionTitle>
+          <ActivityIndicator accessibilityLabel="Memuat katalog sewa" />
+        </View>
+      );
+    }
+    const active = rentals.filter((r) => r.status === 'active');
+    if (active.length === 0) return null;
+    return (
+      <View>
+        <UISectionTitle>Sewa Alat (Opsional)</UISectionTitle>
+        <Text style={styles.sub}>Tambahan opsional — diambil di tempat, stok dicek saat booking.</Text>
+        {active.map((r) => {
+          const qty = Math.max(0, Math.min(Math.floor(rentalQty[r.id] ?? 0), r.stock));
+          const out = r.stock <= 0;
+          return (
+            <View key={r.id} style={styles.rentalRow}>
+              <View style={styles.rentalInfo}>
+                <Text style={styles.rentalName}>{r.name}</Text>
+                <Text style={styles.rentalPrice}>
+                  {formatIDR(r.price)}
+                  {r.unit ? `/${r.unit}` : ''} • Stok {r.stock}
+                </Text>
+              </View>
+              <View style={styles.stepper}>
+                <TouchableOpacity
+                  style={[styles.stepBtn, qty <= 0 && styles.stepBtnDisabled]}
+                  onPress={() => setRentalQty((p) => ({ ...p, [r.id]: Math.max(0, qty - 1) }))}
+                  disabled={qty <= 0 || out}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Kurangi ${r.name}`}
+                >
+                  <Text style={styles.stepBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.stepQty} accessibilityLabel={`Jumlah ${r.name}: ${qty}`}>
+                  {qty}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.stepBtn, (qty >= r.stock || out) && styles.stepBtnDisabled]}
+                  onPress={() => setRentalQty((p) => ({ ...p, [r.id]: Math.min(r.stock, qty + 1) }))}
+                  disabled={qty >= r.stock || out}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Tambah ${r.name}`}
+                >
+                  <Text style={styles.stepBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })}
+        {rentalInvalid ? <Text style={styles.error}>{rentalInvalid}</Text> : null}
       </View>
     );
   };
@@ -475,7 +589,11 @@ export function VenueDetailScreen({
             <UIErrorBanner message={slotsError} />
             <UIErrorBanner message={bookError} />
 
-            {/* TODO(ST-10): section sewa alat & fasilitas DISEMBUNYIKAN sampai API ada. */}
+            {/* Fasilitas venue + court (ST-10, chips dari API). */}
+            {renderFacilities()}
+
+            {/* Katalog sewa upsell opsional (ST-10, qty stepper). */}
+            {renderRentals()}
 
             {/* Rating & Review Section (di bawah slot) */}
             {renderRatingSection()}
@@ -486,9 +604,9 @@ export function VenueDetailScreen({
             <UIStickyBar
               totalLabel="Total Bayar"
               totalValue={stickyTotal}
-              totalSub={`${formatDateShort(date)} • ${selectedSlot.start}–${selectedSlot.end}`}
+              totalSub={`${formatDateShort(date)} • ${selectedSlot.start}–${selectedSlot.end}${rentalAdd > 0 ? ` • +${formatIDR(rentalAdd)} sewa` : ''}`}
               ctaTitle="Lanjut Bayar"
-              onCta={() => onBook(selectedSlot)}
+              onCta={() => onBook(selectedSlot, rentalSelection)}
               ctaLoading={bookingStart != null}
               ctaA11y={`Lanjut bayar slot ${selectedSlot.start}, total ${stickyTotal}`}
             />
@@ -691,6 +809,50 @@ const styles = StyleSheet.create({
   slotPriceSelected: { color: COLORS.lime, textDecorationLine: 'none' },
   slotDur: { fontSize: 11, color: COLORS.muted, marginTop: 2 },
 
+  /* Fasilitas chips + rental stepper (ST-10) */
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
+  chip: {
+    backgroundColor: COLORS.bgAlt,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  chipText: { fontSize: 12, fontWeight: '700', color: COLORS.ink },
+  chipCourt: { backgroundColor: COLORS.brand100, borderColor: COLORS.brand100 },
+  chipCourtText: { color: COLORS.brand900 },
+  facCourtLabel: { fontSize: 12, fontWeight: '700', color: COLORS.muted, marginTop: 8 },
+  rentalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.bg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  rentalInfo: { flex: 1, marginRight: SPACING.md },
+  rentalName: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  rentalPrice: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
+  stepper: { flexDirection: 'row', alignItems: 'center' },
+  stepBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.brand700,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnDisabled: { backgroundColor: COLORS.line },
+  stepBtnText: { fontSize: 18, fontWeight: '800', color: COLORS.bg },
+  stepQty: { fontSize: 15, fontWeight: '800', color: COLORS.ink, minWidth: 28, textAlign: 'center' },
+
   /* Rating & Review styles (dipertahankan dari versi sebelumnya) */
   ratingSection: {
     marginTop: SPACING.lg,
@@ -802,8 +964,13 @@ const styles = StyleSheet.create({
   error: { color: COLORS.danger, marginTop: SPACING.sm, textAlign: 'center' },
 });
 
-/** Badge status slot kecil (dipakai bila perlu di luar kartu). */
-export function SlotStatusBadge({ status }: { status: SlotItem['status'] }) {
+/** Label fasilitas: "mushola" -> "Mushola" (API menyimpan lowercase). */
+export function facilityLabel(f: string): string {
+  if (!f) return f;
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
+
+/** Badge status slot kecil (dipakai bila perlu di luar kartu). */export function SlotStatusBadge({ status }: { status: SlotItem['status'] }) {
   const kind = status === 'free' ? 'open' : status === 'held' ? 'pending' : 'full';
   const label =
     status === 'free'

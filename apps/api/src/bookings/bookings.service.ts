@@ -21,6 +21,7 @@ import {
 } from '../marketplace/shop-order.entity';
 import { Product } from '../marketplace/product.entity';
 import { Court } from '../venues/court.entity';
+import { RentalItem } from '../venues/rental-item.entity';
 import { Venue } from '../venues/venue.entity';
 import {
   SLOT_DURATION_MINUTES,
@@ -29,7 +30,7 @@ import {
   generateSlotsForDate,
   parseHHMM,
 } from '../venues/slots.service';
-import { Booking, BookingChannel, BookingStatus } from './booking.entity';
+import { Booking, BookingChannel, BookingStatus, RentalSnapshot } from './booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateWalkInDto } from './dto/create-walk-in.dto';
 import { MidtransNotificationDto } from './dto/midtrans-notification.dto';
@@ -62,6 +63,10 @@ export interface BookingItem {
   pointsUsed: number;
   /** Service fee snapshot rupiah (API-W03; 0 bila fee dinonaktifkan). */
   serviceFee: number;
+  /** Snapshot item sewa (ST-10, [] bila tanpa rental). */
+  rentals: RentalSnapshot[];
+  /** Total sewa sum(price*qty) (ST-10, snapshot, sudah termasuk subtotal). */
+  rentalsTotal: number;
   snapToken: string | null;
   redirectUrl: string | null;
   /** Id event asal (BK-04); null bila booking langsung via POST /bookings. */
@@ -93,6 +98,8 @@ export class BookingsService {
     private readonly courts: Repository<Court>,
     @InjectRepository(Venue)
     private readonly venues: Repository<Venue>,
+    @InjectRepository(RentalItem)
+    private readonly rentals: Repository<RentalItem>,
     @InjectRepository(SportEvent)
     private readonly events: Repository<SportEvent>,
     @InjectRepository(EventParticipant)
@@ -111,8 +118,9 @@ export class BookingsService {
    * POST /bookings — buat booking pending + Snap transaction.
    * Slot langsung di-confirmed (anti-race via SlotsService.confirmSlot → 409
    * bila sudah booked/held orang lain); webhook/jobo expiry yang melepasnya.
-   * Amount = snapshot `court.price_per_hour` prorata durasi − diskon voucher
-   * − poin (ST-04) + service fee platform (API-W03; 0 bila dinonaktifkan).
+   * Amount = snapshot `court.price_per_hour` prorata durasi + total sewa
+   * (ST-10, `rentalsTotal`) − diskon voucher − poin (ST-04) + service fee
+   * platform (API-W03; 0 bila dinonaktifkan).
    */
   async create(actor: ActorInput, dto: CreateBookingDto): Promise<BookingItem> {
     return this.createInternal(actor, dto, null);
@@ -223,7 +231,14 @@ export class BookingsService {
     // terbaca free sebelum klaim (cron 5 mnt sebagai jaring pengaman).
     await this.expireDueBookings();
 
-    const subtotal = Math.round((court.pricePerHour * duration) / 60);
+    // Item sewa (ST-10): validasi + snapshot SEBELUM klaim slot agar gagal
+    // cepat tanpa menahan slot. `subtotal` = tarif court prorata + total
+    // sewa; voucher/poin di bawah menutup gabungan keduanya, fee tetap
+    // ditambah di atas (pola API-W03, fee tidak bisa dibayar poin).
+    const { snapshots: rentalSnapshots, total: rentalsTotal } =
+      await this.resolveRentals(court.venueId, dto.rentals);
+    const subtotal =
+      Math.round((court.pricePerHour * duration) / 60) + rentalsTotal;
     const claim = await this.slots.confirmSlot(
       court.id,
       dto.date,
@@ -292,6 +307,8 @@ export class BookingsService {
             voucherCode,
             pointsUsed,
             serviceFee,
+            rentals: rentalSnapshots,
+            rentalsTotal,
             slotClaimId: claim.id,
             eventId,
             channel: 'app',
@@ -338,6 +355,60 @@ export class BookingsService {
       await this.slots.releaseClaimInternal(claim.id).catch(() => undefined);
       throw err;
     }
+  }
+
+  /**
+   * Validasi item sewa untuk booking (ST-10).
+   * - Duplikat `rentalId` digabung (qty dijumlah).
+   * - Item harus milik venue court tsb → else 400 (salah venue).
+   * - Item harus `active` → else 409 (tidak tersedia).
+   * - `qty` tidak boleh melebihi `stock` → else 409.
+   * - Stok HANYA dicek, TIDAK di-decrement: barang diambil di tempat
+   *   (keputusan ST-10 — tanpa kolom reserved, tanpa race decrement).
+   * Mengembalikan snapshot + total untuk disimpan di booking.
+   */
+  private async resolveRentals(
+    venueId: string,
+    rentals?: Array<{ rentalId: string; qty: number }>,
+  ): Promise<{ snapshots: RentalSnapshot[]; total: number }> {
+    if (!rentals || rentals.length === 0) {
+      return { snapshots: [], total: 0 };
+    }
+    const qtyById = new Map<string, number>();
+    for (const r of rentals) {
+      qtyById.set(r.rentalId, (qtyById.get(r.rentalId) ?? 0) + r.qty);
+    }
+    const items = await this.rentals.find({
+      where: { id: In([...qtyById.keys()]) },
+    });
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const snapshots: RentalSnapshot[] = [];
+    for (const [rentalId, qty] of qtyById) {
+      const item = byId.get(rentalId);
+      if (!item || item.venueId !== venueId) {
+        throw new BadRequestException(
+          'Rental item does not belong to this venue',
+        );
+      }
+      if (item.status !== 'active') {
+        throw new ConflictException('Rental item is not available');
+      }
+      if (qty > item.stock) {
+        throw new ConflictException(
+          `Insufficient stock for rental item "${item.name}" (requested ${qty}, available ${item.stock})`,
+        );
+      }
+      snapshots.push({
+        rentalId: item.id,
+        name: item.name,
+        price: item.price,
+        qty,
+        subtotal: item.price * qty,
+      });
+    }
+    snapshots.sort((a, b) => a.name.localeCompare(b.name));
+    const total = snapshots.reduce((sum, s) => sum + s.subtotal, 0);
+    return { snapshots, total };
   }
 
   /**
@@ -1076,6 +1147,8 @@ function toBookingItem(b: Booking): BookingItem {
     voucherCode: b.voucherCode ?? null,
     pointsUsed: b.pointsUsed ?? 0,
     serviceFee: b.serviceFee ?? 0,
+    rentals: b.rentals ?? [],
+    rentalsTotal: b.rentalsTotal ?? 0,
     snapToken: b.snapToken ?? null,
     redirectUrl: b.redirectUrl ?? null,
     eventId: b.eventId ?? null,

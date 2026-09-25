@@ -42,6 +42,25 @@ export interface BookingItem {
   pointsUsed?: number;
   /** API-W03: snapshot service fee (0 bila fee off). */
   serviceFee?: number;
+  /** ST-10: snapshot item sewa ([{rentalId,name,price,qty,subtotal}]). */
+  rentals?: RentalSnapshot[];
+  /** ST-10: total sewa sum(price*qty), sudah termasuk subtotal/amount. */
+  rentalsTotal?: number;
+}
+
+/** Satu baris snapshot sewa dalam respons booking (ST-10). */
+export interface RentalSnapshot {
+  rentalId: string;
+  name: string;
+  price: number;
+  qty: number;
+  subtotal: number;
+}
+
+/** Satu item sewa untuk request booking (ST-10, upsell slot picker). */
+export interface BookingRentalInput {
+  rentalId: string;
+  qty: number;
 }
 
 export interface CreateBookingInput {
@@ -55,6 +74,8 @@ export interface CreateBookingInput {
   /** ST-04: kode voucher (uppercase) + poin dipakai (1 poin = Rp1). */
   voucherCode?: string;
   usePoints?: number;
+  /** ST-10: item sewa opsional (upsell slot picker, qty stepper). */
+  rentals?: BookingRentalInput[];
 }
 
 export interface BookEventInput {
@@ -67,6 +88,8 @@ export interface BookEventInput {
   /** ST-04: kode voucher (uppercase) + poin dipakai. */
   voucherCode?: string;
   usePoints?: number;
+  /** ST-10: item sewa opsional. */
+  rentals?: BookingRentalInput[];
 }
 
 interface Http {

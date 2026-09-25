@@ -51,10 +51,13 @@ import {
 import {
   AvailabilityResult,
   CourtItem,
+  RentalItem,
+  RentalSelection,
   VenueItem,
   activeCourts,
   getCourtAvailability,
   getVenueDetail,
+  getVenueRentals,
   listVenues,
 } from './src/api/venues';
 import { api } from './src/api/client';
@@ -647,6 +650,9 @@ function BookingFlow({
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const [bookingStart, setBookingStart] = useState<string | null>(null);
   const [bookError, setBookError] = useState<string | null>(null);
+  /** Katalog sewa venue (ST-10, upsell opsional; gagal dimuat = disembunyikan jujur). */
+  const [rentals, setRentals] = useState<RentalItem[]>([]);
+  const [rentalsLoading, setRentalsLoading] = useState(false);
 
   const [mine, setMine] = useState<BookingItem[]>([]);
   const [mineLoading, setMineLoading] = useState(false);
@@ -735,7 +741,9 @@ function BookingFlow({
     setVenueError(null);
     setBookError(null);
     setSlots([]);
+    setRentals([]);
     setVenueLoading(true);
+    setRentalsLoading(true);
     getVenueDetail(id)
       .then((v) => {
         setVenue(v);
@@ -745,6 +753,11 @@ function BookingFlow({
       })
       .catch((e) => setVenueError(toErrorMessage(e)))
       .finally(() => setVenueLoading(false));
+    // Katalog sewa fail-soft: gagal dimuat → section disembunyikan (tanpa angka palsu).
+    getVenueRentals(id)
+      .then((items) => setRentals(items.filter((r) => r.status === 'active')))
+      .catch(() => setRentals([]))
+      .finally(() => setRentalsLoading(false));
   };
 
   const changeCourt = (c: CourtItem) => {
@@ -759,9 +772,17 @@ function BookingFlow({
     if (court) loadSlots(court, d).catch(() => undefined);
   };
 
-  const handleBook = (slot: AvailabilityResult['slots'][number]) => {
+  const handleBook = (
+    slot: AvailabilityResult['slots'][number],
+    rentalSel: RentalSelection[] = [],
+  ) => {
     if (!court) return;
-    const input = { courtId: court.id, date, start: slot.start };
+    const input = {
+      courtId: court.id,
+      date,
+      start: slot.start,
+      ...(rentalSel.length > 0 ? { rentals: rentalSel } : {}),
+    };
     const invalid = validateBookingInput(input);
     if (invalid) {
       setBookError(invalid);
@@ -860,6 +881,8 @@ function BookingFlow({
         slotsError={slotsError}
         bookingStart={bookingStart}
         bookError={bookError}
+        rentals={rentals}
+        rentalsLoading={rentalsLoading}
         onBook={handleBook}
         onBack={() => setRoute({ name: 'venues' })}
       />

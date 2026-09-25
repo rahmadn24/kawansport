@@ -26,12 +26,16 @@ import { UsersService } from '../users/users.service';
 import { assertPhotoUrls, isAllowedPhotoUrl } from '../uploads/photo-url';
 import { Court, CourtStatus } from './court.entity';
 import { CreateCourtDto } from './dto/create-court.dto';
+import { CreateRentalDto } from './dto/create-rental.dto';
+import { UpdateRentalDto } from './dto/update-rental.dto';
 import { CreateVenueDocumentDto } from './dto/create-venue-document.dto';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { ListVenuesDto } from './dto/list-venues.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { Venue } from './venue.entity';
+import { normalizeFacilities } from './facilities';
+import { RentalItem, RentalItemStatus } from './rental-item.entity';
 import {
   VenueDocument,
   VenueDocumentStatus,
@@ -48,6 +52,8 @@ export interface VenueItem {
   lng: number;
   sports: string[];
   photos: string[];
+  /** Fasilitas venue (ST-10, allowlist; [] bila belum diisi). */
+  facilities: string[];
   owner: { id: string; email: string; displayName: string | null };
   status: Venue['status'];
   rejectionReason: string | null;
@@ -74,6 +80,8 @@ export interface CourtItem {
   pricePerHour: number;
   openHours: Record<string, unknown> | null;
   status: CourtStatus;
+  /** Fasilitas spesifik court (ST-10, allowlist; [] bila belum diisi). */
+  facilities: string[];
   /** Id editor terakhir (AD-02, jejak audit; null bila belum pernah diubah). */
   updatedBy: string | null;
   createdAt: Date;
@@ -106,6 +114,19 @@ export function computeLegalitas(
   return 'kosong';
 }
 
+/** Item sewa venue (ST-10) — bentuk publik untuk katalog + CMS owner. */
+export interface RentalItemPublic {
+  id: string;
+  venueId: string;
+  name: string;
+  price: number;
+  stock: number;
+  unit: string | null;
+  status: RentalItemStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class VenuesService implements OnModuleInit {
   constructor(
@@ -113,6 +134,8 @@ export class VenuesService implements OnModuleInit {
     private readonly venues: Repository<Venue>,
     @InjectRepository(Court)
     private readonly courts: Repository<Court>,
+    @InjectRepository(RentalItem)
+    private readonly rentals: Repository<RentalItem>,
     @InjectRepository(VenueDocument)
     private readonly documents: Repository<VenueDocument>,
     private readonly users: UsersService,
@@ -163,6 +186,7 @@ export class VenuesService implements OnModuleInit {
       lng: dto.lng,
       sports: normalizeSports(dto.sports ?? []),
       photos: validateVenuePhotos(normalizePhotos(dto.photos ?? [])),
+      facilities: dto.facilities !== undefined ? normalizeFacilities(dto.facilities) : [],
       ownerId: actor.id,
       status: actor.role === 'super_admin' ? 'draft' : 'pending',
       rejectionReason: null,
@@ -220,6 +244,11 @@ export class VenuesService implements OnModuleInit {
     if (patch.sports !== undefined) venue.sports = normalizeSports(patch.sports);
     if (patch.photos !== undefined) {
       venue.photos = validateVenuePhotos(normalizePhotos(patch.photos));
+    }
+    // ST-10: facilities non-sensitif AD-02 → langsung berlaku (allowlist
+    // dicek di normalizeFacilities, asing → 400).
+    if (patch.facilities !== undefined) {
+      venue.facilities = normalizeFacilities(patch.facilities);
     }
     venue.updatedBy = actor.id;
 
@@ -409,6 +438,7 @@ export class VenuesService implements OnModuleInit {
       pricePerHour: dto.pricePerHour,
       openHours: dto.openHours ?? null,
       status: (dto.status ?? 'active') as CourtStatus,
+      facilities: dto.facilities !== undefined ? normalizeFacilities(dto.facilities) : [],
     });
     return this.toCourtPublic(await this.courts.save(court));
   }
@@ -455,8 +485,130 @@ export class VenuesService implements OnModuleInit {
     if (patch.pricePerHour !== undefined) court.pricePerHour = patch.pricePerHour;
     if (patch.openHours !== undefined) court.openHours = patch.openHours;
     if (patch.status !== undefined) court.status = patch.status;
+    // ST-10: facilities non-sensitif AD-02 → langsung berlaku.
+    if (patch.facilities !== undefined) {
+      court.facilities = normalizeFacilities(patch.facilities);
+    }
     court.updatedBy = actor.id;
     return this.toCourtPublic(await this.courts.save(court));
+  }
+
+  /**
+   * POST /venues/:id/rentals — tambah item sewa (ST-10).
+   * Hanya owner venue / super_admin (lintas owner → 403 via assert).
+   */
+  async createRental(
+    venueId: string,
+    actor: ActorInput,
+    dto: CreateRentalDto,
+  ): Promise<RentalItemPublic> {
+    const venue = await this.venues.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const item = this.rentals.create({
+      venueId,
+      name: dto.name.trim(),
+      price: dto.price,
+      stock: dto.stock,
+      unit: dto.unit?.trim() ? dto.unit.trim() : null,
+      status: (dto.status ?? 'active') as RentalItemStatus,
+    });
+    return this.toRentalPublic(await this.rentals.save(item));
+  }
+
+  /**
+   * GET /venues/:id/rentals — katalog sewa (ST-10).
+   * Visibilitas mengikuti detail venue: venue non-approved tersembunyi
+   * (404) kecuali owner/admin. Viewer publik (termasuk list mobile)
+   * hanya melihat item `active`; owner/admin melihat semua (termasuk
+   * `inactive` untuk pengelolaan CMS).
+   */
+  async listRentals(
+    venueId: string,
+    actor?: ActorInput | null,
+  ): Promise<{ data: RentalItemPublic[]; meta: { total: number } }> {
+    const venue = await this.venues.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    if (venue.status !== 'approved') {
+      if (!actor || !isOwnerOrAdmin(actor, venue.ownerId)) {
+        throw new NotFoundException('Venue not found');
+      }
+    }
+    const rows = await this.rentals.find({
+      where: { venueId },
+      order: { createdAt: 'ASC' },
+    });
+    const canManage = !!actor && isOwnerOrAdmin(actor, venue.ownerId);
+    const visible = canManage
+      ? rows
+      : rows.filter((r) => r.status === 'active');
+    return {
+      data: visible.map((r) => this.toRentalPublic(r)),
+      meta: { total: visible.length },
+    };
+  }
+
+  /**
+   * PATCH /venues/:id/rentals/:rentalId — ubah item sewa (ST-10).
+   * Hanya owner venue / super_admin (lintas owner → 403). Item milik
+   * venue lain / tak ada → 404. Langsung berlaku (bukan AD-02 CR —
+   * inventaris operasional, bukan identitas yang dimoderasi).
+   */
+  async updateRental(
+    venueId: string,
+    rentalId: string,
+    actor: ActorInput,
+    dto: UpdateRentalDto,
+  ): Promise<RentalItemPublic> {
+    const venue = await this.venues.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const item = await this.rentals.findOne({ where: { id: rentalId } });
+    if (!item || item.venueId !== venueId) {
+      throw new NotFoundException('Rental item not found');
+    }
+    if (dto.name !== undefined) item.name = dto.name.trim();
+    if (dto.price !== undefined) item.price = dto.price;
+    if (dto.stock !== undefined) item.stock = dto.stock;
+    if (dto.unit !== undefined) {
+      item.unit = dto.unit?.trim() ? dto.unit.trim() : null;
+    }
+    if (dto.status !== undefined) item.status = dto.status as RentalItemStatus;
+    return this.toRentalPublic(await this.rentals.save(item));
+  }
+
+  /**
+   * DELETE /venues/:id/rentals/:rentalId — hapus item sewa (ST-10).
+   * Guard sama dengan update. Booking lama menyimpan snapshot sehingga
+   * riwayat tidak rusak.
+   */
+  async removeRental(
+    venueId: string,
+    rentalId: string,
+    actor: ActorInput,
+  ): Promise<void> {
+    const venue = await this.venues.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    assertOwnerOrAdmin(actor, venue.ownerId);
+    const item = await this.rentals.findOne({ where: { id: rentalId } });
+    if (!item || item.venueId !== venueId) {
+      throw new NotFoundException('Rental item not found');
+    }
+    await this.rentals.remove(item);
+  }
+
+  toRentalPublic(r: RentalItem): RentalItemPublic {
+    return {
+      id: r.id,
+      venueId: r.venueId,
+      name: r.name,
+      price: r.price,
+      stock: r.stock,
+      unit: r.unit ?? null,
+      status: r.status,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
   }
 
   /**
@@ -651,6 +803,7 @@ export class VenuesService implements OnModuleInit {
       lng: v.lng,
       sports: v.sports ?? [],
       photos: v.photos ?? [],
+      facilities: v.facilities ?? [],
       owner: {
         id: v.owner?.id ?? v.ownerId,
         email: v.owner?.email ?? '',
@@ -681,6 +834,7 @@ export class VenuesService implements OnModuleInit {
       pricePerHour: c.pricePerHour,
       openHours: c.openHours ?? null,
       status: c.status,
+      facilities: c.facilities ?? [],
       updatedBy: c.updatedBy ?? null,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,

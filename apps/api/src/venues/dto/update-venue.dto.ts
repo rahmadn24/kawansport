@@ -37,6 +37,15 @@ export class UpdateVenueDto {
   @IsString({ each: true })
   sports?: string[];
 
+  /**
+   * Fasilitas venue (ST-10, AD-02 non-sensitif → langsung berlaku).
+   * Nilai asing → 400 (lihat `facilities.ts`).
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  facilities?: string[];
+
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(5)
