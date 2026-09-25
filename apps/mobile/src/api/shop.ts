@@ -5,14 +5,31 @@
  */
 import { api } from './client';
 
+export interface ShopProductVariant {
+  name: string;
+  priceDelta: number;
+  stock?: number | null;
+}
+
+/** Badge kurasi manual seller (ST-05; null = tanpa badge). */
+export type ShopProductBadge = 'original' | 'best_seller' | 'baru';
+
 export interface ShopCartProduct {
   id: string;
   sellerId: string;
   sellerShopName: string;
+  /** ST-05: toko terverifikasi admin. */
+  sellerVerified?: boolean;
   name: string;
+  /** ST-05: harga SATUAN sudah termasuk priceDelta varian baris ini. */
   price: number;
+  /** ST-05: stok efektif (stok varian bila ada, else stok dasar). */
   stock: number;
   status: string;
+  /** ST-05: badge kurasi manual seller (null = tanpa badge). */
+  badge?: ShopProductBadge | null;
+  /** ST-05: daftar varian produk (untuk picker katalog). */
+  variants?: ShopProductVariant[];
   /** ST-01: foto produk (path /uploads/... atau https). Absen pada respons lama. */
   photos?: string[];
 }
@@ -20,6 +37,10 @@ export interface ShopCartProduct {
 export interface ShopCartLine {
   productId: string;
   qty: number;
+  /** ST-05: indeks varian (-1/absen = tanpa varian). */
+  variantIndex?: number;
+  /** ST-05: snapshot nama varian (null bila tanpa varian). */
+  variantName?: string | null;
   product: ShopCartProduct;
 }
 
@@ -37,6 +58,10 @@ export interface ShopOrderItem {
   qty: number;
   price: number;
   subtotal: number;
+  /** ST-05: indeks varian (-1 = tanpa varian). */
+  variantIndex?: number;
+  /** ST-05: snapshot nama varian (null bila tanpa varian). */
+  variantName?: string | null;
 }
 
 export interface ShopOrderGroup {
@@ -47,6 +72,12 @@ export interface ShopOrderGroup {
   status: ShopOrderStatus;
   items: ShopOrderItem[];
 }
+
+/** ST-05: cara serah terima (pickup bebas ongkir). */
+export type ShopFulfillment = 'pickup' | 'delivery';
+
+/** Maksimal ongkir manual per order (ST-05, rupiah). */
+export const MAX_DELIVERY_FEE = 100000;
 
 export interface ShopOrder {
   id: string;
@@ -66,12 +97,20 @@ export interface ShopOrder {
   discount?: number;
   voucherCode?: string | null;
   pointsUsed?: number;
+  /** ST-05: cara serah terima (snapshot; default pickup). */
+  fulfillment?: ShopFulfillment;
+  /** ST-05: snapshot ongkir rupiah (0 bila pickup). */
+  deliveryFee?: number;
 }
 
 /** ST-04: body opsional checkout (tanpa body = checkout normal MP-02). */
 export interface CheckoutOptions {
   voucherCode?: string;
   usePoints?: number;
+  /** ST-05: cara serah terima (default pickup = ambil di toko). */
+  fulfillment?: ShopFulfillment;
+  /** ST-05: ongkir manual info toko (0..100rb, hanya untuk delivery). */
+  deliveryFee?: number;
 }
 
 interface Http {
@@ -89,13 +128,20 @@ export async function getCart(http: Http = api): Promise<ShopCart> {
 /**
  * PUT /cart — tambah/ubah jumlah (`qty > 0`), hapus baris (`qty = 0`).
  * Hanya produk approved yang bisa masuk (server 404 bila tidak tersedia).
+ * ST-05: `variantIndex?` (0-based) memilih varian — tiap (produk, varian)
+ * adalah baris tersendiri; indeks invalid → 400 dari server.
  */
 export async function setCartItem(
   productId: string,
   qty: number,
   http: Http = api,
+  variantIndex?: number,
 ): Promise<ShopCart> {
-  const res = await http.put<ShopCart>('/cart', { productId, qty });
+  const res = await http.put<ShopCart>('/cart', {
+    productId,
+    qty,
+    ...(variantIndex === undefined ? {} : { variantIndex }),
+  });
   return res.data;
 }
 
@@ -130,8 +176,7 @@ export async function getOrderDetail(
 }
 
 /** Label status order Bahasa Indonesia untuk UI. */
-export function shopOrderStatusLabel(status: ShopOrderStatus): string {
-  switch (status) {
+export function shopOrderStatusLabel(status: ShopOrderStatus): string {  switch (status) {
     case 'pending':
       return 'Menunggu bayar';
     case 'paid':
@@ -150,4 +195,52 @@ export function validateCartQty(qty: number): string | null {
   if (!Number.isInteger(qty) || qty < 0) return 'Jumlah harus bilangan bulat >= 0';
   if (qty > 999) return 'Jumlah maksimal 999';
   return null;
+}
+
+/** ST-05: label badge produk Bahasa Indonesia (null = tanpa badge). */
+export function productBadgeLabel(
+  badge: ShopProductBadge | null | undefined,
+): string | null {
+  switch (badge) {
+    case 'original':
+      return 'Original';
+    case 'best_seller':
+      return 'Terlaris';
+    case 'baru':
+      return 'Baru';
+    default:
+      return null;
+  }
+}
+
+/** ST-05: label fulfillment Bahasa Indonesia untuk UI. */
+export function fulfillmentLabel(fulfillment: ShopFulfillment): string {
+  return fulfillment === 'delivery' ? 'Diantar' : 'Ambil di toko';
+}
+
+/**
+ * ST-05: validasi ongkir sisi klien; pesan error atau null bila valid.
+ * Aturan server: pickup wajib fee 0; delivery 0..100rb.
+ */
+export function validateDeliveryFee(
+  fulfillment: ShopFulfillment,
+  deliveryFee: number,
+): string | null {
+  if (!Number.isInteger(deliveryFee) || deliveryFee < 0) {
+    return 'Ongkir harus bilangan bulat >= 0';
+  }
+  if (fulfillment === 'pickup' && deliveryFee !== 0) {
+    return 'Ambil di toko bebas ongkir';
+  }
+  if (deliveryFee > MAX_DELIVERY_FEE) {
+    return `Ongkir maksimal Rp${MAX_DELIVERY_FEE.toLocaleString('id-ID')}`;
+  }
+  return null;
+}
+
+/** ST-05: label varian baris cart ("Varian: XL" atau null bila tanpa varian). */
+export function cartLineVariantLabel(
+  variantName: string | null | undefined,
+): string | null {
+  return variantName ? `Varian: ${variantName}` : null;
 }

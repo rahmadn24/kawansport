@@ -8,19 +8,37 @@ import { Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
 import { Cart, CartItem } from './cart.entity';
 import { UpdateCartDto } from './dto/cart.dto';
-import { Product } from './product.entity';
+import { Product, ProductBadge, ProductVariant } from './product.entity';
+import {
+  assertValidVariantIndex,
+  effectiveStockFor,
+  unitPriceFor,
+  variantNameFor,
+} from './product-variants';
 
 export interface CartLineItem {
   productId: string;
   qty: number;
+  /** ST-05: indeks varian (-1 = tanpa varian). */
+  variantIndex: number;
+  /** ST-05: snapshot nama varian (null bila tanpa varian). */
+  variantName: string | null;
   product: {
     id: string;
     sellerId: string;
     sellerShopName: string;
+    /** ST-05: toko terverifikasi admin. */
+    sellerVerified: boolean;
     name: string;
+    /** ST-05: harga SATUAN sudah termasuk priceDelta varian. */
     price: number;
+    /** ST-05: stok efektif (stok varian bila ada, else stok dasar). */
     stock: number;
     status: Product['status'];
+    /** ST-05: badge kurasi manual seller (null = tanpa badge). */
+    badge: ProductBadge | null;
+    /** ST-05: daftar varian produk (untuk picker katalog). */
+    variants: ProductVariant[];
   };
 }
 
@@ -52,6 +70,8 @@ export class CartService {
    * Produk harus ada + `approved` (selain itu 404 agar produk pending/
    * rejected/draft tidak bocor maupun bisa dibeli). Stok penuh dicek saat
    * checkout (bukan di sini) agar cart tetap bisa diisi dulu.
+   * ST-05: `variantIndex` (0-based, absen = tanpa varian) memilih varian;
+   * tiap (produk, varian) adalah baris tersendiri. Indeks invalid → 400.
    */
   async update(actor: ActorInput, dto: UpdateCartDto): Promise<CartView> {
     if (dto.clear) {
@@ -74,9 +94,12 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
 
+    const variantIndex = dto.variantIndex ?? -1;
+    assertValidVariantIndex(product, variantIndex);
+
     const cart = await this.getOrCreateCart(actor.id);
     const existing = await this.cartItems.findOne({
-      where: { cartId: cart.id, productId: product.id },
+      where: { cartId: cart.id, productId: product.id, variantIndex },
     });
 
     if (dto.qty === 0) {
@@ -92,6 +115,7 @@ export class CartService {
         this.cartItems.create({
           cartId: cart.id,
           productId: product.id,
+          variantIndex,
           qty: dto.qty,
         }),
       );
@@ -118,19 +142,28 @@ export class CartService {
       relations: { product: { seller: true } },
       order: { createdAt: 'ASC' },
     });
-    const items: CartLineItem[] = rows.map((r) => ({
-      productId: r.productId,
-      qty: r.qty,
-      product: {
-        id: r.product?.id ?? r.productId,
-        sellerId: r.product?.sellerId ?? '',
-        sellerShopName: r.product?.seller?.shopName ?? '',
-        name: r.product?.name ?? '',
-        price: r.product?.price ?? 0,
-        stock: r.product?.stock ?? 0,
-        status: r.product?.status ?? 'approved',
-      },
-    }));
+    const items: CartLineItem[] = rows.map((r) => {
+      const p = r.product;
+      const vIdx = r.variantIndex ?? -1;
+      return {
+        productId: r.productId,
+        qty: r.qty,
+        variantIndex: vIdx,
+        variantName: p ? variantNameFor(p, vIdx) : null,
+        product: {
+          id: r.product?.id ?? r.productId,
+          sellerId: r.product?.sellerId ?? '',
+          sellerShopName: r.product?.seller?.shopName ?? '',
+          sellerVerified: r.product?.seller?.verified ?? false,
+          name: r.product?.name ?? '',
+          price: p ? unitPriceFor(p, vIdx) : 0,
+          stock: p ? effectiveStockFor(p, vIdx) : 0,
+          status: r.product?.status ?? 'approved',
+          badge: r.product?.badge ?? null,
+          variants: r.product?.variants ?? [],
+        },
+      };
+    });
     const total = items.reduce((sum, i) => sum + i.product.price * i.qty, 0);
     const count = items.reduce((sum, i) => sum + i.qty, 0);
     return { items, total, count };

@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-10)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-05 + ST-10)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -24,8 +24,9 @@ Ringkasan per SM:
 | API-W08 | Payout & withdraw mitra (manual) | `POST/GET /payouts[/me|/balance]`, `POST /payouts/:id/{approve,reject,pay}` |
 | API-W02 | Dispute center | `POST/GET /disputes[/me]`, `GET /disputes?status=`, `POST /disputes/:id/{investigate,resolve}` |
 | ST-10 | Fasilitas venue/court + rental gear + booking dengan sewa | `facilities` di venue/court, `POST/GET/PATCH/DELETE /venues/:id/rentals[/:rentalId]`, `POST /bookings` (+`rentals?`) |
-| MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
+| MP-01 | Seller onboarding + produk approval | `POST/GET /sellers[/me|/pending|/:id/approve|/:id/reject|/:id/verify]`, `POST/GET/PATCH /products[/pending|/:id|/:id/approve|/:id/reject]` |
 | MP-02 | Cart multiseller + checkout + orders per seller | `GET/PUT /cart`, `POST /checkout`, `GET /orders/me`, `GET /orders/:id` (webhook sama `POST /payments/midtrans/notification`, prefix `MP-`) |
+| ST-05 | Varian + badge + verified + fulfillment | `variants`/`badge` di produk, `variantIndex` di cart, `POST /sellers/:id/verify`, `{ fulfillment, deliveryFee }` di checkout |
 
 ## Health
 
@@ -451,6 +452,57 @@ Daftar order milik sendiri (terbaru dulu, beserta grup+item) →
 ### `GET /orders/:id`
 Detail milik sendiri; milik orang lain → 403 (super_admin lolos); tak ada → 404.
 
+## Varian + badge + verified + fulfillment (ST-05, auth kecuali webhook)
+
+Keputusan desain (minimal, jujur):
+- `variants`: JSON `[{ name, priceDelta?, stock? }]` opsional per produk
+  (maks 10; `name` 1..60 char wajib; `priceDelta` int rupiah thd harga
+  dasar, boleh negatif, default 0; `stock` opsional int ≥ 0).
+  Harga satuan baris = `price + priceDelta`. Stok: bila varian punya
+  `stock`, stok VARIAN yang dicek/didecrement (stok dasar utuh); bila
+  tidak, stok dasar produk yang dipakai. Rollback webhook expire/cancel
+  + kompensasi Snap-gagal mengembalikan ke sumber yang sama (best-effort
+  bila varian sudah diubah seller → jatuh ke stok dasar).
+- `badge`: enum `original | best_seller | baru` (null = tanpa badge),
+  kurasi MANUAL oleh seller. `best_seller` SENGAJA bukan komputasi
+  real-time dari `order_items` (agregasi penjualan per produk belum ada
+  di API) — didokumentasikan apa adanya.
+- `Seller.verified`: boolean default `false`; hanya super_admin via
+  `POST /sellers/:id/verify` (idempotent). Verifikasi ≠ approval (status
+  moderasi tidak berubah). Tampil di `seller.verified` setiap payload produk.
+- Fulfillment: `{ fulfillment: pickup|delivery (default pickup),
+  deliveryFee? (0..100rb) }` di body checkout. `pickup` bebas ongkir
+  (`deliveryFee` > 0 → 400); `delivery` memakai ongkir manual info toko
+  (snapshot ke order). Ongkir TIDAK bisa dibayar voucher/poin:
+  `total = max(0, subtotal − discount − pointsUsed) + deliveryFee`
+  (pola service fee API-W03). Webhook `gross_amount` wajib = total final
+  tersebut (sudah generik via `assertAmountMatches`).
+- AD-02: `variants` SENSITIF (edit seller atas produk approved → 202
+  change request); `badge` NON-sensitif (langsung berlaku).
+
+### `POST /products` (+ `variants?`, `badge?`), `PATCH /products/:id`
+Field baru mengikuti aturan di atas. `ProductItem` tambah
+`variants[]`, `badge`, dan `seller.verified`. Contoh varian:
+`{ "variants": [{ "name": "Ukuran 42", "priceDelta": 20000, "stock": 5 }] }`.
+
+### `POST /sellers/:id/verify` (super_admin)
+Tandai toko terverifikasi → 200 `SellerItem` (`verified: true`).
+Idempotent (verifikasi ulang tetap 200). Non-admin → 403; tak ada → 404.
+`SellerItem` tambah `verified` (default `false`).
+
+### `PUT /cart` (+ `variantIndex?`)
+Indeks varian 0-based (absen = tanpa varian). Tiap (produk, varian)
+adalah baris tersendiri. Indeks invalid / varian untuk produk tanpa
+varian → 400. Respons baris tambah `variantIndex`, `variantName`,
+dan `product{ price (satuan incl. delta), stock (efektif), badge,
+variants, sellerVerified }`; `total` memakai harga satuan per varian.
+
+### `POST /checkout` (+ `fulfillment?`, `deliveryFee?`)
+Tanpa field baru = checkout pickup normal. Response/detail `OrderDetail`
+tambah `fulfillment`, `deliveryFee`; tiap item tambah `variantIndex`,
+`variantName` (snapshot). Contoh delivery:
+`{ "fulfillment": "delivery", "deliveryFee": 10000 }`.
+
 ## Pesanan & produk seller (toko)
 
 Dashboard toko CMS (pengganti list publik yang hanya memuat `approved`).
@@ -464,8 +516,9 @@ Semua produk milik toko sendiri — SEMUA status
 (pending/approved/rejected), terbaru dulu.
 Query: `page?` (default 1), `limit?` (default 20, maks 50).
 Response `{ data: ProductItem[], meta: { page, limit, total } }`
-(`ProductItem` sama dengan list publik: `id, seller{id,shopName,ownerId},
-category, name, description, price, stock, photos, status,
+(`ProductItem` sama dengan list publik: `id, seller{id,shopName,ownerId,
+verified (ST-05)}, category, name, description, price, stock,
+variants[] (ST-05), badge (ST-05), photos, status,
 rejectionReason, updatedBy, createdAt, updatedAt`).
 - Tanpa token → 401; tanpa profil seller → 404.
 - Produk seller lain TIDAK bocor (filter `sellerId` milik sendiri).

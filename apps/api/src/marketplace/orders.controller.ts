@@ -22,6 +22,9 @@ import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
  * Cart kosong → 400; stok kurang / produk tak tersedia → 409.
  * Body opsional (ST-04): `{ voucherCode?, usePoints? }` — tanpa body =
  * checkout normal seperti sebelumnya.
+ * ST-05: `{ fulfillment?: pickup|delivery (default pickup), deliveryFee?
+ * (0..100rb, hanya untuk delivery) }` — ongkir snapshot ke order, tidak
+ * bisa dibayar voucher/poin.
  */
 @Controller('checkout')
 @UseGuards(JwtAuthGuard)

@@ -23,6 +23,8 @@ export class CartController {
   /**
    * Ubah cart: `{ productId, qty>0 }` tambah/ubah, `{ productId, qty: 0 }`
    * hapus baris, `{ clear: true }` kosongkan semua.
+   * ST-05: `variantIndex?` (0-based) memilih varian — tiap (produk, varian)
+   * adalah baris tersendiri; harga = dasar + priceDelta.
    */
   @Put()
   update(@CurrentUser() user: RequestUser, @Body() dto: UpdateCartDto) {

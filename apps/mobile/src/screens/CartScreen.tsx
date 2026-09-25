@@ -1,7 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatIDR } from '../api/bookings';
-import { ShopCart } from '../api/shop';
+import {
+  ShopCart,
+  ShopFulfillment,
+  cartLineVariantLabel,
+  fulfillmentLabel,
+  productBadgeLabel,
+  validateDeliveryFee,
+} from '../api/shop';
 import { firstPhoto, resolvePhotoUrl } from '../api/photos';
 import { formatPoints } from '../api/vouchers';
 import { COLORS, RADIUS, SPACING, TYPO, initialsOf } from '../theme';
@@ -28,7 +35,7 @@ interface Props {
   mutating: boolean;
   mutateError: string | null;
   onRefresh: () => void;
-  onSetQty: (productId: string, qty: number) => void;
+  onSetQty: (productId: string, qty: number, variantIndex?: number) => void;
   onClear: () => void;
   onCheckout: () => void;
   /** ST-04: kode voucher (diterapkan server saat checkout). */
@@ -37,6 +44,12 @@ interface Props {
   /** ST-04: saldo Poin Kawan (1 poin = Rp1); null = belum termuat. */
   loyaltyBalance?: number | null;
   loyaltyError?: string | null;
+  /** ST-05: cara serah terima (default pickup = ambil di toko). */
+  fulfillment?: ShopFulfillment;
+  onFulfillmentChange?: (f: ShopFulfillment) => void;
+  /** ST-05: ongkir manual rupiah (hanya untuk delivery, maks 100rb). */
+  deliveryFee?: number;
+  onDeliveryFeeChange?: (fee: number) => void;
 }
 
 /**
@@ -44,16 +57,16 @@ interface Props {
  * pickup + grup per seller + stepper + rincian + sticky Checkout.
  *
  * - Search & kategori = filter LOKAL display-only (tak menyentuh server).
- * - Badge verified DISEMBUNYIKAN (TODO ST-05) — jangan tampilkan badge palsu.
+ * - ST-05 real: badge produk + verified toko dari server (tanpa klaim palsu:
+ *   hanya tampil bila server mengirimnya), label varian per baris, dan
+ *   pilihan pickup/delivery + ongkir (diteruskan ke POST /checkout).
  * - Gambar produk: foto pertama ST-01 bila ada, else placeholder inisial jujur.
  *   Upload baru disabled (POST /uploads butuh file picker native).
- * - Shipping DISEMBUNYIKAN (TODO ST-05).
  * - Voucher ST-04 real: kode dikirim ke POST /checkout, diskon dibaca dari
  *   snapshot order; saldo poin dari GET /me (empty/error jujur bila gagal).
  * - Total sticky dari server (cart.total).
  */
 // TODO(ST-01-upload): upload foto produk baru (POST /uploads) butuh file picker native.
-// TODO(ST-05): seller verified + opsi shipping dari API marketplace kaya.
 // TODO(ST-09): search/katalog + banner promo dari API.
 export function CartScreen({
   cart,
@@ -69,6 +82,10 @@ export function CartScreen({
   onVoucherCodeChange = () => undefined,
   loyaltyBalance = null,
   loyaltyError = null,
+  fulfillment = 'pickup',
+  onFulfillmentChange = () => undefined,
+  deliveryFee = 0,
+  onDeliveryFeeChange = () => undefined,
 }: Props) {
   const [query, setQuery] = useState('');
   const [catIndex, setCatIndex] = useState(0);
@@ -82,6 +99,8 @@ export function CartScreen({
   // Total dari server — JANGAN dihitung ulang dari mock.
   const total = cart?.total ?? 0;
   const count = cart?.count ?? 0;
+  // ST-05: validasi ongkir sisi klien (server tetap validasi ulang).
+  const feeError = validateDeliveryFee(fulfillment, deliveryFee);
 
   if (error && !cart) {
     return (
@@ -168,11 +187,16 @@ export function CartScreen({
                 <Text style={styles.sellerName} numberOfLines={1}>
                   {g.sellerShopName || 'Toko'}
                 </Text>
-                {/* TODO(ST-05): badge verified DISEMBUNYIKAN sampai API ada. */}
+                {/* ST-05: verified real dari server — hanya tampil bila true. */}
+                {g.lines.some((l) => l.product.sellerVerified) ? (
+                  <Text style={styles.verified} accessibilityRole="text">
+                    ✓ Terverifikasi
+                  </Text>
+                ) : null}
                 <Text style={styles.sellerMeta}>{g.lines.length} produk</Text>
               </View>
               {g.lines.map((line) => (
-                <View key={line.productId} style={styles.item}>
+                <View key={`${line.productId}#${line.variantIndex ?? -1}`} style={styles.item}>
                   {/* ST-01: foto produk pertama bila ada, else inisial (jujur). */}
                   {(() => {
                     const thumb = firstPhoto(line.product.photos);
@@ -196,8 +220,17 @@ export function CartScreen({
                       <Text style={styles.itemName} numberOfLines={2}>
                         {line.product.name || line.productId}
                       </Text>
+                      {/* ST-05: badge kurasi seller — hanya tampil bila ada. */}
+                      {(() => {
+                        const badge = productBadgeLabel(line.product.badge);
+                        return badge ? (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{badge}</Text>
+                          </View>
+                        ) : null;
+                      })()}
                       <TouchableOpacity
-                        onPress={() => onSetQty(line.productId, 0)}
+                        onPress={() => onSetQty(line.productId, 0, line.variantIndex ?? -1)}
                         disabled={mutating}
                         accessibilityRole="button"
                         accessibilityLabel={`Hapus ${line.product.name || 'produk'} dari keranjang`}
@@ -208,6 +241,10 @@ export function CartScreen({
                     </View>
                     <Text style={styles.itemVar} numberOfLines={1}>
                       {line.product.sellerShopName}
+                      {(() => {
+                        const v = cartLineVariantLabel(line.variantName);
+                        return v ? ` • ${v}` : '';
+                      })()}
                       {line.product.stock <= 5 ? ` • Stok tersisa ${line.product.stock}` : ''}
                     </Text>
                     {line.qty > line.product.stock ? (
@@ -220,7 +257,7 @@ export function CartScreen({
                       <View style={styles.stepper}>
                         <TouchableOpacity
                           style={styles.stepBtn}
-                          onPress={() => onSetQty(line.productId, line.qty - 1)}
+                          onPress={() => onSetQty(line.productId, line.qty - 1, line.variantIndex ?? -1)}
                           disabled={mutating}
                           accessibilityRole="button"
                           accessibilityLabel={`Kurangi ${line.product.name || 'produk'}`}
@@ -230,7 +267,7 @@ export function CartScreen({
                         <Text style={styles.qty}>{line.qty}</Text>
                         <TouchableOpacity
                           style={styles.stepBtn}
-                          onPress={() => onSetQty(line.productId, line.qty + 1)}
+                          onPress={() => onSetQty(line.productId, line.qty + 1, line.variantIndex ?? -1)}
                           disabled={mutating}
                           accessibilityRole="button"
                           accessibilityLabel={`Tambah ${line.product.name || 'produk'}`}
@@ -252,7 +289,55 @@ export function CartScreen({
           ))
         )}
 
-        {/* TODO(ST-05): section shipping DISEMBUNYIKAN. */}
+        {/* ST-05: pilihan serah terima — pickup bebas ongkir, delivery + ongkir info toko. */}
+        {count > 0 ? (
+          <UICard>
+            <Text style={styles.rincTitle}>Pengiriman</Text>
+            {(['pickup', 'delivery'] as const).map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={styles.shipRow}
+                onPress={() => onFulfillmentChange(f)}
+                disabled={mutating}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: fulfillment === f }}
+                accessibilityLabel={fulfillmentLabel(f)}
+              >
+                <Text style={styles.shipRadio}>
+                  {fulfillment === f ? '●' : '○'}
+                </Text>
+                <View style={styles.shipBody}>
+                  <Text style={styles.shipLabel}>{fulfillmentLabel(f)}</Text>
+                  <Text style={styles.shipSub}>
+                    {f === 'pickup'
+                      ? 'Ambil langsung di toko — bebas ongkir'
+                      : 'Diantar ke alamatmu — ongkir sesuai info toko'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            {fulfillment === 'delivery' ? (
+              <UITextInput
+                label="Ongkir (Rp, sesuai info toko, maks 100rb)"
+                placeholder="cth. 10000"
+                value={String(deliveryFee)}
+                onChangeText={(t) => {
+                  const n = Number(t.replace(/[^0-9]/g, ''));
+                  onDeliveryFeeChange(Number.isFinite(n) ? n : 0);
+                }}
+                keyboardType="numeric"
+                testID="cart-delivery-fee"
+              />
+            ) : null}
+            {feeError ? (
+              <Text style={styles.voucherError}>⚠ {feeError}</Text>
+            ) : null}
+            <Text style={styles.rincNote}>
+              Ongkir tidak bisa dibayar voucher/poin — ditambah di atas total
+              setelah diskon (dihitung server saat checkout).
+            </Text>
+          </UICard>
+        ) : null}
 
         {/* ST-04: voucher & poin — kode dikirim saat checkout, diskon dari server. */}
         {count > 0 ? (
@@ -284,7 +369,7 @@ export function CartScreen({
         {mutateError ? <Text style={styles.error}>{mutateError}</Text> : null}
         <UIErrorBanner message={loading ? null : error} actionLabel="Coba lagi" onAction={onRefresh} />
 
-        {/* Rincian: total server + catatan ambil-di-toko */}
+        {/* Rincian: total server + catatan serah terima */}
         {count > 0 ? (
           <UICard>
             <Text style={styles.rincTitle}>Rincian Pembayaran</Text>
@@ -292,8 +377,17 @@ export function CartScreen({
               <Text style={styles.rincLabel}>Subtotal Gear ({count} item)</Text>
               <Text style={styles.rincValue}>{formatIDR(total)}</Text>
             </View>
+            {fulfillment === 'delivery' && deliveryFee > 0 ? (
+              <View style={styles.rincRow}>
+                <Text style={styles.rincLabel}>Ongkir (estimasi)</Text>
+                <Text style={styles.rincValue}>{formatIDR(deliveryFee)}</Text>
+              </View>
+            ) : null}
             <Text style={styles.rincNote}>
-              Diambil di toko (default sementara — menunggu ST-05).
+              {fulfillmentLabel(fulfillment)}
+              {fulfillment === 'delivery'
+                ? ' — ongkir final dihitung server saat checkout.'
+                : ' (default — menunggu info toko untuk delivery).'}
             </Text>
           </UICard>
         ) : null}
@@ -361,6 +455,20 @@ const styles = StyleSheet.create({
   sellerSubValue: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
   sellerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
   sellerName: { flex: 1, fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  verified: { fontSize: 12, fontWeight: '700', color: COLORS.brand700, marginLeft: SPACING.sm },
+  badge: {
+    backgroundColor: COLORS.brand100,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginLeft: SPACING.sm,
+  },
+  badgeText: { fontSize: 11, fontWeight: '800', color: COLORS.brand700 },
+  shipRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
+  shipRadio: { fontSize: 16, color: COLORS.brand700, marginRight: SPACING.sm, marginTop: 2 },
+  shipBody: { flex: 1 },
+  shipLabel: { fontSize: 14, fontWeight: '700', color: COLORS.ink },
+  shipSub: { fontSize: 12, color: COLORS.muted, marginTop: 2 },
   sellerMeta: { fontSize: 12, color: COLORS.faint, marginLeft: SPACING.sm },
   item: { flexDirection: 'row', marginTop: SPACING.md },
   thumb: {

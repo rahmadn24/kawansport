@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -24,7 +25,11 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsDto } from './dto/list-products.dto';
 import { SellerDashboardQueryDto } from './dto/seller-dashboard-query.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { Product } from './product.entity';
+import { Product, ProductBadge, ProductVariant } from './product.entity';
+import {
+  normalizeProductBadge,
+  normalizeProductVariants,
+} from './product-variants';
 import { Seller } from './seller.entity';
 
 /** Batas foto produk (ST-01). */
@@ -32,12 +37,22 @@ export const MAX_PRODUCT_PHOTOS = 5;
 
 export interface ProductItem {
   id: string;
-  seller: { id: string; shopName: string; ownerId: string };
+  seller: {
+    id: string;
+    shopName: string;
+    ownerId: string;
+    /** ST-05: toko terverifikasi admin (default false). */
+    verified: boolean;
+  };
   category: string;
   name: string;
   description: string | null;
   price: number;
   stock: number;
+  /** ST-05: varian (kosong bila tanpa varian). */
+  variants: ProductVariant[];
+  /** ST-05: badge kurasi manual seller (null = tanpa badge). */
+  badge: ProductBadge | null;
   photos: string[];
   status: Product['status'];
   rejectionReason: string | null;
@@ -74,6 +89,8 @@ export class ProductsService {
       description: dto.description?.trim() ? dto.description.trim() : null,
       price: dto.price,
       stock: dto.stock,
+      variants: normalizeProductVariants(dto.variants ?? null),
+      badge: normalizeProductBadge(dto.badge ?? null),
       photos: validateProductPhotos(normalizePhotos(dto.photos ?? [])),
       status: 'pending',
       rejectionReason: null,
@@ -139,6 +156,12 @@ export class ProductsService {
     }
     if (patch.price !== undefined) product.price = patch.price;
     if (patch.stock !== undefined) product.stock = patch.stock;
+    if (patch.variants !== undefined) {
+      product.variants = normalizeProductVariants(patch.variants);
+    }
+    if (patch.badge !== undefined) {
+      product.badge = normalizeProductBadge(patch.badge);
+    }
     if (patch.photos !== undefined) {
       product.photos = validateProductPhotos(normalizePhotos(patch.photos));
     }
@@ -337,12 +360,15 @@ export class ProductsService {
         id: p.seller?.id ?? p.sellerId,
         shopName: p.seller?.shopName ?? '',
         ownerId: p.seller?.ownerId ?? '',
+        verified: p.seller?.verified ?? false,
       },
       category: p.category,
       name: p.name,
       description: p.description ?? null,
       price: p.price,
       stock: p.stock,
+      variants: p.variants ?? [],
+      badge: p.badge ?? null,
       photos: p.photos ?? [],
       status: p.status,
       rejectionReason: p.rejectionReason ?? null,
@@ -358,3 +384,14 @@ export function validateProductPhotos(input: string[]): string[] {
   assertPhotoUrls(input, MAX_PRODUCT_PHOTOS, 'Product photos');
   return input;
 }
+
+// Re-export helper varian/badge ST-05 (sumber tunggal: product-variants.ts)
+// agar import lama dari products.service tetap berfungsi.
+export {
+  assertValidVariantIndex,
+  effectiveStockFor,
+  normalizeProductBadge,
+  normalizeProductVariants,
+  unitPriceFor,
+  variantNameFor,
+} from './product-variants';

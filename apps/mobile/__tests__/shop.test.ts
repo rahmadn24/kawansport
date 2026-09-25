@@ -1,12 +1,16 @@
 import {
+  cartLineVariantLabel,
   checkoutCart,
   clearCart,
+  fulfillmentLabel,
   getCart,
   getOrderDetail,
   listMyOrders,
+  productBadgeLabel,
   setCartItem,
   shopOrderStatusLabel,
   validateCartQty,
+  validateDeliveryFee,
 } from '../src/api/shop';
 
 describe('shop api (MP-02)', () => {
@@ -55,5 +59,44 @@ describe('shop api (MP-02)', () => {
     expect(validateCartQty(0)).toBeNull();
     expect(validateCartQty(-1)).not.toBeNull();
     expect(validateCartQty(1.5)).not.toBeNull();
+  });
+
+  it('ST-05: setCartItem dengan variantIndex', async () => {
+    const put = jest.fn().mockResolvedValue({ data: { items: [], total: 0 } });
+    await setCartItem('p1', 1, { put } as never, 2);
+    expect(put).toHaveBeenCalledWith('/cart', {
+      productId: 'p1',
+      qty: 1,
+      variantIndex: 2,
+    });
+  });
+
+  it('ST-05: checkoutCart teruskan fulfillment + deliveryFee', async () => {
+    const post = jest.fn().mockResolvedValue({ data: { id: 'o1' } });
+    await checkoutCart({ post } as never, {
+      fulfillment: 'delivery',
+      deliveryFee: 10000,
+    });
+    expect(post).toHaveBeenCalledWith('/checkout', {
+      fulfillment: 'delivery',
+      deliveryFee: 10000,
+    });
+  });
+
+  it('ST-05: helper badge/fulfillment/ongkir/varian', () => {
+    expect(productBadgeLabel('original')).toBe('Original');
+    expect(productBadgeLabel('best_seller')).toBe('Terlaris');
+    expect(productBadgeLabel('baru')).toBe('Baru');
+    expect(productBadgeLabel(null)).toBeNull();
+    expect(productBadgeLabel(undefined)).toBeNull();
+    expect(fulfillmentLabel('pickup')).toBe('Ambil di toko');
+    expect(fulfillmentLabel('delivery')).toBe('Diantar');
+    expect(validateDeliveryFee('pickup', 0)).toBeNull();
+    expect(validateDeliveryFee('pickup', 5000)).not.toBeNull();
+    expect(validateDeliveryFee('delivery', 10000)).toBeNull();
+    expect(validateDeliveryFee('delivery', 100001)).not.toBeNull();
+    expect(validateDeliveryFee('delivery', -1)).not.toBeNull();
+    expect(cartLineVariantLabel('XL')).toBe('Varian: XL');
+    expect(cartLineVariantLabel(null)).toBeNull();
   });
 });

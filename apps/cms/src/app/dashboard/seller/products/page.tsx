@@ -11,12 +11,16 @@ import { getAccessToken, useAuth } from '@/lib/auth';
 
 interface ProductItem {
   id: string;
-  seller: { id: string; shopName: string; ownerId: string };
+  seller: { id: string; shopName: string; ownerId: string; verified?: boolean };
   category: string;
   name: string;
   description: string | null;
   price: number;
   stock: number;
+  /** ST-05: varian ([{ name, priceDelta, stock? }], [] bila tanpa varian). */
+  variants?: Array<{ name: string; priceDelta?: number; stock?: number | null }>;
+  /** ST-05: badge kurasi manual (null = tanpa badge). */
+  badge?: string | null;
   photos: string[];
   status: string;
   rejectionReason: string | null;
@@ -83,6 +87,9 @@ function ProductsContent() {
   const [fStock, setFStock] = useState('');
   const [fDesc, setFDesc] = useState('');
   const [fPhotos, setFPhotos] = useState('');
+  // ST-05: varian (satu per baris: "nama | priceDelta | stok?") + badge.
+  const [fVariants, setFVariants] = useState('');
+  const [fBadge, setFBadge] = useState('');
   const [addBusy, setAddBusy] = useState(false);
   const [addMsg, setAddMsg] = useState<string | null>(null);
 
@@ -94,6 +101,8 @@ function ProductsContent() {
   const [eStock, setEStock] = useState('');
   const [eDesc, setEDesc] = useState('');
   const [ePhotos, setEPhotos] = useState('');
+  const [eVariants, setEVariants] = useState('');
+  const [eBadge, setEBadge] = useState('');
   const [editBusy, setEditBusy] = useState(false);
   const [editMsg, setEditMsg] = useState<string | null>(null);
 
@@ -136,6 +145,53 @@ function ProductsContent() {
     return raw.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 5);
   }
 
+  /**
+   * ST-05: varian dari textarea — satu per baris
+   * `nama | priceDelta | stok?` (delta & stok opsional, int; stok kosong =
+   * ikut stok dasar). Maks 10 baris. Invalid → throw pesan Indonesia.
+   */
+  function parseVariants(raw: string): Array<{ name: string; priceDelta: number; stock?: number }> {
+    const lines = raw.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (lines.length > 10) throw new Error('Varian maksimal 10 baris.');
+    return lines.map((line, i) => {
+      const [nameRaw, deltaRaw, stockRaw] = line.split('|').map((s) => s.trim());
+      if (!nameRaw || nameRaw.length > 60) {
+        throw new Error(`Varian baris ${i + 1}: nama wajib diisi (maks 60 karakter).`);
+      }
+      const out: { name: string; priceDelta: number; stock?: number } = {
+        name: nameRaw,
+        priceDelta: 0,
+      };
+      if (deltaRaw) {
+        const d = Number(deltaRaw);
+        if (!Number.isInteger(d)) throw new Error(`Varian baris ${i + 1}: priceDelta harus bilangan bulat.`);
+        out.priceDelta = d;
+      }
+      if (stockRaw) {
+        const s = Number(stockRaw);
+        if (!Number.isInteger(s) || s < 0) {
+          throw new Error(`Varian baris ${i + 1}: stok harus bilangan bulat ≥ 0.`);
+        }
+        out.stock = s;
+      }
+      return out;
+    });
+  }
+
+  /** ST-05: varian produk → teks textarea (untuk form edit). */
+  function formatVariants(v?: ProductItem['variants']): string {
+    return (v ?? [])
+      .map((x) => `${x.name} | ${x.priceDelta ?? 0}${x.stock !== undefined && x.stock !== null ? ` | ${x.stock}` : ''}`)
+      .join('\n');
+  }
+
+  const BADGE_OPTIONS = [
+    { value: '', label: '— Tanpa badge —' },
+    { value: 'original', label: 'Original' },
+    { value: 'best_seller', label: 'Terlaris (kurasi manual)' },
+    { value: 'baru', label: 'Baru' },
+  ];
+
   async function submitAdd(e: React.FormEvent) {
     e.preventDefault();
     const token = getAccessToken();
@@ -165,9 +221,14 @@ function ProductsContent() {
       if (fDesc.trim()) body['description'] = fDesc.trim();
       const photos = parsePhotos(fPhotos);
       if (photos.length > 0) body['photos'] = photos;
+      // ST-05: varian + badge (badge kosong = tanpa badge).
+      const variants = parseVariants(fVariants);
+      if (variants.length > 0) body['variants'] = variants;
+      if (fBadge) body['badge'] = fBadge;
       const p = await apiFetch<ProductItem>('/products', token, { method: 'POST', body });
       setAddMsg(`Produk "${p.name}" tersimpan berstatus ${p.status} — menunggu approval super_admin.`);
       setFName(''); setFCategory(''); setFPrice(''); setFStock(''); setFDesc(''); setFPhotos('');
+      setFVariants(''); setFBadge('');
       setPage(1);
       await refresh(1);
     } catch (e: unknown) {
@@ -186,6 +247,8 @@ function ProductsContent() {
     setEStock(String(p.stock));
     setEDesc(p.description ?? '');
     setEPhotos((p.photos ?? []).join('\n'));
+    setEVariants(formatVariants(p.variants));
+    setEBadge(p.badge ?? '');
     setEditMsg(null);
   }
 
@@ -209,6 +272,9 @@ function ProductsContent() {
         stock,
         description: eDesc.trim() || null,
         photos: parsePhotos(ePhotos),
+        // ST-05: varian mengganti total; badge kosong = hapus badge (null).
+        variants: parseVariants(eVariants),
+        badge: eBadge || null,
       };
       const res = await apiFetch<ProductItem | PendingChangeRes>(`/products/${editId}`, token, {
         method: 'PATCH',
@@ -312,6 +378,8 @@ function ProductsContent() {
                   <th scope="col">Kategori</th>
                   <th scope="col">Harga</th>
                   <th scope="col">Stok</th>
+                  <th scope="col">Varian (ST-05)</th>
+                  <th scope="col">Badge (ST-05)</th>
                   <th scope="col">Status</th>
                   <th scope="col">Alasan reject</th>
                   <th scope="col">Aksi</th>
@@ -320,10 +388,27 @@ function ProductsContent() {
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id}>
-                    <td><strong>{disp(p.name)}</strong></td>
+                    <td>
+                      <strong>{disp(p.name)}</strong>
+                      {p.seller?.verified ? (
+                        <span title="Toko terverifikasi admin"> ✓</span>
+                      ) : null}
+                    </td>
                     <td>{disp(p.category)}</td>
                     <td>{formatIDR(p.price)}</td>
                     <td>{p.stock}</td>
+                    <td style={{ fontSize: 12 }}>
+                      {(p.variants ?? []).length === 0
+                        ? '—'
+                        : (p.variants ?? []).map((v) => (
+                          <span key={v.name} style={{ display: 'block' }}>
+                            {disp(v.name)}
+                            {v.priceDelta ? ` (${v.priceDelta > 0 ? '+' : ''}${formatIDR(v.priceDelta)})` : ''}
+                            {v.stock !== undefined && v.stock !== null ? ` · stok ${v.stock}` : ''}
+                          </span>
+                        ))}
+                    </td>
+                    <td>{p.badge ? disp(p.badge) : '—'}</td>
                     <td><StatusBadge status={p.status} /></td>
                     <td>{p.rejectionReason ? disp(p.rejectionReason) : '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
@@ -347,8 +432,9 @@ function ProductsContent() {
             <form onSubmit={submitEdit} style={{ marginTop: 12, borderTop: '1px solid var(--ks-border, #e2e8f0)', paddingTop: 12 }} aria-label="Formulir ubah produk">
               <h3 className="ks-panel-title">✏️ Ubah produk</h3>
               <p className="ks-muted-text" style={{ fontSize: 12, margin: '0 0 8px' }}>
-                Field sensitif (nama, harga, foto, deskripsi) atas produk approved TIDAK langsung berubah —
+                Field sensitif (nama, harga, foto, deskripsi, varian ST-05) atas produk approved TIDAK langsung berubah —
                 server menjawab 202 dan membuat change request pending (publik tetap data lama).
+                Badge (ST-05) non-sensitif — langsung berlaku.
                 {rows.find((r) => r.id === editId)?.status === 'rejected' && (
                   <> Produk ini <StatusBadge status="rejected" /> — menyimpan akan mengajukan ulang (kembali pending).</>
                 )}
@@ -377,6 +463,18 @@ function ProductsContent() {
                 <label style={{ flex: '2 1 240px', fontSize: 13 }}>
                   Foto (satu URL per baris, maks 5)
                   <textarea className="ks-input" style={{ marginTop: 4 }} value={ePhotos} onChange={(e) => setEPhotos(e.target.value)} rows={2} aria-label="URL foto produk" placeholder="/uploads/… atau https://…" />
+                </label>
+                <label style={{ flex: '2 1 240px', fontSize: 13 }}>
+                  Varian ST-05 (satu per baris: nama | priceDelta | stok?)
+                  <textarea className="ks-input" style={{ marginTop: 4 }} value={eVariants} onChange={(e) => setEVariants(e.target.value)} rows={2} aria-label="Varian produk" placeholder="Ukuran 42 | 20000 | 5" />
+                </label>
+                <label style={{ flex: '1 1 160px', fontSize: 13 }}>
+                  Badge ST-05
+                  <select className="ks-input" style={{ marginTop: 4 }} value={eBadge} onChange={(e) => setEBadge(e.target.value)} aria-label="Badge produk">
+                    {BADGE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -425,6 +523,18 @@ function ProductsContent() {
             <label style={{ flex: '2 1 240px', fontSize: 13 }}>
               Foto (opsional, satu URL per baris)
               <textarea className="ks-input" style={{ marginTop: 4 }} value={fPhotos} onChange={(e) => setFPhotos(e.target.value)} rows={2} aria-label="URL foto produk baru" placeholder="/uploads/… atau https://…" />
+            </label>
+            <label style={{ flex: '2 1 240px', fontSize: 13 }}>
+              Varian ST-05 (opsional, satu per baris: nama | priceDelta | stok?)
+              <textarea className="ks-input" style={{ marginTop: 4 }} value={fVariants} onChange={(e) => setFVariants(e.target.value)} rows={2} aria-label="Varian produk baru" placeholder="Ukuran 42 | 20000 | 5" />
+            </label>
+            <label style={{ flex: '1 1 160px', fontSize: 13 }}>
+              Badge ST-05 (opsional)
+              <select className="ks-input" style={{ marginTop: 4 }} value={fBadge} onChange={(e) => setFBadge(e.target.value)} aria-label="Badge produk baru">
+                {BADGE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </label>
             <button className="ks-btn ks-btn-primary" type="submit" disabled={addBusy} style={{ alignSelf: 'flex-end' }}>
               {addBusy ? 'Menyimpan…' : 'Tambah Produk'}

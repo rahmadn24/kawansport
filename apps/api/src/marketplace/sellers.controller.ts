@@ -74,4 +74,16 @@ export class SellersController {
   ) {
     return this.sellers.reject(id, dto.reason);
   }
+
+  /**
+   * Tandai toko terverifikasi (ST-05, khusus super_admin, idempotent).
+   * Verifikasi ≠ approval: status moderasi tidak berubah.
+   */
+  @Post(':id/verify')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  verify(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.sellers.verify(id);
+  }
 }

@@ -22,6 +22,17 @@ export const SHOP_ORDER_STATUSES: ShopOrderStatus[] = [
   'cancelled',
 ];
 
+/**
+ * Cara serah terima order (ST-05): `pickup` = ambil di toko (bebas ongkir),
+ * `delivery` = diantar + `deliveryFee` snapshot.
+ */
+export type ShopFulfillment = 'pickup' | 'delivery';
+
+export const SHOP_FULFILLMENTS: ShopFulfillment[] = ['pickup', 'delivery'];
+
+/** Maksimal ongkir manual per order (ST-05, rupiah). */
+export const MAX_DELIVERY_FEE = 100000;
+
 /** true saat berjalan di atas sql.js in-memory (hanya untuk e2e test). */
 const isSqljs = process.env.DB_DRIVER === 'sqljs';
 
@@ -77,6 +88,18 @@ export class ShopOrder {
   /** Poin Kawan terpakai, 1 poin = Rp1 (ST-04, snapshot, default 0). */
   @Column({ name: 'points_used', type: 'int', default: 0 })
   pointsUsed!: number;
+
+  /**
+   * Cara serah terima (ST-05, snapshot saat checkout, default pickup).
+   * `delivery` memakai `deliveryFee` dari body checkout (ongkir manual
+   * info toko, maks 100rb); `pickup` selalu bebas ongkir (fee 0).
+   */
+  @Column({ type: 'varchar', length: 20, default: 'pickup' })
+  fulfillment!: ShopFulfillment;
+
+  /** Snapshot ongkir rupiah (ST-05; 0 bila pickup). */
+  @Column({ name: 'delivery_fee', type: 'int', default: 0 })
+  deliveryFee!: number;
 
   @Column({ name: 'snap_token', type: 'varchar', length: 255, nullable: true })
   snapToken?: string | null;
@@ -184,6 +207,16 @@ export class ShopOrderItem {
   /** Snapshot harga satuan saat checkout. */
   @Column({ type: 'int' })
   price!: number;
+
+  /**
+   * Indeks varian (ST-05, -1 = tanpa varian) + snapshot nama varian
+   * (untuk tampilan riwayat + rollback stok varian yang tepat).
+   */
+  @Column({ name: 'variant_index', type: 'int', default: -1 })
+  variantIndex!: number;
+
+  @Column({ name: 'variant_name', type: 'varchar', length: 60, nullable: true })
+  variantName?: string | null;
 
   @Column({ type: 'int' })
   subtotal!: number;

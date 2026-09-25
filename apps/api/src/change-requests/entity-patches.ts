@@ -24,12 +24,17 @@ export const COURT_SENSITIVE_FIELDS = [
   'openHours',
 ] as const;
 
-/** Field produk yang butuh approve saat produk sudah `approved`. */
+/**
+ * Field produk yang butuh approve saat produk sudah `approved`.
+ * ST-05: `variants` sensitif (memengaruhi harga/stok); `badge` NON-sensitif
+ * (label tampilan kurasi seller — langsung berlaku seperti `category`).
+ */
 export const PRODUCT_SENSITIVE_FIELDS = [
   'name',
   'price',
   'photos',
   'description',
+  'variants',
 ] as const;
 
 export function hasSensitiveKeys(
@@ -134,6 +139,17 @@ export interface ProductPatch {
   price?: number;
   stock?: number;
   photos?: string[];
+  /**
+   * ST-05: varian ternormalisasi (mengganti total) + badge
+   * (`null` = hapus badge). Builder TIDAK memvalidasi isi varian —
+   * validasi di ProductsService (`normalizeProductVariants`).
+   */
+  variants?: Array<{
+    name: string;
+    priceDelta?: number;
+    stock?: number | null;
+  }> | null;
+  badge?: string | null;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,6 +167,16 @@ export function buildProductPayload(dto: Record<string, any>): ProductPatch {
   if (dto.stock !== undefined) patch.stock = Number(dto.stock);
   if (dto.photos !== undefined) {
     patch.photos = normalizePhotoList(dto.photos as unknown[]);
+  }
+  if (dto.variants !== undefined) {
+    patch.variants =
+      dto.variants === null
+        ? null
+        : (dto.variants as ProductPatch['variants']);
+  }
+  if (dto.badge !== undefined) {
+    const s = String(dto.badge ?? '').trim();
+    patch.badge = s ? s : null;
   }
   return patch;
 }

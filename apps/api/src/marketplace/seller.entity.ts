@@ -50,6 +50,13 @@ export class Seller {
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason?: string | null;
 
+  /**
+   * Toko terverifikasi (ST-05). Default false; hanya super_admin via
+   * POST /sellers/:id/verify. Tampil di payload produk (`seller.verified`).
+   */
+  @Column({ type: 'boolean', default: false })
+  verified!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

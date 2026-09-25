@@ -33,13 +33,12 @@ export const STITCH_VOUCHER_HIDDEN = true;
 export const STITCH_EQUIPMENT_HIDDEN = true;
 export const STITCH_FACILITIES_HIDDEN = true;
 
-// TODO(ST-05): ganti API shipping marketplace — section shipping DISEMBUNYIKAN;
-// default sementara: ambil di toko.
-export const STITCH_SHIPPING_HIDDEN = true;
+// ST-05 SELESAI: opsi shipping + verified dari API marketplace kaya
+// (fulfillment pickup/delivery + deliveryFee di CartScreen).
+export const STITCH_SHIPPING_HIDDEN = false;
 
-// TODO(ST-05): ganti API seller verified — badge verified DISEMBUNYIKAN
-// (verified selalu false dulu = JANGAN tampilkan badge palsu).
-export const STITCH_VERIFIED_BADGE_VISIBLE = false;
+// ST-05 SELESAI: badge verified real dari server (seller.verified).
+export const STITCH_VERIFIED_BADGE_VISIBLE = true;
 
 // TODO(ST-01): ganti foto asli venue/produk dari API media — sementara
 // gradasi hijau + inisial, JANGAN foto palsu.

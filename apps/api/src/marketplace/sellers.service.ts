@@ -18,6 +18,8 @@ export interface SellerItem {
   description: string | null;
   status: Seller['status'];
   rejectionReason: string | null;
+  /** ST-05: toko terverifikasi admin (default false, tampil di produk). */
+  verified: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -135,6 +137,21 @@ export class SellersService {
     return this.mustLoad(id);
   }
 
+  /**
+   * POST /sellers/:id/verify — tandai toko `verified = true` (super_admin).
+   * Idempotent (verifikasi ulang tetap 200). Status moderasi tidak berubah —
+   * verifikasi ≠ approval (toko pending tetap pending sampai approve).
+   */
+  async verify(id: string): Promise<SellerItem> {
+    const seller = await this.sellers.findOne({ where: { id } });
+    if (!seller) throw new NotFoundException('Seller not found');
+    if (!seller.verified) {
+      seller.verified = true;
+      await this.sellers.save(seller);
+    }
+    return this.mustLoad(id);
+  }
+
   private async mustLoad(id: string): Promise<SellerItem> {
     const seller = await this.sellers.findOne({
       where: { id },
@@ -156,6 +173,7 @@ export class SellersService {
       description: s.description ?? null,
       status: s.status,
       rejectionReason: s.rejectionReason ?? null,
+      verified: s.verified ?? false,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
     };

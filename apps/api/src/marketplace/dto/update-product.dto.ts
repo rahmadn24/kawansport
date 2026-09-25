@@ -2,13 +2,17 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { IsPhotoUrl } from '../../uploads/photo-url';
+import { PRODUCT_BADGES } from '../product.entity';
+import { ProductVariantDto } from './product-variant.dto';
 
 /** PATCH /products/:id — semua field opsional. */
 export class UpdateProductDto {
@@ -45,4 +49,18 @@ export class UpdateProductDto {
   @IsString({ each: true })
   @IsPhotoUrl({ each: true })
   photos?: string[];
+
+  /** Varian produk (ST-05, opsional, maks 10; mengganti total). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  variants?: ProductVariantDto[];
+
+  /** Badge tampilan (ST-05, manual; `null` = hapus badge). */
+  @IsOptional()
+  @IsString()
+  @IsIn([...PRODUCT_BADGES])
+  badge?: string | null;
 }

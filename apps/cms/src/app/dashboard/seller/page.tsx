@@ -17,6 +17,8 @@ interface SellerItem {
   description: string | null;
   status: string;
   rejectionReason: string | null;
+  /** ST-05: toko terverifikasi admin (POST /sellers/:id/verify). */
+  verified?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -335,6 +337,16 @@ function SellerHub() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <h2 style={{ margin: 0, fontSize: 20 }}>{seller.shopName}</h2>
                   <StatusBadge status={seller.status} />
+                  {/* ST-05: verified real dari server — hanya tampil bila true. */}
+                  {seller.verified ? (
+                    <span className="ks-badge approved" title="Toko terverifikasi oleh super_admin">
+                      ✓ Terverifikasi
+                    </span>
+                  ) : (
+                    <span className="ks-muted-text" style={{ fontSize: 12 }} title="Belum diverifikasi super_admin (POST /sellers/:id/verify)">
+                      Belum terverifikasi
+                    </span>
+                  )}
                 </div>
                 <p className="ks-muted-text" style={{ fontSize: 13, margin: '6px 0 0' }}>
                   {seller.description || 'Belum ada deskripsi toko.'}

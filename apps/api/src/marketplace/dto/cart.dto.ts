@@ -9,9 +9,10 @@ import {
 
 /**
  * PUT /cart — satu bentuk untuk add/update/remove/clear:
- * - `{ productId, qty (>0) }` = tambah/ubah jumlah.
- * - `{ productId, qty: 0 }` = hapus baris produk tsb.
+ * - `{ productId, qty (>0) }` = tambah/ubah; `{ productId, qty: 0 }` = hapus baris.
  * - `{ clear: true }` = kosongkan seluruh cart (productId/qty diabaikan).
+ * - ST-05: `{ variantIndex? }` = indeks varian produk (0-based; absen =
+ *   tanpa varian). Tiap (produk, varian) adalah baris cart tersendiri.
  */
 export class UpdateCartDto {
   @IsOptional()
@@ -23,6 +24,12 @@ export class UpdateCartDto {
   @IsInt()
   @Min(0)
   qty?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  variantIndex?: number;
 
   @IsOptional()
   @IsBoolean()

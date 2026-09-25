@@ -12,6 +12,10 @@ import { Court } from '../venues/court.entity';
 import { Venue } from '../venues/venue.entity';
 import { Product } from '../marketplace/product.entity';
 import {
+  normalizeProductBadge,
+  normalizeProductVariants,
+} from '../marketplace/product-variants';
+import {
   buildCourtPayload,
   buildProductPayload,
   buildVenuePayload,
@@ -287,6 +291,14 @@ export class ChangeRequestsService {
     if (patch.description !== undefined) product.description = patch.description;
     if (patch.price !== undefined) product.price = patch.price;
     if (patch.stock !== undefined) product.stock = patch.stock;
+    if (patch.variants !== undefined) {
+      // ST-05: varian sensitif — validasi ulang via helper yang sama dengan
+      // path edit langsung agar hasil approve identik.
+      product.variants = normalizeProductVariants(patch.variants);
+    }
+    if (patch.badge !== undefined) {
+      product.badge = normalizeProductBadge(patch.badge);
+    }
     if (patch.photos !== undefined) {
       const photos = normalizePhotoList(patch.photos);
       assertPhotoUrls(photos, 5, 'Product photos');

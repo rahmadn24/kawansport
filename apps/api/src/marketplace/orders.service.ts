@@ -22,7 +22,13 @@ import {
   ShopOrderGroup,
   ShopOrderItem,
   ShopOrderStatus,
+  ShopFulfillment,
 } from './shop-order.entity';
+import {
+  assertValidVariantIndex,
+  unitPriceFor,
+  variantNameFor,
+} from './product-variants';
 
 export interface OrderDetailItem {
   productId: string;
@@ -30,6 +36,10 @@ export interface OrderDetailItem {
   qty: number;
   price: number;
   subtotal: number;
+  /** ST-05: indeks varian (-1 = tanpa varian). */
+  variantIndex: number;
+  /** ST-05: snapshot nama varian (null bila tanpa varian). */
+  variantName: string | null;
 }
 
 export interface OrderDetailGroup {
@@ -56,6 +66,10 @@ export interface OrderDetail {
   voucherCode: string | null;
   /** Poin Kawan terpakai (ST-04, snapshot, 1 poin = Rp1). */
   pointsUsed: number;
+  /** ST-05: cara serah terima (snapshot; pickup bebas ongkir). */
+  fulfillment: ShopFulfillment;
+  /** ST-05: snapshot ongkir rupiah (0 bila pickup). */
+  deliveryFee: number;
   snapToken: string | null;
   redirectUrl: string | null;
   paidAt: Date | null;
@@ -145,6 +159,15 @@ export class OrdersService {
   async checkout(actor: ActorInput, dto?: CheckoutDto): Promise<OrderDetail> {
     const voucherCode = dto?.voucherCode?.trim() || null;
     const usePoints = dto?.usePoints ?? 0;
+    // ST-05: fulfillment + ongkir manual (DTO sudah batasi 0..100rb).
+    const fulfillment: ShopFulfillment =
+      dto?.fulfillment === 'delivery' ? 'delivery' : 'pickup';
+    const deliveryFee = dto?.deliveryFee ?? 0;
+    if (fulfillment === 'pickup' && deliveryFee !== 0) {
+      throw new BadRequestException(
+        'deliveryFee requires fulfillment "delivery"',
+      );
+    }
     const orderId = await this.withCheckoutLock(async () => {
       const created = await this.orders.manager.transaction(async (mgr) => {
         const cartRepo = mgr.getRepository(Cart);
@@ -190,25 +213,68 @@ export class OrdersService {
 
         for (const line of lines) {
           const p = byId.get(line.productId)!;
-          if (p.stock < line.qty) {
+          try {
+            assertValidVariantIndex(p, line.variantIndex ?? -1);
+          } catch {
+            throw new ConflictException(
+              'Product is no longer available for checkout',
+            );
+          }
+        }
+
+        // ST-05: cek stok per (produk, varian). Varian dengan `stock`
+        // memakai stok varian; baris lain berbagi stok dasar produk.
+        const needBase = new Map<string, number>();
+        for (const line of lines) {
+          const p = byId.get(line.productId)!;
+          const vIdx = line.variantIndex ?? -1;
+          const variants = p.variants ?? [];
+          const v = vIdx >= 0 ? variants[vIdx] : undefined;
+          if (v && v.stock !== undefined && v.stock !== null) {
+            if (v.stock < line.qty) {
+              throw new ConflictException(
+                `Insufficient stock for variant ${v.name} of product ${p.name}`,
+              );
+            }
+          } else {
+            needBase.set(p.id, (needBase.get(p.id) ?? 0) + line.qty);
+          }
+        }
+        for (const [pid, need] of needBase) {
+          const p = byId.get(pid)!;
+          if (p.stock < need) {
             throw new ConflictException(
               `Insufficient stock for product ${p.name}`,
             );
           }
         }
 
-        // Valid + cukup → decrement stok.
+        // Valid + cukup → decrement stok (varian / dasar).
         for (const line of lines) {
           const p = byId.get(line.productId)!;
-          p.stock -= line.qty;
+          const vIdx = line.variantIndex ?? -1;
+          const variants = p.variants ?? [];
+          const v = vIdx >= 0 ? variants[vIdx] : undefined;
+          if (v && v.stock !== undefined && v.stock !== null) {
+            v.stock -= line.qty;
+            // Reassign agar simple-json terdeteksi berubah (sqljs/postgres).
+            p.variants = [...variants];
+          } else {
+            p.stock -= line.qty;
+          }
           await productRepo.save(p);
         }
+
+        // Harga satuan per baris = dasar + priceDelta (ST-05).
+        const unitOf = (pid: string, vIdx: number): number =>
+          unitPriceFor(byId.get(pid)!, vIdx);
 
         // Kelompokkan per seller → 1 grup per seller.
         const sellerIds = [...new Set(lines.map((l) => byId.get(l.productId)!.sellerId))].sort();
         const paymentRef = generateMarketPaymentRef();
         const subtotal = lines.reduce(
-          (sum, l) => sum + byId.get(l.productId)!.price * l.qty,
+          (sum, l) =>
+            sum + unitOf(l.productId, l.variantIndex ?? -1) * l.qty,
           0,
         );
 
@@ -232,7 +298,9 @@ export class OrdersService {
           mgr,
           { userId: actor.id, requested: usePoints, cap: subtotal - discount },
         );
-        const total = Math.max(0, subtotal - discount - pointsUsed);
+        // ST-05: ongkir TIDAK bisa dibayar voucher/poin — fee ditambah di
+        // atas total setelah diskon (pola service fee API-W03).
+        const total = Math.max(0, subtotal - discount - pointsUsed) + deliveryFee;
 
         const order = await orderRepo.save(
           orderRepo.create({
@@ -245,6 +313,8 @@ export class OrdersService {
             discount,
             voucherCode: appliedCode,
             pointsUsed,
+            fulfillment,
+            deliveryFee,
           }),
         );
         if (redemptionId) {
@@ -259,7 +329,8 @@ export class OrdersService {
             (l) => byId.get(l.productId)!.sellerId === sellerId,
           );
           const subtotal = sellerLines.reduce(
-            (sum, l) => sum + byId.get(l.productId)!.price * l.qty,
+            (sum, l) =>
+              sum + unitOf(l.productId, l.variantIndex ?? -1) * l.qty,
             0,
           );
           const group = await groupRepo.save(
@@ -272,6 +343,8 @@ export class OrdersService {
           );
           for (const line of sellerLines) {
             const p = byId.get(line.productId)!;
+            const vIdx = line.variantIndex ?? -1;
+            const unit = unitOf(line.productId, vIdx);
             await orderItemRepo.save(
               orderItemRepo.create({
                 orderId: order.id,
@@ -280,8 +353,10 @@ export class OrdersService {
                 sellerId,
                 productName: p.name,
                 qty: line.qty,
-                price: p.price,
-                subtotal: p.price * line.qty,
+                price: unit,
+                subtotal: unit * line.qty,
+                variantIndex: vIdx,
+                variantName: variantNameFor(p, vIdx),
               }),
             );
           }
@@ -405,6 +480,8 @@ export class OrdersService {
           qty: it.qty,
           price: it.price,
           subtotal: it.subtotal,
+          variantIndex: it.variantIndex ?? -1,
+          variantName: it.variantName ?? null,
         })),
         buyerDisplayName: buyer?.displayName ?? null,
         paidAt: order.paidAt ?? null,
@@ -431,20 +508,7 @@ export class OrdersService {
       if (!order || order.status !== 'pending' || order.snapToken) return;
 
       const items = await orderItemRepo.find({ where: { orderId } });
-      const qtyByProduct = new Map<string, number>();
-      for (const it of items) {
-        qtyByProduct.set(
-          it.productId,
-          (qtyByProduct.get(it.productId) ?? 0) + it.qty,
-        );
-      }
-      const products = await productRepo.find({
-        where: { id: In([...qtyByProduct.keys()]) },
-      });
-      for (const p of products) {
-        p.stock += qtyByProduct.get(p.id) ?? 0;
-        await productRepo.save(p);
-      }
+      await restoreStocks(productRepo, items);
       if (order.voucherCode) {
         await this.vouchers.rollbackRedeem(mgr, {
           voucherCode: order.voucherCode,
@@ -502,6 +566,8 @@ export class OrdersService {
       discount: order.discount ?? 0,
       voucherCode: order.voucherCode ?? null,
       pointsUsed: order.pointsUsed ?? 0,
+      fulfillment: order.fulfillment ?? 'pickup',
+      deliveryFee: order.deliveryFee ?? 0,
       snapToken: order.snapToken ?? null,
       redirectUrl: order.redirectUrl ?? null,
       paidAt: order.paidAt ?? null,
@@ -519,9 +585,71 @@ export class OrdersService {
           qty: it.qty,
           price: it.price,
           subtotal: it.subtotal,
+          variantIndex: it.variantIndex ?? -1,
+          variantName: it.variantName ?? null,
         })),
       })),
     };
+  }
+}
+
+/**
+ * Kembalikan stok tiap item ke produk: baris dengan varian yang (masih)
+ * punya `stock` mengembalikan stok varian, else stok dasar.
+ * Best-effort bila varian sudah diubah/dihapus seller — jatuh ke stok dasar.
+ * Dipakai kompensasi Snap-gagal (OrdersService) + rollback webhook
+ * expire/cancel (BookingsService).
+ */
+export async function restoreStocks(
+  productRepo: {
+    find(options: unknown): Promise<Product[]>;
+    save(product: Product): Promise<Product>;
+  },
+  items: Array<{
+    productId: string;
+    qty: number;
+    variantIndex?: number | null;
+  }>,
+): Promise<void> {
+  const baseByProduct = new Map<string, number>();
+  const variantQty = new Map<string, Map<number, number>>();
+  for (const it of items) {
+    const vIdx = it.variantIndex ?? -1;
+    if (vIdx >= 0) {
+      let m = variantQty.get(it.productId);
+      if (!m) {
+        m = new Map<number, number>();
+        variantQty.set(it.productId, m);
+      }
+      m.set(vIdx, (m.get(vIdx) ?? 0) + it.qty);
+    } else {
+      baseByProduct.set(
+        it.productId,
+        (baseByProduct.get(it.productId) ?? 0) + it.qty,
+      );
+    }
+  }
+  const ids = [...new Set([...baseByProduct.keys(), ...variantQty.keys()])];
+  if (ids.length === 0) return;
+  const products = await productRepo.find({ where: { id: In(ids) } });
+  for (const p of products) {
+    const variants = p.variants ?? [];
+    const vMap = variantQty.get(p.id);
+    if (vMap) {
+      let touched = false;
+      for (const [vIdx, qty] of vMap) {
+        const v = variants[vIdx];
+        if (v && v.stock !== undefined && v.stock !== null) {
+          v.stock += qty;
+          touched = true;
+        } else {
+          baseByProduct.set(p.id, (baseByProduct.get(p.id) ?? 0) + qty);
+        }
+      }
+      if (touched) p.variants = [...variants];
+    }
+    p.stock += baseByProduct.get(p.id) ?? 0;
+    await productRepo.save(p);
   }
 }
 

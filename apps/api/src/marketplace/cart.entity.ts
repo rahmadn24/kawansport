@@ -41,11 +41,13 @@ export class Cart {
 }
 
 /**
- * Satu baris cart: produk + jumlah. Unik per (cart, produk) — tambah produk
- * yang sama menimpa qty (via PUT /cart), bukan menambah baris.
+ * Satu baris cart: produk + jumlah. Unik per (cart, produk, varian) — tambah
+ * produk yang sama menimpa qty (via PUT /cart), bukan menambah baris.
+ * `variantIndex` -1 = tanpa varian (default; dipakai agar unique constraint
+ * bekerja portabel — NULL bebas duplikat di Postgres).
  */
 @Entity('cart_items')
-@Unique('uq_cart_items_cart_product', ['cartId', 'productId'])
+@Unique('uq_cart_items_cart_product', ['cartId', 'productId', 'variantIndex'])
 export class CartItem {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -67,6 +69,14 @@ export class CartItem {
   /** Jumlah (>= 0 di DTO; qty 0 via PUT = hapus baris). */
   @Column({ type: 'int' })
   qty!: number;
+
+  /**
+   * Indeks varian produk (ST-05). -1 = tanpa varian / varian dasar.
+   * Harga satuan = harga dasar + priceDelta varian; stok dicek terhadap
+   * stok varian bila varian punya `stock`, else stok dasar produk.
+   */
+  @Column({ name: 'variant_index', type: 'int', default: -1 })
+  variantIndex!: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

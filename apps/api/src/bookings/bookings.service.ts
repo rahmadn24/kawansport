@@ -20,6 +20,7 @@ import {
   ShopOrderItem,
 } from '../marketplace/shop-order.entity';
 import { Product } from '../marketplace/product.entity';
+import { restoreStocks } from '../marketplace/orders.service';
 import { Court } from '../venues/court.entity';
 import { RentalItem } from '../venues/rental-item.entity';
 import { Venue } from '../venues/venue.entity';
@@ -975,24 +976,10 @@ export class BookingsService {
           await groupRepo.save(g);
         }
       }
-      // Rollback stok: kembalikan qty tiap item.
+      // Rollback stok: kembalikan qty tiap item (ST-05 aware: stok varian
+      // bila baris memakai varian ber-stok, else stok dasar produk).
       const items = await itemRepo.find({ where: { orderId } });
-      const qtyByProduct = new Map<string, number>();
-      for (const it of items) {
-        qtyByProduct.set(
-          it.productId,
-          (qtyByProduct.get(it.productId) ?? 0) + it.qty,
-        );
-      }
-      if (qtyByProduct.size > 0) {
-        const products = await productRepo.find({
-          where: { id: In([...qtyByProduct.keys()]) },
-        });
-        for (const p of products) {
-          p.stock += qtyByProduct.get(p.id) ?? 0;
-          await productRepo.save(p);
-        }
-      }
+      await restoreStocks(productRepo, items);
     });
   }
 
