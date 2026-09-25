@@ -27,14 +27,14 @@ export class Invite {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'from_user_id', type: 'varchar', length: 36 })
+  @Column({ name: 'from_user_id' })
   fromUserId!: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'from_user_id' })
   fromUser?: User;
 
-  @Column({ name: 'to_user_id', type: 'varchar', length: 36 })
+  @Column({ name: 'to_user_id' })
   toUserId!: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })

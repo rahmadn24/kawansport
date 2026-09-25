@@ -1,9 +1,15 @@
 /**
  * Seed demo MVP KawanSport (SM-08, diperluas REL-01 #72).
  *
- * Isi: 10 users demo (3 existing + 7 baru) + 6 events sample +
- * 4 venues approved (+courts) + 1 seller + 4 produk + 1 voucher aktif +
- * 5 ratings/reviews + loyalty points + 1 conversation + pesan sample.
+ * Isi: 10 users demo (3 existing + 7 baru, 2 verified ST-07) +
+ * 8 events sample (termasuk 1 BERBAYAR fee ST-02 + 1 FULL + waitlist ST-03) +
+ * 4 venues approved (+courts + facilities ST-10 + rental items) +
+ * 1 seller verified + 4 produk (1 dgn variants + badge ST-05) +
+ * 1 voucher aktif + 2 promo (1 aktif + 1 expired ST-09) +
+ * 5 ratings/reviews (aspek/tag/anonim ST-06) + loyalty points +
+ * 1 invite pending + riwayat notifikasi sample + 1 conversation + pesan sample.
+ * Event payment PENDING stub (EV-SEED-DEMO-0001) dibuat langsung tanpa
+ * memanggil Midtrans. Order marketplace SENGAJA tidak di-seed (butuh Snap).
  * Idempotent: dijalankan ulang aman (upsert by email / judul / nama / kode).
  *
  * Foto diambil dari docs/design/stitch-assets/MAP.json bila ada
@@ -25,15 +31,27 @@ import { DataSource, IsNull } from 'typeorm';
 import { Conversation, sortPair } from './chat/conversation.entity';
 import { Message } from './chat/message.entity';
 import { EventParticipant } from './events/event-participant.entity';
+import { EventPayment } from './events/event-payment.entity';
+import { EventWaitlist } from './events/event-waitlist.entity';
 import { SportEvent, resolveEventStatus } from './events/event.entity';
 import { EventsService } from './events/events.service';
+import { Invite } from './invites/invite.entity';
 import { Seller } from './marketplace/seller.entity';
 import { Product } from './marketplace/product.entity';
+import type {
+  ProductBadge,
+  ProductVariant,
+} from './marketplace/product.entity';
+import { NotificationHistory } from './notifications/notification-history.entity';
+import { NotificationsService } from './notifications/notifications.service';
+import { Promo } from './promos/promo.entity';
 import { Rating } from './ratings/rating.entity';
 import { Review } from './ratings/review.entity';
+import type { ReviewAspects } from './ratings/review.entity';
 import { User, UserRole } from './users/user.entity';
 import { Venue } from './venues/venue.entity';
 import { Court } from './venues/court.entity';
+import { RentalItem } from './venues/rental-item.entity';
 import { Voucher } from './vouchers/voucher.entity';
 import { AppModule } from './app.module';
 
@@ -492,7 +510,13 @@ async function main() {
       lat: number;
       lng: number;
       sports: string[];
-      courts: Array<{ name: string; sport: string; pricePerHour: number }>;
+      facilities: string[];
+      courts: Array<{
+        name: string;
+        sport: string;
+        pricePerHour: number;
+        facilities: string[];
+      }>;
     }> = [
       {
         name: 'Arena Demo Senayan',
@@ -500,9 +524,10 @@ async function main() {
         lat: -6.2186,
         lng: 106.8029,
         sports: ['badminton', 'futsal'],
+        facilities: ['parkir', 'toilet', 'kantin', 'mushola', 'loker', 'tribun'],
         courts: [
-          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 100000 },
-          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 200000 },
+          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 100000, facilities: ['tribun', 'toilet'] },
+          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 200000, facilities: ['tribun', 'shower', 'loker'] },
         ],
       },
       {
@@ -511,9 +536,10 @@ async function main() {
         lat: -6.2378,
         lng: 106.8539,
         sports: ['badminton'],
+        facilities: ['parkir', 'wifi', 'toilet', 'mushola'],
         courts: [
-          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 80000 },
-          { name: 'Lapangan Badminton 2', sport: 'badminton', pricePerHour: 90000 },
+          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 80000, facilities: ['wifi', 'toilet'] },
+          { name: 'Lapangan Badminton 2', sport: 'badminton', pricePerHour: 90000, facilities: ['wifi', 'toilet'] },
         ],
       },
       {
@@ -522,10 +548,11 @@ async function main() {
         lat: -6.1618,
         lng: 106.9065,
         sports: ['futsal', 'badminton'],
+        facilities: ['parkir', 'shower', 'kantin', 'wifi', 'toilet', 'loker'],
         courts: [
-          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 150000 },
-          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 120000 },
-          { name: 'Lapangan Badminton 2', sport: 'badminton', pricePerHour: 120000 },
+          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 150000, facilities: ['shower', 'loker', 'tribun'] },
+          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 120000, facilities: ['wifi', 'toilet'] },
+          { name: 'Lapangan Badminton 2', sport: 'badminton', pricePerHour: 120000, facilities: ['wifi', 'toilet'] },
         ],
       },
       {
@@ -534,9 +561,10 @@ async function main() {
         lat: -6.4025,
         lng: 106.7942,
         sports: ['badminton', 'futsal'],
+        facilities: ['parkir', 'toilet', 'mushola', 'kantin'],
         courts: [
-          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 80000 },
-          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 180000 },
+          { name: 'Lapangan Badminton 1', sport: 'badminton', pricePerHour: 80000, facilities: ['toilet', 'mushola'] },
+          { name: 'Lapangan Futsal A', sport: 'futsal', pricePerHour: 180000, facilities: ['parkir', 'kantin'] },
         ],
       },
     ];
@@ -554,6 +582,7 @@ async function main() {
             lng: def.lng,
             sports: def.sports,
             photos,
+            facilities: def.facilities,
             ownerId: venueOwner.id,
             status: 'approved',
           }),
@@ -566,6 +595,7 @@ async function main() {
         v.lng = def.lng;
         v.sports = def.sports;
         v.photos = photos;
+        v.facilities = def.facilities;
         v.ownerId = venueOwner.id;
         v.status = 'approved';
         v.rejectionReason = null;
@@ -587,6 +617,7 @@ async function main() {
               sport: cdef.sport,
               pricePerHour: cdef.pricePerHour,
               openHours,
+              facilities: cdef.facilities,
               status: 'active',
             }),
           );
@@ -596,6 +627,7 @@ async function main() {
           existing.sport = cdef.sport;
           existing.pricePerHour = cdef.pricePerHour;
           existing.openHours = openHours;
+          existing.facilities = cdef.facilities;
           existing.status = 'active';
           await courts.save(existing);
         }
@@ -709,6 +741,7 @@ async function main() {
           shopName: 'Toko Sport Demo',
           description: 'Peralatan olahraga buat kawan mabar (toko demo).',
           status: 'approved',
+          verified: true,
         }),
       );
       // eslint-disable-next-line no-console
@@ -717,6 +750,7 @@ async function main() {
       seller.shopName = 'Toko Sport Demo';
       seller.description = 'Peralatan olahraga buat kawan mabar (toko demo).';
       seller.status = 'approved';
+      seller.verified = true;
       seller.rejectionReason = null;
       await sellers.save(seller);
       // eslint-disable-next-line no-console
@@ -733,6 +767,8 @@ async function main() {
       price: number;
       stock: number;
       photoOffset: number | null;
+      variants?: ProductVariant[] | null;
+      badge?: ProductBadge | null;
     }> = [
       {
         name: 'Raket Badminton Pro Demo',
@@ -749,6 +785,12 @@ async function main() {
         price: 550000,
         stock: 20,
         photoOffset: 1,
+        variants: [
+          { name: 'Ukuran 40', priceDelta: 0, stock: 8 },
+          { name: 'Ukuran 42', priceDelta: 20000, stock: 5 },
+          { name: 'Ukuran 44', priceDelta: 20000, stock: 7 },
+        ],
+        badge: 'best_seller',
       },
       {
         name: 'Shuttlecock Tournament Demo',
@@ -786,6 +828,8 @@ async function main() {
             price: def.price,
             stock: def.stock,
             photos,
+            variants: def.variants ?? null,
+            badge: def.badge ?? null,
             status: 'approved',
           }),
         );
@@ -797,6 +841,8 @@ async function main() {
         existing.price = def.price;
         existing.stock = def.stock;
         existing.photos = photos;
+        existing.variants = def.variants ?? null;
+        existing.badge = def.badge ?? null;
         existing.status = 'approved';
         existing.rejectionReason = null;
         await products.save(existing);
@@ -853,6 +899,9 @@ async function main() {
       score: number;
       comment: string;
       photoOffset: number | null;
+      aspects?: ReviewAspects | null;
+      tags?: string[] | null;
+      isAnonymous?: boolean;
     }> = [
       {
         userEmail: 'andi@demo.id',
@@ -861,6 +910,9 @@ async function main() {
         comment:
           'Lapangannya bagus banget, matras empuk dan lampunya terang. Pasti balik lagi!',
         photoOffset: null,
+        aspects: { lapangan: 5, cahaya: 4, bersih: 5, staf: 4 },
+        tags: ['bersih', 'terang'],
+        isAnonymous: false,
       },
       {
         userEmail: 'dewi@demo.id',
@@ -893,6 +945,9 @@ async function main() {
         comment:
           'Lapangannya oke, tapi toiletnya kurang bersih. Semoga cepat diperbaiki.',
         photoOffset: null,
+        aspects: { lapangan: 4, bersih: 2 },
+        tags: ['perlu-perawatan'],
+        isAnonymous: true,
       },
     ];
     for (const def of RATING_DEFS) {
@@ -927,6 +982,9 @@ async function main() {
             ratingId: r.id,
             comment: def.comment,
             photos: reviewPhotos,
+            aspects: def.aspects ?? null,
+            tags: def.tags ?? [],
+            isAnonymous: def.isAnonymous ?? false,
           }),
         );
         // eslint-disable-next-line no-console
@@ -934,6 +992,9 @@ async function main() {
       } else {
         rev.comment = def.comment;
         rev.photos = reviewPhotos;
+        rev.aspects = def.aspects ?? null;
+        rev.tags = def.tags ?? [];
+        rev.isAnonymous = def.isAnonymous ?? false;
         await reviews.save(rev);
       }
     }
@@ -950,6 +1011,302 @@ async function main() {
         await users.save(u);
         // eslint-disable-next-line no-console
         console.log(`~ loyalty ${email} = ${points}`);
+      }
+    }
+
+    // ---- REL-01 #72: user verified (ST-07, badge device-testable) ----
+    for (const email of ['andi@demo.id', 'dewi@demo.id']) {
+      const u = byEmail[email];
+      if (u && !u.verified) {
+        u.verified = true;
+        await users.save(u);
+        // eslint-disable-next-line no-console
+        console.log(`~ verified ${email} = true`);
+      }
+    }
+
+    // ---- REL-01 #72: rental items per venue (ST-10, katalog device-testable) ----
+    {
+      const rentalItems = ds.getRepository(RentalItem);
+      for (const v of savedVenues) {
+        const items: Array<{
+          name: string;
+          price: number;
+          stock: number;
+          unit: string;
+        }> = [];
+        if (v.sports?.includes('futsal')) {
+          items.push(
+            { name: 'Bola Futsal', price: 15000, stock: 12, unit: 'pcs' },
+            { name: 'Rompi Tim (set 10)', price: 25000, stock: 8, unit: 'set' },
+          );
+        }
+        if (v.sports?.includes('badminton')) {
+          items.push(
+            { name: 'Raket Badminton', price: 20000, stock: 10, unit: 'pcs' },
+            { name: 'Shuttlecock (tabung)', price: 30000, stock: 20, unit: 'pcs' },
+          );
+        }
+        // 2-3 item per venue (semua venue demo punya futsal/badminton).
+        for (const item of items.slice(0, 3)) {
+          const existing = await rentalItems.findOne({
+            where: { venueId: v.id, name: item.name },
+          });
+          if (!existing) {
+            await rentalItems.save(
+              rentalItems.create({
+                venueId: v.id,
+                name: item.name,
+                price: item.price,
+                stock: item.stock,
+                unit: item.unit,
+                status: 'active',
+              }),
+            );
+            // eslint-disable-next-line no-console
+            console.log(`+ rental "${v.name} / ${item.name}"`);
+          } else {
+            existing.price = item.price;
+            existing.stock = item.stock;
+            existing.unit = item.unit;
+            existing.status = 'active';
+            await rentalItems.save(existing);
+          }
+        }
+      }
+    }
+
+    // ---- REL-01 #72: event BERBAYAR (ST-02) + event FULL + waitlist (ST-03) ----
+    {
+      const eventPayments = ds.getRepository(EventPayment);
+      const waitlists = ds.getRepository(EventWaitlist);
+      // Event berbayar fee 50rb — host otomatis peserta #1 TANPA membayar.
+      // Device-test: user lain join → 201 + payment (Snap/stub), bukan peserta.
+      let paid = await events.findOne({
+        where: { title: 'Mabar Berbayar Patungan Lapangan (Demo)' },
+      });
+      if (!paid) {
+        const host = byEmail['farah@demo.id'];
+        paid = await events.save(
+          events.create({
+            hostId: host.id,
+            sport: 'futsal',
+            title: 'Mabar Berbayar Patungan Lapangan (Demo)',
+            description:
+              'Iuran Rp50rb buat patungan sewa lapangan (demo ST-02). Bayar via Snap.',
+            datetime: new Date(now + 5 * day),
+            lat: -6.2,
+            lng: 106.81,
+            capacity: 10,
+            fee: 50000,
+            photos: pickPhotos(PHOTOS.event, 3, 1),
+            participantsCount: 1,
+            status: resolveEventStatus(1, 10),
+          }),
+        );
+        await parts.save(parts.create({ eventId: paid.id, userId: host.id }));
+        // eslint-disable-next-line no-console
+        console.log('+ event "Mabar Berbayar Patungan Lapangan (Demo)" (fee 50000)');
+      }
+      await syncEventLocation(ds, paid.id, paid.lat, paid.lng);
+      // Baris payment PENDING stub untuk budi — dibuat langsung (upsert by
+      // paymentRef), BUKAN via join(), agar seed tak memanggil Midtrans.
+      // Device-test: alur bayar + webhook EV- terlihat tanpa network.
+      const stubRef = 'EV-SEED-DEMO-0001';
+      const stubPay = await eventPayments.findOne({
+        where: { paymentRef: stubRef },
+      });
+      if (!stubPay) {
+        await eventPayments.save(
+          eventPayments.create({
+            eventId: paid.id,
+            userId: byEmail['budi@demo.id'].id,
+            amount: paid.fee,
+            status: 'pending',
+            paymentRef: stubRef,
+            snapToken: 'stub-snap-token-demo',
+            redirectUrl: 'https://demo.kawansport.id/pay/EV-SEED-DEMO-0001',
+          }),
+        );
+        // eslint-disable-next-line no-console
+        console.log('+ event_payment stub EV-SEED-DEMO-0001 (pending, budi)');
+      }
+
+      // Event FULL kapasitas 2 (host + 1 peserta) — join berikut auto-waitlist.
+      let full = await events.findOne({
+        where: { title: 'Sparing Badminton FULL (Demo)' },
+      });
+      if (!full) {
+        const host = byEmail['gilang@demo.id'];
+        full = await events.save(
+          events.create({
+            hostId: host.id,
+            sport: 'badminton',
+            title: 'Sparing Badminton FULL (Demo)',
+            description:
+              'Slot penuh (demo ST-03) — coba join untuk masuk antrean otomatis.',
+            datetime: new Date(now + 2 * day),
+            lat: -6.215,
+            lng: 106.82,
+            capacity: 2,
+            fee: 0,
+            photos: pickPhotos(PHOTOS.event, 4, 1),
+            participantsCount: 1,
+            status: resolveEventStatus(1, 2),
+          }),
+        );
+        await parts.save(parts.create({ eventId: full.id, userId: host.id }));
+        // eslint-disable-next-line no-console
+        console.log('+ event "Sparing Badminton FULL (Demo)"');
+      }
+      // Peserta #2 ditulis langsung via repo (deterministik FULL, tanpa
+      // memicu logika waitlist milik join()).
+      const second = byEmail['dewi@demo.id'];
+      const pj = await parts.findOne({
+        where: { eventId: full.id, userId: second.id },
+      });
+      if (!pj) {
+        await parts.save(parts.create({ eventId: full.id, userId: second.id }));
+      }
+      const recountFull = await parts.count({ where: { eventId: full.id } });
+      full.participantsCount = recountFull;
+      full.status = resolveEventStatus(recountFull, full.capacity);
+      await events.save(full);
+      await syncEventLocation(ds, full.id, full.lat, full.lng);
+      // 1-2 waitlist entries (device-test GET /events/:id/waitlist + /me).
+      const base = await waitlists.count({ where: { eventId: full.id } });
+      const waiters = [byEmail['eko@demo.id'], byEmail['hana@demo.id']];
+      for (let k = 0; k < waiters.length; k += 1) {
+        const w = waiters[k];
+        const row = await waitlists.findOne({
+          where: { eventId: full.id, userId: w.id },
+        });
+        if (!row) {
+          await waitlists.save(
+            waitlists.create({
+              eventId: full.id,
+              userId: w.id,
+              position: base + k + 1,
+              status: 'waiting',
+            }),
+          );
+          // eslint-disable-next-line no-console
+          console.log(`+ waitlist ${w.email} -> "Sparing Badminton FULL (Demo)"`);
+        }
+      }
+    }
+
+    // ---- REL-01 #72: promo aktif + expired (ST-09, uji filter publik) ----
+    {
+      const promos = ds.getRepository(Promo);
+      const bannerImg =
+        PHOTOS.other[0] ?? PHOTOS.venue[0] ?? '/uploads/promos/demo-banner.png';
+      let active = await promos.findOne({
+        where: { title: 'Mabar Hemat Akhir Pekan (Demo)' },
+      });
+      const activeWin = {
+        startsAt: new Date(now - day),
+        endsAt: new Date(now + 14 * day),
+      };
+      if (!active) {
+        await promos.save(
+          promos.create({
+            title: 'Mabar Hemat Akhir Pekan (Demo)',
+            imageUrl: bannerImg,
+            link: '/events',
+            active: true,
+            startsAt: activeWin.startsAt,
+            endsAt: activeWin.endsAt,
+          }),
+        );
+        // eslint-disable-next-line no-console
+        console.log('+ promo "Mabar Hemat Akhir Pekan (Demo)" (aktif)');
+      } else {
+        active.imageUrl = bannerImg;
+        active.link = '/events';
+        active.active = true;
+        active.startsAt = activeWin.startsAt;
+        active.endsAt = activeWin.endsAt;
+        await promos.save(active);
+        // eslint-disable-next-line no-console
+        console.log('~ promo "Mabar Hemat Akhir Pekan (Demo)" (aktif)');
+      }
+      // Expired: active=true tapi endsAt lampau → terfilter dari GET /promos.
+      let expired = await promos.findOne({
+        where: { title: 'Promo Kedaluwarsa (Demo)' },
+      });
+      const expiredWin = {
+        startsAt: new Date(now - 30 * day),
+        endsAt: new Date(now - day),
+      };
+      if (!expired) {
+        await promos.save(
+          promos.create({
+            title: 'Promo Kedaluwarsa (Demo)',
+            imageUrl: bannerImg,
+            link: null,
+            active: true,
+            startsAt: expiredWin.startsAt,
+            endsAt: expiredWin.endsAt,
+          }),
+        );
+        // eslint-disable-next-line no-console
+        console.log('+ promo "Promo Kedaluwarsa (Demo)" (expired)');
+      } else {
+        expired.imageUrl = bannerImg;
+        expired.active = true;
+        expired.startsAt = expiredWin.startsAt;
+        expired.endsAt = expiredWin.endsAt;
+        await promos.save(expired);
+        // eslint-disable-next-line no-console
+        console.log('~ promo "Promo Kedaluwarsa (Demo)" (expired)');
+      }
+    }
+
+    // ---- REL-01 #72: invite pending + riwayat notifikasi sample ----
+    {
+      const invites = ds.getRepository(Invite);
+      const hana = byEmail['hana@demo.id'];
+      const pending = await invites.findOne({
+        where: { fromUserId: andi.id, toUserId: hana.id, status: 'pending' },
+      });
+      if (!pending) {
+        await invites.save(
+          invites.create({
+            fromUserId: andi.id,
+            toUserId: hana.id,
+            sport: 'lari',
+            message: 'Ikut lari pagi CFD bareng yuk! (undangan demo)',
+            status: 'pending',
+            eventId: null,
+          }),
+        );
+        // eslint-disable-next-line no-console
+        console.log('+ invite pending andi -> hana');
+      }
+      // Riwayat notifikasi ditulis via NotificationsService.sendToUsers —
+      // tanpa device token, service tetap menulis history lalu return
+      // { sent: 0 } SEBELUM menyentuh FCM (aman, tanpa network).
+      // Idempotent: dilewati bila judul marker sudah ada.
+      const history = ds.getRepository(NotificationHistory);
+      const NOTIF_TITLE = 'Selamat datang di KawanSport (Demo)';
+      const histExists = await history.findOne({
+        where: { userId: andi.id, title: NOTIF_TITLE },
+      });
+      if (!histExists) {
+        const notificationsService = app.get(NotificationsService, {
+          strict: false,
+        });
+        await notificationsService.sendToUsers({
+          userIds: [andi.id, budi.id],
+          title: NOTIF_TITLE,
+          body: 'Akun demonya sudah jadi. Yuk mabar, booking, dan belanja!',
+        });
+        // eslint-disable-next-line no-console
+        console.log('+ notification_history sample via NotificationsService');
+      } else {
+        // eslint-disable-next-line no-console
+        console.log('~ notification_history sample sudah ada, dilewati');
       }
     }
 
