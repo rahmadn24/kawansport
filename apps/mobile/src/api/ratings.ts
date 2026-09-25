@@ -13,11 +13,53 @@ export interface RatingUser {
   avatarUrl: string | null;
 }
 
+/** ST-06: kunci aspek penilaian review. */
+export type ReviewAspectKey = 'lapangan' | 'cahaya' | 'bersih' | 'staf';
+
+export type ReviewAspects = Partial<Record<ReviewAspectKey, number>>;
+
+/** ST-06: label Indonesia untuk tiap aspek. */
+export const REVIEW_ASPECT_LABELS: Record<ReviewAspectKey, string> = {
+  lapangan: 'Lapangan',
+  cahaya: 'Cahaya',
+  bersih: 'Kebersihan',
+  staf: 'Staf',
+};
+
+export const REVIEW_ASPECT_KEYS: ReviewAspectKey[] = [
+  'lapangan',
+  'cahaya',
+  'bersih',
+  'staf',
+];
+
+/** ST-06: nama tampilan untuk review anonim (sama dengan API). */
+export const ANONYMOUS_DISPLAY_NAME = 'Anonim';
+
+/** ST-06: preset tag sorotan (custom tetap boleh, maks 5 total). */
+export const REVIEW_TAG_PRESETS = [
+  'bersih',
+  'murah',
+  'sepi',
+  'ramai',
+  'bagus',
+  'parkir luas',
+] as const;
+
+export const MAX_REVIEW_TAGS = 5;
+export const MAX_TAG_LENGTH = 30;
+
 export interface ReviewItem {
   id: string;
   comment: string | null;
   /** ST-01: foto review (path /uploads/... atau https, maks 3). Absen pada respons lama. */
   photos?: string[];
+  /** ST-06: aspek penilaian (parsial OK). Absen/null pada respons lama. */
+  aspects?: ReviewAspects | null;
+  /** ST-06: tag sorotan (lowercase, maks 5). Absen pada respons lama. */
+  tags?: string[];
+  /** ST-06: bila true, user disamarkan jadi "Anonim" untuk non-owner/admin. */
+  isAnonymous?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +91,12 @@ export interface CreateRatingInput {
    * (POST /uploads butuh file picker native — lihat PhotoUploadDisabled).
    */
   photos?: string[];
+  /** ST-06: aspek penilaian (parsial OK, tiap nilai 1..5). */
+  aspects?: ReviewAspects;
+  /** ST-06: tag sorotan (maks 5 x 30 char; server normalisasi lowercase-trim). */
+  tags?: string[];
+  /** ST-06: samarkan identitas ke publik ("Anonim"). */
+  isAnonymous?: boolean;
 }
 
 export interface UpdateRatingInput {
@@ -56,6 +104,12 @@ export interface UpdateRatingInput {
   comment?: string;
   /** ST-01: foto review (display didukung; pengiriman disabled — lihat di atas). */
   photos?: string[];
+  /** ST-06: aspek penilaian (mengganti total; null = hapus semua). */
+  aspects?: ReviewAspects | null;
+  /** ST-06: tag sorotan (mengganti total). */
+  tags?: string[];
+  /** ST-06: mode anonim. */
+  isAnonymous?: boolean;
 }
 
 export interface RatingSummary {
@@ -148,6 +202,36 @@ export async function getCourtRatingSummary(
     params: { limit: 1000, sortBy: 'latest' },
   });
   return computeSummary(res.data.data);
+}
+
+/**
+ * ST-06: normalisasi tag client-side (cermin aturan server):
+ * trim + lowercase, buang kosong, dedupe (jaga urutan), cap 5.
+ * Validasi panjang (30 char) tetap di server (400) — klien hanya merapikan.
+ */
+export function normalizeTagsClient(input: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of input) {
+    const tag = String(raw ?? '').trim().toLowerCase();
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= MAX_REVIEW_TAGS) break;
+  }
+  return out;
+}
+
+/** ST-06: cek apakah aspek valid untuk dikirim (semua nilai 1..5, boleh parsial). */
+export function isValidAspectsClient(aspects: ReviewAspects | null | undefined): boolean {
+  if (!aspects) return true;
+  return Object.entries(aspects).every(
+    ([k, v]) =>
+      (REVIEW_ASPECT_KEYS as string[]).includes(k) &&
+      Number.isInteger(v) &&
+      (v as number) >= 1 &&
+      (v as number) <= 5,
+  );
 }
 
 /** Compute summary from rating list (client-side fallback). */

@@ -15,6 +15,11 @@ import { Rating } from './rating.entity';
  */
 const isSqljs = process.env.DB_DRIVER === 'sqljs';
 
+/** Kunci aspek penilaian review (ST-06). */
+export type ReviewAspectKey = 'lapangan' | 'cahaya' | 'bersih' | 'staf';
+
+export type ReviewAspects = Partial<Record<ReviewAspectKey, number>>;
+
 @Entity('reviews')
 export class Review {
   @PrimaryGeneratedColumn('uuid')
@@ -41,6 +46,37 @@ export class Review {
       : { type: 'text', array: true, default: [] as string[] },
   )
   photos?: string[] | null;
+
+  /**
+   * Penilaian aspek per fasilitas (ST-06): { lapangan?, cahaya?, bersih?, staf? },
+   * masing-masing 1..5, semua opsional (parsial OK).
+   * Postgres: jsonb — sqljs-test: simple-json (portabel).
+   */
+  @Column(
+    isSqljs
+      ? { type: 'simple-json', nullable: true }
+      : { type: 'jsonb', nullable: true },
+  )
+  aspects?: ReviewAspects | null;
+
+  /**
+   * Tag sorotan review (ST-06): maks 5 x 30 char, dinormalisasi
+   * lowercase-trim + dedupe di service.
+   * Postgres: text[] — sqljs-test: simple-array (portabel).
+   */
+  @Column(
+    isSqljs
+      ? { type: 'simple-array', nullable: true }
+      : { type: 'text', array: true, default: [] as string[] },
+  )
+  tags?: string[] | null;
+
+  /**
+   * Mode anonim (ST-06): bila true, respons publik menyamarkan user
+   * jadi "Anonim" + avatar null; owner review + admin tetap lihat asli.
+   */
+  @Column({ name: 'is_anonymous', type: 'boolean', default: false })
+  isAnonymous!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

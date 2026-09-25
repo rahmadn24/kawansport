@@ -204,6 +204,63 @@ Auth: JWT access token via `handshake.auth.token` (atau `handshake.query.token`)
 - client → `message:send { conversationId, body (1..2000 char) }` → persist + broadcast `message:new` (isi `MessageItem`) ke room conversation + `conversation:update { conversationId, lastMessage, unreadCount }` ke personal room kedua user.
 - server → `message:new`, server → `conversation:update`.
 
+## Rating & review kaya (SM-08 + ST-01 + ST-04 + ST-06)
+
+Satu user boleh rating satu venue/court sekali (unique `userId+venueId+courtId`,
+duplikat → 409). `score` integer 1..5. Review (1:1 dengan rating) dibuat bila
+ada isi: `comment`, `photos` (ST-01, maks 3, path `/uploads/...` atau `https`),
+`aspects`/`tags`/`isAnonymous` (ST-06). Update tidak menambah Poin Kawan;
+review yang dikosongkan total (tanpa isi + tidak anonim) dihapus.
+`RatingItem.user` tidak pernah memuat email.
+
+ST-06 — field review baru:
+- `aspects`: `{ lapangan?, cahaya?, bersih?, staf? }`, masing-masing integer
+  1..5, semua opsional (parsial OK). Nilai di luar 1..5 → 400. Kunci asing
+  di-strip oleh ValidationPipe `whitelist` global (bukan 400 — konvensi API).
+  PUT mengganti total (bukan merge); `aspects: null` menghapus semua aspek.
+- `tags`: string[] maks 5 × 30 char. Server menormalisasi: trim + lowercase,
+  buang kosong, dedupe (jaga urutan). Lebih dari 5 / ada yang >30 char → 400.
+  PUT mengganti total.
+- `isAnonymous` (boolean, default `false`): bila `true`, respons dengan viewer
+  selain owner review / `super_admin` menyamarkan
+  `user = { id, displayName: "Anonim", avatarUrl: null }`.
+  Owner review + admin selalu lihat asli. `id`/`userId` tetap asli
+  (kunci stabil, bukan identitas tampilan).
+- Endpoint publik (`GET` list/detail) menerima Bearer OPSIONAL: tanpa token /
+  token invalid request tetap 200 (tersamar); dengan token owner/admin
+  response menampilkan identitas asli.
+
+### `POST /ratings` (auth)
+Body: `{ venueId, courtId?, score (1..5), comment? (≤1000), photos? (≤3),
+aspects? ({lapangan?,cahaya?,bersih?,staf?} 1..5), tags? (≤5 × 30 char),
+isAnonymous? }` → 201 `RatingItem`.
+- 401 tanpa token; 404 venue/court tak ada (court harus milik venue tsb, else 400);
+  409 bila sudah rating venue/court ini.
+- Review dengan isi apa pun (termasuk hanya aspek/tag/anonim) memberi
+  +50 Poin Kawan sekali (ST-04, terlihat di `GET /me` → `loyaltyPoints`).
+
+### `GET /ratings/venues/:venueId/ratings` (publik, Bearer opsional)
+Query: `page?` (default 1), `limit?` (default 20, maks 50),
+`sortBy?` (`latest` default | `highest` | `lowest`) →
+`{ data: RatingItem[], meta: { page, limit, total } }`. 404 venue tak ada.
+
+### `GET /ratings/courts/:courtId/ratings` (publik, Bearer opsional)
+Sama seperti list venue tetapi untuk court spesifik. 404 court tak ada.
+
+### `GET /ratings/:id` (publik, Bearer opsional)
+Detail satu rating + review (`RatingItem`). Tak ada → 404.
+
+`RatingItem`: `{ id, userId, user{id,displayName,avatarUrl}, venueId,
+courtId|null, score, review{id,comment,photos,aspects,tags,isAnonymous,
+createdAt,updatedAt}|null, createdAt, updatedAt }`.
+
+### `PUT /ratings/:id` (auth, owner / super_admin)
+Body parsial: `{ score?, comment?, photos?, aspects?|null, tags?, isAnonymous? }`
+→ 200 `RatingItem`. Lintas owner → 403; tak ada → 404.
+
+### `DELETE /ratings/:id` (auth, owner / super_admin)
+Hard delete (review ikut cascade) → 204. Lintas owner → 403; tak ada → 404.
+
 ## Kode status yang dipakai
 `200` OK (login/refresh/logout/leave/read), `201` Created (register/join/message via WS ack), `400` validasi, `401` auth, `403` bukan anggota conversation, `404` resource/user bukan peserta, `409` duplikat (email / double-join / penuh).
 

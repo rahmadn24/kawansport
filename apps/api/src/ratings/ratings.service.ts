@@ -16,10 +16,23 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 import { ListRatingsDto, RatingSortBy } from './dto/list-ratings.dto';
 import { UpdateRatingDto } from './dto/update-rating.dto';
 import { Rating } from './rating.entity';
-import { Review } from './review.entity';
+import { Review, type ReviewAspects } from './review.entity';
 
 /** Batas foto review (ST-01). */
 export const MAX_REVIEW_PHOTOS = 3;
+
+/** Batas tag review (ST-06): maks 5 tag x 30 char. */
+export const MAX_REVIEW_TAGS = 5;
+export const MAX_TAG_LENGTH = 30;
+
+/** Kunci aspek penilaian yang dikenal (ST-06). */
+export const REVIEW_ASPECT_KEYS = ['lapangan', 'cahaya', 'bersih', 'staf'] as const;
+
+/** Nama tampilan untuk review anonim (ST-06). */
+export const ANONYMOUS_DISPLAY_NAME = 'Anonim';
+
+/** Viewer untuk penyamaran anonim: null = publik tanpa token. */
+export type RatingViewer = { id: string; role: string } | null;
 
 /** Poin Kawan per review dibuat (ST-04, sekali per rating). */
 export const REVIEW_EARN_POINTS = 50;
@@ -35,6 +48,10 @@ export interface RatingItem {
     id: string;
     comment: string | null;
     photos: string[];
+    /** ST-06: aspek penilaian (parsial OK) + tag + flag anonim. */
+    aspects: ReviewAspects | null;
+    tags: string[];
+    isAnonymous: boolean;
     createdAt: Date;
     updatedAt: Date;
   } | null;
@@ -98,49 +115,76 @@ export class RatingsService {
     });
     const savedRating = await this.ratings.save(rating);
 
-    // Buat review jika ada comment atau foto (ST-01).
+    // Buat review jika ada comment, foto (ST-01), aspek/tag/anonim (ST-06).
     let review: Review | null = null;
     const comment = dto.comment?.trim() ? dto.comment.trim() : null;
     const photos = validateReviewPhotos(normalizePhotos(dto.photos ?? []));
-    if (comment || photos.length > 0) {
+    const aspects = normalizeReviewAspects(dto.aspects ?? undefined);
+    const tags = normalizeReviewTags(dto.tags ?? []);
+    const isAnonymous = dto.isAnonymous ?? false;
+    if (
+      comment ||
+      photos.length > 0 ||
+      aspects ||
+      tags.length > 0 ||
+      isAnonymous
+    ) {
       review = this.reviews.create({
         ratingId: savedRating.id,
         comment,
         photos,
+        aspects,
+        tags,
+        isAnonymous,
       });
       await this.reviews.save(review);
       // ST-04: +50 Poin Kawan sekali saat review dibuat (tidak di update).
       await this.awardReviewPoints(actor.id);
     }
 
-    return this.toPublic(savedRating, review);
+    return this.toPublic(
+      (await this.ratings.findOne({
+        where: { id: savedRating.id },
+        relations: { user: true },
+      })) ?? savedRating,
+      review,
+      actor,
+    );
   }
 
   /** GET /api/venues/:venueId/ratings — list rating venue dengan pagination. */
-  async listByVenue(venueId: string, query: ListRatingsDto): Promise<PaginatedRatings> {
+  async listByVenue(
+    venueId: string,
+    query: ListRatingsDto,
+    viewer: RatingViewer = null,
+  ): Promise<PaginatedRatings> {
     const venue = await this.venues.findOne({ where: { id: venueId } });
     if (!venue) throw new NotFoundException('Venue not found');
 
-    return this.listRatings({ venueId, courtId: null }, query);
+    return this.listRatings({ venueId, courtId: null }, query, viewer);
   }
 
   /** GET /api/courts/:courtId/ratings — list rating court dengan pagination. */
-  async listByCourt(courtId: string, query: ListRatingsDto): Promise<PaginatedRatings> {
+  async listByCourt(
+    courtId: string,
+    query: ListRatingsDto,
+    viewer: RatingViewer = null,
+  ): Promise<PaginatedRatings> {
     const court = await this.courts.findOne({ where: { id: courtId } });
     if (!court) throw new NotFoundException('Court not found');
 
-    return this.listRatings({ venueId: court.venueId, courtId }, query);
+    return this.listRatings({ venueId: court.venueId, courtId }, query, viewer);
   }
 
   /** GET /api/ratings/:id — detail rating + review. */
-  async detail(id: string): Promise<RatingItem> {
+  async detail(id: string, viewer: RatingViewer = null): Promise<RatingItem> {
     const rating = await this.ratings.findOne({
       where: { id },
       relations: { user: true, review: true },
     });
     if (!rating) throw new NotFoundException('Rating not found');
 
-    return this.toPublic(rating, rating.review ?? null);
+    return this.toPublic(rating, rating.review ?? null, viewer);
   }
 
   /** PUT /api/ratings/:id — update rating/review (auth, owner only). */
@@ -159,10 +203,17 @@ export class RatingsService {
       rating.score = dto.score;
     }
 
-    // Update review (comment dan/atau foto ST-01). Review dibuat bila
-    // belum ada dan payload menyisakan comment/foto; review dihapus bila
-    // keduanya kosong (mis. comment dikosongkan tanpa foto tersisa).
-    if (dto.comment !== undefined || dto.photos !== undefined) {
+    // Update review (comment, foto ST-01, aspek/tag/anonim ST-06). Review
+    // dibuat bila belum ada dan payload menyisakan isi; review dihapus bila
+    // semuanya kosong (mis. comment dikosongkan tanpa foto/aspek/tag
+    // tersisa dan tidak anonim).
+    if (
+      dto.comment !== undefined ||
+      dto.photos !== undefined ||
+      dto.aspects !== undefined ||
+      dto.tags !== undefined ||
+      dto.isAnonymous !== undefined
+    ) {
       const nextComment =
         dto.comment !== undefined
           ? dto.comment.trim()
@@ -173,7 +224,25 @@ export class RatingsService {
         dto.photos !== undefined
           ? validateReviewPhotos(normalizePhotos(dto.photos))
           : (rating.review?.photos ?? []);
-      if (!nextComment && nextPhotos.length === 0) {
+      const nextAspects =
+        dto.aspects !== undefined
+          ? normalizeReviewAspects(dto.aspects ?? undefined)
+          : (normalizeReviewAspects(rating.review?.aspects ?? undefined) ?? null);
+      const nextTags =
+        dto.tags !== undefined
+          ? normalizeReviewTags(dto.tags)
+          : (rating.review?.tags ?? []);
+      const nextAnonymous =
+        dto.isAnonymous !== undefined
+          ? dto.isAnonymous
+          : (rating.review?.isAnonymous ?? false);
+      if (
+        !nextComment &&
+        nextPhotos.length === 0 &&
+        !nextAspects &&
+        nextTags.length === 0 &&
+        !nextAnonymous
+      ) {
         if (rating.review) {
           await this.reviews.remove(rating.review);
           rating.review = null;
@@ -181,19 +250,25 @@ export class RatingsService {
       } else if (rating.review) {
         rating.review.comment = nextComment;
         rating.review.photos = nextPhotos;
+        rating.review.aspects = nextAspects;
+        rating.review.tags = nextTags;
+        rating.review.isAnonymous = nextAnonymous;
         await this.reviews.save(rating.review);
       } else {
         const review = this.reviews.create({
           ratingId: rating.id,
           comment: nextComment,
           photos: nextPhotos,
+          aspects: nextAspects,
+          tags: nextTags,
+          isAnonymous: nextAnonymous,
         });
         rating.review = await this.reviews.save(review);
       }
     }
 
     const saved = await this.ratings.save(rating);
-    return this.toPublic(saved, rating.review ?? null);
+    return this.toPublic(saved, rating.review ?? null, actor);
   }
 
   /** DELETE /api/ratings/:id — hapus rating (auth, owner/admin). Hard delete. */
@@ -223,6 +298,7 @@ export class RatingsService {
   private async listRatings(
     filter: { venueId: string; courtId: string | null },
     query: ListRatingsDto,
+    viewer: RatingViewer = null,
   ): Promise<PaginatedRatings> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -254,21 +330,39 @@ export class RatingsService {
     const [rows, total] = await qb.getManyAndCount();
 
     return {
-      data: rows.map((r) => this.toPublic(r, r.review ?? null)),
+      data: rows.map((r) => this.toPublic(r, r.review ?? null, viewer)),
       meta: { page, limit, total },
     };
   }
 
-  /** Transform Rating entity ke public response format. */
-  private toPublic(rating: Rating, review: Review | null): RatingItem {
+  /**
+   * Transform Rating entity ke public response format.
+   * ST-06: bila review anonim dan viewer bukan owner review / admin,
+   * user disamarkan jadi "Anonim" + avatar null (id tetap untuk kunci stabil).
+   */
+  private toPublic(
+    rating: Rating,
+    review: Review | null,
+    viewer: RatingViewer = null,
+  ): RatingItem {
+    const masked =
+      !!review?.isAnonymous &&
+      viewer?.id !== rating.userId &&
+      viewer?.role !== 'super_admin';
     return {
       id: rating.id,
       userId: rating.userId,
-      user: {
-        id: rating.user?.id ?? rating.userId,
-        displayName: rating.user?.displayName ?? null,
-        avatarUrl: rating.user?.avatarUrl ?? null,
-      },
+      user: masked
+        ? {
+            id: rating.user?.id ?? rating.userId,
+            displayName: ANONYMOUS_DISPLAY_NAME,
+            avatarUrl: null,
+          }
+        : {
+            id: rating.user?.id ?? rating.userId,
+            displayName: rating.user?.displayName ?? null,
+            avatarUrl: rating.user?.avatarUrl ?? null,
+          },
       venueId: rating.venueId,
       courtId: rating.courtId ?? null,
       score: rating.score,
@@ -277,6 +371,9 @@ export class RatingsService {
             id: review.id,
             comment: review.comment ?? null,
             photos: review.photos ?? [],
+            aspects: review.aspects ?? null,
+            tags: review.tags ?? [],
+            isAnonymous: review.isAnonymous ?? false,
             createdAt: review.createdAt,
             updatedAt: review.updatedAt,
           }
@@ -291,4 +388,52 @@ export class RatingsService {
 export function validateReviewPhotos(input: string[]): string[] {
   assertPhotoUrls(input, MAX_REVIEW_PHOTOS, 'Review photos');
   return input;
+}
+
+/**
+ * Normalisasi aspek review (ST-06). Kunci asing atau nilai di luar 1..5
+ * → 400. Objek kosong / undefined → null (tidak disimpan).
+ */
+export function normalizeReviewAspects(
+  input: ReviewAspects | null | undefined,
+): ReviewAspects | null {
+  if (!input || typeof input !== 'object') return null;
+  const out: ReviewAspects = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!(REVIEW_ASPECT_KEYS as readonly string[]).includes(key)) {
+      throw new BadRequestException(`Unknown review aspect: ${key}`);
+    }
+    if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 5) {
+      throw new BadRequestException(`Review aspect ${key} must be an integer 1..5`);
+    }
+    (out as Record<string, number>)[key] = value as number;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * Normalisasi tag review (ST-06): trim + lowercase, buang yang kosong,
+ * dedupe (jaga urutan pertama). Tiap tag maks 30 char, total maks 5 —
+ * pelanggaran → 400.
+ */
+export function normalizeReviewTags(input: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of input ?? []) {
+    const tag = String(raw ?? '').trim().toLowerCase();
+    if (!tag || seen.has(tag)) continue;
+    if (tag.length > MAX_TAG_LENGTH) {
+      throw new BadRequestException(
+        `Review tag must be at most ${MAX_TAG_LENGTH} characters`,
+      );
+    }
+    seen.add(tag);
+    out.push(tag);
+  }
+  if (out.length > MAX_REVIEW_TAGS) {
+    throw new BadRequestException(
+      `Review tags must be at most ${MAX_REVIEW_TAGS}`,
+    );
+  }
+  return out;
 }

@@ -1,6 +1,11 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ViewStyle } from 'react-native';
-import { RatingItem } from '../api/ratings';
+import {
+  ANONYMOUS_DISPLAY_NAME,
+  REVIEW_ASPECT_KEYS,
+  REVIEW_ASPECT_LABELS,
+  RatingItem,
+} from '../api/ratings';
 import { RatingStarsDisplay } from './RatingStars';
 import { UIAvatar } from './ui';
 import { PhotoGallery } from './PhotoGallery';
@@ -42,6 +47,16 @@ export function ReviewCard({
 }: ReviewCardProps) {
   const isOwner = currentUserId && rating.userId === currentUserId;
   const hasReview = rating.review?.comment && rating.review.comment.trim().length > 0;
+  /** ST-06: anonim bila flag set DAN viewer bukan owner (server sudah samarkan nama). */
+  const isAnonymous = !!rating.review?.isAnonymous;
+  const displayName = isAnonymous
+    ? ANONYMOUS_DISPLAY_NAME
+    : rating.user.displayName || 'Kawan main';
+  /** ST-06: aspek yang dinilai saja (parsial). */
+  const aspectEntries = REVIEW_ASPECT_KEYS.filter(
+    (k) => rating.review?.aspects?.[k] !== undefined && rating.review?.aspects?.[k] !== null,
+  );
+  const tags = rating.review?.tags ?? [];
 
   const handleUserPress = () => {
     if (onUserPress) onUserPress(rating.userId);
@@ -60,10 +75,14 @@ export function ReviewCard({
       {/* Header: User + Rating */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleUserPress} style={styles.userRow} activeOpacity={0.7}>
-          <UIAvatar name={rating.user.displayName} uri={rating.user.avatarUrl} size={36} />
+          <UIAvatar
+            name={isAnonymous ? ANONYMOUS_DISPLAY_NAME : rating.user.displayName}
+            uri={isAnonymous ? null : rating.user.avatarUrl}
+            size={36}
+          />
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {rating.user.displayName || 'Kawan main'}
+              {displayName}
             </Text>
             <RatingStarsDisplay value={rating.score} size={14} showValue={true} />
           </View>
@@ -71,6 +90,13 @@ export function ReviewCard({
 
         <Text style={styles.date}>{formatDateShort(rating.createdAt.split('T')[0])}</Text>
       </View>
+
+      {/* ST-06: badge anonim (publik). */}
+      {isAnonymous && (
+        <View style={styles.anonBadge} accessibilityLabel="Ulasan anonim">
+          <Text style={styles.anonBadgeText}>🕵️ Anonim</Text>
+        </View>
+      )}
 
       {/* Review Comment */}
       {hasReview && (
@@ -90,6 +116,30 @@ export function ReviewCard({
           />
         </View>
       ) : null}
+
+      {/* ST-06: aspek penilaian (hanya yang dinilai). */}
+      {aspectEntries.length > 0 && (
+        <View style={styles.aspectsWrap} testID={`review-aspects-${rating.id}`}>
+          {aspectEntries.map((k) => (
+            <View key={k} style={styles.aspectChip} accessibilityLabel={`Aspek ${REVIEW_ASPECT_LABELS[k]}: ${rating.review!.aspects![k]} dari 5`}>
+              <Text style={styles.aspectChipText}>
+                {REVIEW_ASPECT_LABELS[k]} {rating.review!.aspects![k]}/5
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ST-06: tag sorotan. */}
+      {tags.length > 0 && (
+        <View style={styles.tagsWrap} testID={`review-tags-${rating.id}`}>
+          {tags.map((t) => (
+            <View key={t} style={styles.tagChip} accessibilityLabel={`Tag ${t}`}>
+              <Text style={styles.tagChipText}>#{t}</Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Court info jika rating untuk court spesifik */}
       {rating.courtId && (
@@ -185,6 +235,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.brand900,
     fontWeight: '700',
+  },
+  anonBadge: {
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    backgroundColor: COLORS.bgAlt,
+    borderRadius: RADIUS.full,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  anonBadgeText: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontWeight: '700',
+  },
+  aspectsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: SPACING.sm,
+  },
+  aspectChip: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    backgroundColor: COLORS.star,
+    opacity: 0.9,
+    borderRadius: RADIUS.full,
+  },
+  aspectChipText: {
+    fontSize: 12,
+    color: COLORS.bg,
+    fontWeight: '700',
+  },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: SPACING.sm,
+  },
+  tagChip: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    backgroundColor: COLORS.bgAlt,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+  },
+  tagChipText: {
+    fontSize: 12,
+    color: COLORS.brand700,
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',

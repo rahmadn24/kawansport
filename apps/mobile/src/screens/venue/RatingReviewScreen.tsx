@@ -25,7 +25,8 @@ interface Props {
   courtName?: string;
 }
 
-// TODO(ST-06): ringkasan aspek/tag/foto DISEMBUNYIKAN sampai API review kaya ada.
+// TODO(ST-06): ringkasan aspek/tag DISEMBUNYIKAN sampai agregat server ada
+// (aspek/tag per review sudah tampil di ReviewCard).
 
 export function RatingReviewScreen({
   venueId,
@@ -103,6 +104,9 @@ export function RatingReviewScreen({
       const updated = await updateRating(editing.id, {
         score: input.score,
         comment: input.comment,
+        aspects: input.aspects ?? null,
+        tags: input.tags ?? [],
+        isAnonymous: input.isAnonymous ?? false,
       });
       if (updated) {
         setEditing(null);
@@ -276,7 +280,13 @@ export function RatingReviewScreen({
         error={mutationError}
         initial={
           editing
-            ? { score: editing.score, comment: editing.review?.comment ?? '' }
+            ? {
+                score: editing.score,
+                comment: editing.review?.comment ?? '',
+                aspects: editing.review?.aspects ?? null,
+                tags: editing.review?.tags ?? [],
+                isAnonymous: editing.review?.isAnonymous ?? false,
+              }
             : undefined
         }
         submitLabel="Simpan"

@@ -9,13 +9,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Switch,
+  ScrollView,
 } from 'react-native';
 import { RatingStarsInput } from './RatingStars';
 import { PhotoUploadDisabled } from './PhotoGallery';
-import { CreateRatingInput } from '../api/ratings';
+import {
+  CreateRatingInput,
+  MAX_REVIEW_TAGS,
+  REVIEW_ASPECT_KEYS,
+  REVIEW_ASPECT_LABELS,
+  REVIEW_TAG_PRESETS,
+  ReviewAspectKey,
+  ReviewAspects,
+  normalizeTagsClient,
+} from '../api/ratings';
 import { COLORS, RADIUS, SPACING } from '../theme';
-// TODO(ST-06): form rating kaya (aspek fasilitas, tag sorotan, foto suasana)
-// DISEMBUNYIKAN sampai API review kaya ada — jangan tampilkan input palsu.
 
 export interface RatingFormModalProps {
   /** Modal visibility */
@@ -37,7 +46,13 @@ export interface RatingFormModalProps {
   /** Error message dari submit sebelumnya */
   error?: string | null;
   /** Nilai awal untuk mode edit (opsional; bila ada, form terisi existing). */
-  initial?: { score: number; comment?: string | null };
+  initial?: {
+    score: number;
+    comment?: string | null;
+    aspects?: ReviewAspects | null;
+    tags?: string[] | null;
+    isAnonymous?: boolean;
+  };
   /** Label tombol submit (default "Kirim Ulasan"; mode edit pakai "Simpan"). */
   submitLabel?: string;
 }
@@ -69,21 +84,48 @@ export function RatingFormModal({
   const [comment, setComment] = useState<string>('');
   const [charCount, setCharCount] = useState(0);
   const [touched, setTouched] = useState({ score: false, comment: false });
+  /** ST-06: aspek per fasilitas (null = belum dinilai, opsional). */
+  const [aspects, setAspects] = useState<Record<ReviewAspectKey, number | null>>({
+    lapangan: null,
+    cahaya: null,
+    bersih: null,
+    staf: null,
+  });
+  /** ST-06: tag terpilih (maks 5) + input custom. */
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  /** ST-06: mode anonim. */
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const MAX_COMMENT_LENGTH = 1000;
 
   // Reset form saat modal dibuka/ditutup; mode edit terisi nilai existing.
   const initialScore = initial?.score ?? 0;
   const initialComment = initial?.comment ?? '';
+  const initialAspectsKey = JSON.stringify(initial?.aspects ?? null);
+  const initialTagsKey = JSON.stringify(initial?.tags ?? []);
+  const initialAnonymous = initial?.isAnonymous ?? false;
   useEffect(() => {
     if (visible) {
       setScore(initialScore);
       setComment(initialComment);
       setCharCount(initialComment.length);
       setTouched({ score: false, comment: false });
+      const parsedAspects: ReviewAspects | null = initialAspectsKey
+        ? (JSON.parse(initialAspectsKey) as ReviewAspects | null)
+        : null;
+      setAspects({
+        lapangan: parsedAspects?.lapangan ?? null,
+        cahaya: parsedAspects?.cahaya ?? null,
+        bersih: parsedAspects?.bersih ?? null,
+        staf: parsedAspects?.staf ?? null,
+      });
+      setTags(normalizeTagsClient(initialTagsKey ? (JSON.parse(initialTagsKey) as string[]) : []));
+      setTagInput('');
+      setIsAnonymous(initialAnonymous);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initialScore, initialComment]);
+  }, [visible, initialScore, initialComment, initialAspectsKey, initialTagsKey, initialAnonymous]);
 
   const handleCommentChange = (text: string) => {
     if (text.length <= MAX_COMMENT_LENGTH) {
@@ -106,11 +148,22 @@ export function RatingFormModal({
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    const cleanAspects: ReviewAspects = {};
+    (Object.keys(aspects) as ReviewAspectKey[]).forEach((k) => {
+      const v = aspects[k];
+      if (v !== null && v >= 1 && v <= 5) cleanAspects[k] = v;
+    });
+
     const input: CreateRatingInput = {
       venueId,
       courtId: courtId ?? null,
       score,
       comment: comment.trim() || undefined,
+      // ST-06: replace-total — kirim selalu (objek kosong = tanpa aspek)
+      // agar mode edit bisa menghapus aspek yang sudah ada.
+      aspects: cleanAspects,
+      tags: normalizeTagsClient(tags),
+      isAnonymous,
     };
 
     try {
@@ -119,6 +172,31 @@ export function RatingFormModal({
     } catch {
       // Error handled by parent via error prop
     }
+  };
+
+  /** ST-06: tap nilai aspek yang aktif = kosongkan (opsional). */
+  const toggleAspect = (key: ReviewAspectKey, value: number) => {
+    setAspects((prev) => ({ ...prev, [key]: prev[key] === value ? null : value }));
+  };
+
+  /** ST-06: toggle preset / hapus tag; tambah custom via input. */
+  const toggleTag = (tag: string) => {
+    const norm = tag.trim().toLowerCase();
+    if (!norm) return;
+    setTags((prev) =>
+      prev.includes(norm)
+        ? prev.filter((t) => t !== norm)
+        : prev.length >= MAX_REVIEW_TAGS
+          ? prev
+          : [...prev, norm],
+    );
+  };
+
+  const addCustomTag = () => {
+    const norm = tagInput.trim().toLowerCase();
+    if (!norm || tags.includes(norm) || tags.length >= MAX_REVIEW_TAGS) return;
+    setTags((prev) => [...prev, norm]);
+    setTagInput('');
   };
 
   if (!visible) return null;
@@ -151,6 +229,12 @@ export function RatingFormModal({
 
             <Text style={styles.targetName}>{targetName}</Text>
 
+            <ScrollView
+              style={styles.scroll}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
             {/* Rating Stars */}
             <View style={styles.section}>
               <Text style={styles.label}>
@@ -190,8 +274,138 @@ export function RatingFormModal({
               />
             </View>
 
-            {/* TODO(ST-06): aspek fasilitas, tag sorotan
-                DISEMBUNYIKAN sampai API review kaya tersedia. */}
+            {/* ST-06: aspek per fasilitas (opsional, tap ulang untuk kosongkan). */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Nilai per aspek (opsional)</Text>
+              {REVIEW_ASPECT_KEYS.map((key) => (
+                <View
+                  key={key}
+                  style={styles.aspectRow}
+                  accessibilityLabel={`Aspek ${REVIEW_ASPECT_LABELS[key]}`}
+                >
+                  <Text style={styles.aspectLabel}>{REVIEW_ASPECT_LABELS[key]}</Text>
+                  <View style={styles.aspectDots}>
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const active = aspects[key] !== null && (aspects[key] as number) >= n;
+                      return (
+                        <TouchableOpacity
+                          key={n}
+                          onPress={() => toggleAspect(key, n)}
+                          style={[styles.aspectDot, active && styles.aspectDotActive]}
+                          activeOpacity={0.7}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Aspek ${REVIEW_ASPECT_LABELS[key]} nilai ${n}`}
+                          accessibilityState={{ selected: aspects[key] === n }}
+                          testID={`aspect-${key}-${n}`}
+                        >
+                          <Text style={[styles.aspectDotText, active && styles.aspectDotTextActive]}>
+                            {n}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* ST-06: tag sorotan (preset + custom, maks 5). */}
+            <View style={styles.section}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>Sorotan (opsional)</Text>
+                <Text style={styles.charCount}>
+                  {tags.length}/{MAX_REVIEW_TAGS}
+                </Text>
+              </View>
+              <View style={styles.chipWrap}>
+                {REVIEW_TAG_PRESETS.map((preset) => {
+                  const selected = tags.includes(preset);
+                  return (
+                    <TouchableOpacity
+                      key={preset}
+                      onPress={() => toggleTag(preset)}
+                      style={[styles.chip, selected && styles.chipSelected]}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Tag ${preset}`}
+                      accessibilityState={{ selected }}
+                      testID={`tag-preset-${preset}`}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                        {selected ? `✓ ${preset}` : `+ ${preset}`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {tags
+                  .filter((t) => !(REVIEW_TAG_PRESETS as readonly string[]).includes(t))
+                  .map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => toggleTag(t)}
+                      style={[styles.chip, styles.chipSelected]}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Hapus tag ${t}`}
+                      testID={`tag-custom-${t}`}
+                    >
+                      <Text style={[styles.chipText, styles.chipTextSelected]}>{`✓ ${t} ✕`}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+              <View style={styles.tagInputRow}>
+                <TextInput
+                  style={styles.tagInput}
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  placeholder="Tag sendiri, mis. parkir luas"
+                  placeholderTextColor={COLORS.faint}
+                  maxLength={30}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={addCustomTag}
+                  accessibilityLabel="Tambah tag sendiri"
+                  testID="tag-custom-input"
+                />
+                <TouchableOpacity
+                  onPress={addCustomTag}
+                  style={[
+                    styles.tagAddButton,
+                    (tags.length >= MAX_REVIEW_TAGS || !tagInput.trim()) &&
+                      styles.submitButtonDisabled,
+                  ]}
+                  disabled={tags.length >= MAX_REVIEW_TAGS || !tagInput.trim()}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tambah tag"
+                  testID="tag-add-button"
+                >
+                  <Text style={styles.submitText}>+ Tag</Text>
+                </TouchableOpacity>
+              </View>
+              {tags.length >= MAX_REVIEW_TAGS && (
+                <Text style={styles.hintText}>Maksimal {MAX_REVIEW_TAGS} tag ya</Text>
+              )}
+            </View>
+
+            {/* ST-06: mode anonim. */}
+            <View style={styles.section}>
+              <View style={styles.anonRow}>
+                <View style={styles.anonText}>
+                  <Text style={styles.label}>Tampilkan sebagai Anonim</Text>
+                  <Text style={styles.hintText}>
+                    Nama + fotomu disamarkan ke publik (owner venue tidak lihat siapa kamu)
+                  </Text>
+                </View>
+                <Switch
+                  value={isAnonymous}
+                  onValueChange={setIsAnonymous}
+                  accessibilityLabel="Tampilkan sebagai Anonim"
+                  testID="anonymous-switch"
+                />
+              </View>
+            </View>
+
             {/* ST-01: foto review ditampilkan di ReviewCard; upload baru
                 DISABLED jujur (POST /uploads butuh file picker native). */}
             {/* TODO(ST-01-upload): aktifkan upload setelah file picker native ada. */}
@@ -199,6 +413,7 @@ export function RatingFormModal({
 
             {/* Error message */}
             {error && <Text style={styles.errorText}>{error}</Text>}
+            </ScrollView>
 
             {/* Actions */}
             <View style={styles.actions}>
@@ -286,7 +501,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.brand700,
     fontWeight: '700',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  scroll: {
+    maxHeight: 420,
+  },
+  scrollContent: {
+    paddingBottom: SPACING.sm,
   },
   section: {
     marginBottom: SPACING.lg,
@@ -363,5 +584,110 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.bg,
+  },
+  aspectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  aspectLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.ink,
+    flex: 1,
+  },
+  aspectDots: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  aspectDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: COLORS.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.bg,
+  },
+  aspectDotActive: {
+    borderColor: COLORS.star,
+    backgroundColor: COLORS.star,
+  },
+  aspectDotText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.muted,
+  },
+  aspectDotTextActive: {
+    color: COLORS.bg,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 8,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.line,
+    backgroundColor: COLORS.bg,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  chipSelected: {
+    borderColor: COLORS.brand700,
+    backgroundColor: COLORS.brand100,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.muted,
+  },
+  chipTextSelected: {
+    color: COLORS.brand900,
+    fontWeight: '700',
+  },
+  tagInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.line,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.md,
+    minHeight: 44,
+    fontSize: 14,
+    color: COLORS.ink,
+    backgroundColor: COLORS.bg,
+  },
+  tagAddButton: {
+    paddingHorizontal: SPACING.lg,
+    minHeight: 44,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.brand700,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintText: {
+    fontSize: 12,
+    color: COLORS.faint,
+    marginTop: 6,
+  },
+  anonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  anonText: {
+    flex: 1,
   },
 });
