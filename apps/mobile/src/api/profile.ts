@@ -43,6 +43,8 @@ export interface UserProfile {
   role?: string;
   /** ST-04: saldo Poin Kawan (1 poin = Rp1 saat redeem; +50 per review). */
   loyaltyPoints?: number;
+  /** ST-07: badge terverifikasi (default false; via POST /users/:id/verify admin). */
+  verified?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -120,4 +122,73 @@ export async function deleteMyAccount(
 ): Promise<{ ok: boolean }> {
   const res = await http.delete<{ ok: boolean }>('/me');
   return res.data;
+}
+
+/* ---------- ST-07 TERBATAS: statistik + circle ---------- */
+
+/**
+ * Statistik profil (ST-07) — cermin UserStats API: angka dari data REAL
+ * (host/join event, booking paid, gabungan cabor). SENGAJA TANPA win-rate
+ * (butuh EL-00, riwayat match) — TODO-EL-00.
+ */
+export interface UserStats {
+  user: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    verified: boolean;
+  };
+  totalEventsHosted: number;
+  totalEventsJoined: number;
+  totalBookingsPaid: number;
+  sportsCount: number;
+  sports: string[];
+}
+
+/**
+ * Anggota lingkaran mabar (ST-07) — cermin CircleMember API: partner chat
+ * + co-participants event, dedupe, maks 50.
+ * Tombol "Ajak Mabar" memakai ulang sendInvite (POST /invites, GAP-01).
+ */
+export interface CircleMember {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  verified: boolean;
+  sports: string[];
+  skillLevel: SkillLevel | null;
+}
+
+/** GET /users/:id/stats — boleh dibaca user login apa pun. */
+export async function fetchUserStats(
+  userId: string,
+  http: Http = api,
+): Promise<UserStats> {
+  const res = await http.get<UserStats>(`/users/${userId}/stats`);
+  return res.data;
+}
+
+/** GET /users/me/circle — lingkaran mabar milik sendiri. */
+export async function fetchMyCircle(http: Http = api): Promise<CircleMember[]> {
+  const res = await http.get<{ data: CircleMember[] }>('/users/me/circle');
+  return res.data.data;
+}
+
+/**
+ * Ringkasan statistik 1 baris untuk seksi profil,
+ * mis. "3 Event • 5 Ikut Mabar • 2 Booking • 4 Cabor".
+ */
+export function formatStatsSummary(stats: UserStats): string {
+  return (
+    `${stats.totalEventsHosted} Event • ` +
+    `${stats.totalEventsJoined} Ikut Mabar • ` +
+    `${stats.totalBookingsPaid} Booking • ` +
+    `${stats.sportsCount} Cabor`
+  );
+}
+
+/** Label badge verifikasi untuk profil/partner, atau null bila belum verified. */
+export function verifiedLabel(verified?: boolean | null): string | null {
+  return verified ? '✓ Terverifikasi' : null;
 }

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SPORT_SUGGESTIONS, SportEventItem, slotsLeft } from '../api/events';
 import { firstPhoto, resolvePhotoUrl } from '../api/photos';
+import { PromoItem, hasLivePromos } from '../api/promos';
 import { COLORS, RADIUS, SPACING, TYPO, formatKm, formatWIB, friendlyServerError } from '../theme';
 import {
   UIAvatar,
@@ -14,7 +15,7 @@ import {
   UISkeleton,
   UISportChips,
 } from '../components/ui';
-import { STITCH_EVENT_BANNER, sportIconOf } from '../mocks/stitch';
+import { sportIconOf } from '../mocks/stitch';
 
 interface Props {
   events: SportEventItem[];
@@ -27,11 +28,16 @@ interface Props {
   onCreate: () => void;
   /** GAP-01: bell -> kotak masuk notifikasi (ganti Alert GAP-01). */
   onBellPress?: () => void;
+  /**
+   * ST-09: banner promo CMS real (GET /promos). Kosong/undefined =
+   * DISEMBUNYIKAN (bukan placeholder palsu) — jangan render data statis.
+   */
+  promos?: PromoItem[];
 }
 
-// TODO(ST-09): header lokasi/notifikasi/avatar + peta dari API search —
-// lokasi & notifikasi real belum ada di flow ini, jangan tampilkan data palsu.
-// TODO(ST-09): banner event spesial + klaim slot dari API (saat ini statis display-only).
+// TODO(ST-09-map): peta dari API search belum ada — react-native-maps butuh
+// native rebuild tak terverifikasi; daftar nearby ada di tab Cari (SearchScreen).
+// ST-09 SELESAI: banner event = promo CMS real (props `promos`); kosong = sembunyi.
 // TODO(ST-03): waiting list — tombol "Antre" DISABLED sampai API ada.
 // TODO(ST-02): biaya event per orang dari API event berbayar (saat ini disembunyikan).
 
@@ -46,6 +52,7 @@ export function EventListScreen({
   onSelect,
   onCreate,
   onBellPress,
+  promos,
 }: Props) {
   const [query, setQuery] = useState('');
   const firstLoad = loading && events.length === 0;
@@ -70,13 +77,35 @@ export function EventListScreen({
         />
         <UISportChips sports={SPORT_SUGGESTIONS} value={sportFilter} onChange={onFilterChange} />
 
-        <View style={styles.banner} accessibilityLabel="Event spesial akhir pekan">
-          <View style={styles.bannerBody}>
-            <Text style={styles.bannerEyebrow}>🔥 EVENT SPESIAL</Text>
-            <Text style={styles.bannerTitle}>{STITCH_EVENT_BANNER.title}</Text>
-            <Text style={styles.bannerMsg}>{STITCH_EVENT_BANNER.message}</Text>
-          </View>
-        </View>
+        {hasLivePromos(promos) ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.promoStrip}
+            contentContainerStyle={styles.promoStripContent}
+            accessibilityLabel="Promo dari KawanSport"
+          >
+            {(promos ?? []).map((promo) => {
+              const uri = resolvePhotoUrl(promo.imageUrl);
+              return (
+                <View key={promo.id} style={styles.banner} accessibilityLabel={`Promo: ${promo.title}`}>
+                  {uri ? (
+                    <Image
+                      source={{ uri }}
+                      style={styles.bannerPhoto}
+                      accessibilityRole="image"
+                      accessibilityLabel={`Gambar ${promo.title}`}
+                    />
+                  ) : null}
+                  <View style={styles.bannerBody}>
+                    <Text style={styles.bannerEyebrow}>🎟 PROMO</Text>
+                    <Text style={styles.bannerTitle}>{promo.title}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
 
         <Text style={styles.meta} accessibilityRole="text">
           {visible.length > 0
@@ -223,11 +252,19 @@ export function EventListScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   padded: { paddingHorizontal: SPACING.screen, paddingTop: SPACING.md },
+  promoStrip: { marginTop: SPACING.sm, marginBottom: SPACING.sm },
+  promoStripContent: { paddingRight: SPACING.screen },
   banner: {
     backgroundColor: COLORS.navy,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    marginTop: SPACING.sm,
+    marginRight: SPACING.sm,
+    width: 280,
+  },
+  bannerPhoto: {
+    height: 96,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.brand900,
     marginBottom: SPACING.sm,
   },
   bannerBody: {},

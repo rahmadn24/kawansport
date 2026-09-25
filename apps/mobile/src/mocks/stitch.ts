@@ -87,8 +87,10 @@ export const STITCH_PICKUP_BANNER = {
 
 /* ---------- Batch UX-04 (chat + rating + misc) ---------- */
 
-/** Banner event spesial di feed: STATIS display-only, bukan promo server. */
-// TODO(ST-09): ganti API search/banner — banner + klaim slot dari server.
+/** Banner event spesial di feed: STATIS display-only, bukan promo server.
+ * ST-09 SELESAI: feed memakai promo CMS real (props `promos` EventListScreen,
+ * GET /promos; kosong = disembunyikan). Konstanta dipertahankan agar impor
+ * lama tak rusak — JANGAN dipakai untuk tampilan baru. */
 export const STITCH_EVENT_BANNER = {
   title: 'Mabar Akbar Akhir Pekan',
   message: 'Bonus jersey eksklusif & kawan baru anti canggung!',

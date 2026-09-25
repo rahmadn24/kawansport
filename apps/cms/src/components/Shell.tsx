@@ -21,6 +21,7 @@ export const ADMIN_MAIN_NAV: NavItem[] = [
   { href: '/dashboard/admin/approvals', label: 'Manajemen Venue & Approval', icon: '🏟' },
   { href: '/dashboard/admin/lists', label: 'Pengguna & Komunitas', icon: '👥' },
   { href: '/dashboard/admin/stats', label: 'Transaksi & Keuangan', icon: '💳' },
+  { href: '/dashboard/admin/promos', label: 'Banner Promo', icon: '🎟' },
   // TODO: halaman belum ada — badge "Segera", jangan buat rute diam-diam 404.
   { href: '#fee-voucher', label: 'Fee Platform & Voucher', icon: '🎟', soon: true },
   { href: '#pengaturan', label: 'Pengaturan Sistem', icon: '⚙', soon: true },

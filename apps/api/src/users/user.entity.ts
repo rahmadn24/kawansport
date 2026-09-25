@@ -126,6 +126,14 @@ export class User {
   @Column({ name: 'loyalty_points', type: 'int', default: 0 })
   loyaltyPoints!: number;
 
+  /**
+   * Badge terverifikasi (ST-07 TERBATAS). Default false; hanya super_admin
+   * via POST /users/:id/verify (idempotent). Tampil di /me, /users/search,
+   * stats, dan circle.
+   */
+  @Column({ default: false })
+  verified!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

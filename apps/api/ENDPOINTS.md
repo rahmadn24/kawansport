@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-05 + ST-10)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-05 + ST-07-terbatas + ST-09 + ST-10)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -58,9 +58,10 @@ Token: access JWT `JWT_ACCESS_TTL` (default `15m`), refresh JWT `JWT_REFRESH_TTL
 ## Profil (SM-03, auth)
 
 ### `GET /me`
-Response profil publik: `id, email, displayName, role, sports[], skillLevel, lat, lng, avatarUrl, loyaltyPoints, createdAt, updatedAt`.
+Response profil publik: `id, email, displayName, role, sports[], skillLevel, lat, lng, avatarUrl, loyaltyPoints, verified, createdAt, updatedAt`.
 `role`: `super_admin | venue_owner | seller | user` (default `user`).
 `loyaltyPoints`: saldo Poin Kawan (ST-04, default 0; +50 per review, 1 poin = Rp1 saat redeem).
+`verified`: badge terverifikasi (ST-07, default `false`; hanya super_admin via `POST /users/:id/verify`).
 
 ### `PATCH /me`
 Body parsial: `{ displayName?, sports? (maks 20 × 40 char), skillLevel? (beginner|intermediate|advanced), lat?+lng? }`.
@@ -130,7 +131,45 @@ Cari partner sparing. Selalu exclude diri sendiri.
 Query: `sport? (overlap satu item, case-insensitive), skill? (beginner|intermediate|advanced), lat?+lng? (berpasangan), radius? (default 10000), page?, limit?`.
 - Dengan geo: hanya user ber-lokasi dalam radius, sort jarak ASC, tiap item ada `distanceMeters`.
 - Tanpa geo: sort `createdAt` ASC.
+- Tiap item memuat `verified` (ST-07, badge terverifikasi).
 - Response `{ data: UserSearchItem[], meta: { page, limit, total } }`.
+
+## Profil sosial terbatas (ST-07 TERBATAS, auth)
+
+Scope SENGAJA terbatas (card Trello #67): verified badge + statistik
+real + circle. Yang TIDAK dikerjakan (dependensi ELO belum ada):
+- Riwayat match — DEPEND EL-00 → TODO-EL-00 (termasuk `winRate` di stats:
+  kolom palsu DILARANG; tambah hanya saat entitas match history ada).
+- Achievement — DEPEND EL-04 → TODO-EL-04.
+
+### `POST /users/:id/verify` (khusus super_admin)
+Tandai user terverifikasi → 200 profil publik (`verified: true`).
+Idempotent (verifikasi ulang tetap 200). Non-admin → 403; tak ada → 404;
+UUID invalid → 400. Tanpa token → 401.
+
+### `GET /users/:id/stats` (user login apa pun)
+Statistik dari data REAL yang ada (tanpa token → 401; tak ada → 404):
+- `totalEventsHosted`: jumlah event yang di-host.
+- `totalEventsJoined`: jumlah partisipasi event (termasuk event sendiri
+  yang di-host — host = peserta #1).
+- `totalBookingsPaid`: jumlah booking `paid` milik user.
+- `sports` + `sportsCount`: gabungan cabor profil + event yang diikuti +
+  court dari booking lunas (trim + dedupe case-insensitive).
+- Response `{ user{id,displayName,avatarUrl,verified}, totalEventsHosted,
+  totalEventsJoined, totalBookingsPaid, sportsCount, sports }`.
+- TANPA `winRate` — butuh EL-00 (TODO-EL-00).
+
+### `GET /users/me/circle` (milik sendiri)
+"Teman rutin" = DEFINISI SEDERHANA V1 (didokumentasikan apa adanya):
+gabungan (a) partner chat 1-1 (punya conversation bersama) dan
+(b) co-participants event (pernah 1 event bersama — sebagai peserta
+maupun host, termasuk host event yang saya ikuti dan peserta event yang
+saya host). Dedupe + exclude diri sendiri, urut partner chat dulu, maks
+50 → `{ data: CircleMember[], meta: { total } }`.
+`CircleMember`: `{ id, email, displayName, avatarUrl, verified, sports,
+skillLevel }`. Tanpa relasi → `{ data: [], meta: { total: 0 } }`.
+Tombol "Ajak Mabar" memakai ulang `POST /invites` (GAP-01, SUDAH ADA —
+tanpa endpoint/tabel baru).
 
 ## Chat 1-1 (SM-07, auth)
 
@@ -924,6 +963,65 @@ Body: `{ reason? (≤1000) }`. `requested` → `rejected` → 200 item
 Body: `{ reference (wajib non-empty, ≤255) }`. `approved` → `paid`
 (menandai transfer manual sudah dilakukan) → 200 item. Reference kosong
 → 400; status selain `approved` → 409; tak ada → 404.
+
+## Pencarian gabungan + banner promo CMS (ST-09)
+
+KEPUTUSAN (minimal, jujur):
+- `GET /search` PUBLIK tanpa auth — sama seperti `GET /venues` dan
+  `GET /products` yang publik (list venue/produk tidak butuh token).
+- `distanceMeters` hanya untuk item berkoordinat (venue/event); produk
+  tidak punya koordinat sehingga selalu ikut TANPA jarak dan diurut
+  abjad di belakang hasil geo (didokumentasikan, bukan disembunyikan).
+- Map view NATIVE tidak ada: `react-native-maps` butuh native rebuild
+  yang tak terverifikasi — mobile memakai daftar nearby (search + geo)
+  + TODO jujur di kode (tanpa peta palsu).
+
+### `GET /search?q=&lat=&lng=&radius=&limit=` (publik, tanpa auth)
+Gabungan venue (`approved` saja) + event (semua) + produk (`approved`
+saja). Substring case-insensitive atas nama/deskripsi (venue: nama +
+alamat + sports; event: title + sport + deskripsi; produk: nama +
+deskripsi). `q` kosong = semua (dibatasi `limit`).
+- Tanpa geo: sort abjad title ASC.
+- Dengan `lat`+`lng` (wajib berpasangan; sebelah saja → 400):
+  filter lingkaran `radius` meter (default 10000, 100..100000) untuk
+  venue/event; tiap item berkoordinat dapat `distanceMeters` (meter,
+  dibulatkan); sort jarak ASC (produk tanpa jarak di belakang, abjad).
+  Produk selalu ikut walau radius kecil (tanpa koordinat).
+- `limit?` default 20, maks 50.
+- Response `{ data: SearchItem[], meta: { total, limit } }`.
+  `SearchItem`: `{ kind: venue|event|product, id, title,
+  subtitle (alamat venue | "sport • host" | "kategori • harga"),
+  distanceMeters? }`.
+- Tanpa token → tetap 200 (publik). Venue `pending`/produk
+  non-approved tidak pernah bocor (404-semantik via filter).
+
+### `POST /promos` (khusus super_admin)
+Body: `{ title (1..120), imageUrl (aturan ST-01: `/uploads/` atau
+`https`), link? (teks bebas ≤2048, deep-link/URL), active? (default
+true), startsAt?/endsAt? (ISO) }` → 201 `PromoItem`.
+- `imageUrl` ilegal → 400; `startsAt > endsAt` → 400.
+- Tanpa token → 401; non-admin → 403.
+- `PromoItem`: `{ id, title, imageUrl, link|null, active, startsAt|null,
+  endsAt|null, createdAt, updatedAt }`.
+
+### `GET /promos` (publik, tanpa auth)
+Hanya banner yang tayang: `active` DAN dalam jendela
+`[startsAt, endsAt]` (batas null = terbuka, inklusif) →
+`{ data: PromoItem[], meta: { total } }`, terbaru dulu.
+- Mobile: daftar kosong = banner DISEMBUNYIKAN (bukan placeholder
+  palsu). Tidak ada banner statis palsu di feed.
+- `GET /promos?all=true`: khusus super_admin (butuh Bearer admin) —
+  semua banner apa pun status/periode (untuk CMS kelola). Tanpa
+  token → 401; non-admin → 403.
+
+### `PATCH /promos/:id` (khusus super_admin)
+Parsial (`title?, imageUrl?, link?, active?, startsAt?, endsAt?`) →
+200 `PromoItem`. `active: false` = nonaktif (hilang dari feed publik).
+Periode divalidasi ulang (startsAt <= endsAt, 400 bila langgar).
+Tak ada → 404; non-admin → 403.
+
+### `DELETE /promos/:id` (khusus super_admin)
+Hapus permanen → 204. Tak ada → 404; non-admin → 403.
 
 ## Akun + kirim pesan REST (GAP-02, auth)
 

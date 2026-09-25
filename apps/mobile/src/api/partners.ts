@@ -18,6 +18,8 @@ export interface PartnerItem {
   lat: number | null;
   lng: number | null;
   avatarUrl: string | null;
+  /** ST-07: badge terverifikasi (default false). */
+  verified?: boolean;
   /** Meter dari titik query; hanya ada saat filter lat/lng dipakai. */
   distanceMeters?: number;
   createdAt?: string;

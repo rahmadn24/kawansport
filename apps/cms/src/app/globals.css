@@ -442,3 +442,7 @@ button.ks-nav-link { font-size: 14px; }
   .ks-content { padding: 16px; }
   .ks-sec-head { flex-direction: column; }
 }
+
+/* ---------- Form stack CMS (ST-09 promos): label + input bertumpuk ---------- */
+.ks-form { display: grid; gap: 12px; }
+.ks-form label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }

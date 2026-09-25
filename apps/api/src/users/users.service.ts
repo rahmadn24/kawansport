@@ -1,11 +1,24 @@
-import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { Booking } from '../bookings/booking.entity';
+import { Conversation } from '../chat/conversation.entity';
+import { EventParticipant } from '../events/event-participant.entity';
+import { SportEvent } from '../events/event.entity';
+import { Court } from '../venues/court.entity';
 import { SearchUsersDto } from './dto/search-users.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { SkillLevel, User, UserRole } from './user.entity';
 
 export const DEFAULT_SEARCH_RADIUS_M = 10000;
+
+/** Maksimal anggota circle (ST-07) — definisi lihat getCircle. */
+export const MAX_CIRCLE_MEMBERS = 50;
 
 export interface UserSearchItem {
   id: string;
@@ -16,10 +29,48 @@ export interface UserSearchItem {
   lat: number | null;
   lng: number | null;
   avatarUrl: string | null;
+  /** ST-07: badge terverifikasi (default false). */
+  verified: boolean;
   /** Meter dari titik query; hanya ada saat filter lat/lng dipakai. */
   distanceMeters?: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/**
+ * Statistik profil (ST-07 TERBATAS) — seluruh angka dari data REAL:
+ * event yang di-host, partisipasi event, booking lunas, dan gabungan
+ * cabor (profil + event yang di-host + court dari booking lunas).
+ * SENGAJA TANPA win-rate: butuh riwayat hasil match (DEPEND EL-00).
+ * TODO-EL-00: tambah winRate saat entitas match history ada.
+ */
+export interface UserStats {
+  user: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    verified: boolean;
+  };
+  totalEventsHosted: number;
+  /** Termasuk event sendiri yang di-host (host = peserta #1). */
+  totalEventsJoined: number;
+  totalBookingsPaid: number;
+  sportsCount: number;
+  sports: string[];
+}
+
+/**
+ * Satu anggota lingkaran mabar (ST-07) — ringkasan publik + badge verified.
+ * TODO-EL-04: achievement tidak dimuat di sini (entitas belum ada).
+ */
+export interface CircleMember {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  verified: boolean;
+  sports: string[];
+  skillLevel: SkillLevel | null;
 }
 
 @Injectable()
@@ -27,6 +78,16 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    @InjectRepository(SportEvent)
+    private readonly events: Repository<SportEvent>,
+    @InjectRepository(EventParticipant)
+    private readonly participants: Repository<EventParticipant>,
+    @InjectRepository(Booking)
+    private readonly bookings: Repository<Booking>,
+    @InjectRepository(Court)
+    private readonly courts: Repository<Court>,
+    @InjectRepository(Conversation)
+    private readonly conversations: Repository<Conversation>,
   ) {}
 
   /** Buat extension PostGIS + GIST index (postgres saja, idempotent). */
@@ -160,9 +221,133 @@ export class UsersService implements OnModuleInit {
       lng: user.lng ?? null,
       avatarUrl: user.avatarUrl ?? null,
       loyaltyPoints: user.loyaltyPoints ?? 0,
+      verified: user.verified ?? false,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       lastLoginAt: user.lastLoginAt ?? null,
+    };
+  }
+
+  /**
+   * POST /users/:id/verify (ST-07, khusus super_admin) — tandai terverifikasi.
+   * Idempotent: verifikasi ulang tetap 200 tanpa efek samping.
+   */
+  async verify(id: string) {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (!user.verified) {
+      user.verified = true;
+      await this.users.save(user);
+    }
+    const fresh = await this.findById(id);
+    return this.toPublic(fresh ?? user);
+  }
+
+  /**
+   * GET /users/:id/stats (ST-07) — statistik dari data REAL yang ada.
+   * sports = gabungan cabor profil + event yang diikuti (termasuk yang
+   * di-host — host = peserta #1) + court dari booking lunas (normalisasi
+   * trim/dedupe case-insensitive). TANPA win-rate (butuh EL-00) — JANGAN
+   * baca kolom palsu; lihat TODO-EL-00 di interface.
+   */
+  async getStats(id: string): Promise<UserStats> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    const [hosted, joined, paidBookings] = await Promise.all([
+      this.events.find({ where: { hostId: id } }),
+      this.participants.find({ where: { userId: id } }),
+      this.bookings.find({ where: { userId: id, status: 'paid' } }),
+    ]);
+    let eventSports: string[] = [];
+    const joinedEventIds = [...new Set(joined.map((p) => p.eventId))];
+    if (joinedEventIds.length > 0) {
+      const joinedEvents = await this.events.find({
+        where: { id: In(joinedEventIds) },
+      });
+      eventSports = joinedEvents.map((e) => e.sport);
+    }
+    let courtSports: string[] = [];
+    if (paidBookings.length > 0) {
+      const courtIds = [...new Set(paidBookings.map((b) => b.courtId))];
+      const courts = await this.courts.find({ where: { id: In(courtIds) } });
+      courtSports = courts.map((c) => c.sport);
+    }
+    const sports = normalizeSports([
+      ...(user.sports ?? []),
+      ...eventSports,
+      ...courtSports,
+    ]);
+    return {
+      user: {
+        id: user.id,
+        displayName: user.displayName ?? null,
+        avatarUrl: user.avatarUrl ?? null,
+        verified: user.verified ?? false,
+      },
+      totalEventsHosted: hosted.length,
+      totalEventsJoined: joined.length,
+      totalBookingsPaid: paidBookings.length,
+      sportsCount: sports.length,
+      sports,
+    };
+  }
+
+  /**
+   * GET /users/me/circle (ST-07) — "teman rutin" = DEFINISI SEDERHANA V1:
+   * gabungan (a) partner chat 1-1 (punya conversation bersama) dan
+   * (b) co-participants event (pernah 1 event bersama sebagai peserta
+   * maupun host — termasuk host event yang saya ikuti dan peserta event
+   * yang saya host). Dedupe + exclude diri sendiri, maks 50 (urut:
+   * partner chat dulu, lalu co-participants). Tombol "Ajak Mabar" memakai
+   * ulang POST /invites (GAP-01, sudah ada — TANPA endpoint baru).
+   * TODO-EL-00: riwayat match tidak dipakai (entitas belum ada).
+   */
+  async getCircle(
+    myId: string,
+  ): Promise<{ data: CircleMember[]; meta: { total: number } }> {
+    const me = await this.findById(myId);
+    if (!me) throw new NotFoundException('User not found');
+
+    const convs = await this.conversations.find({
+      where: [{ userA: myId }, { userB: myId }],
+    });
+    const chatIds = convs.map((c) => (c.userA === myId ? c.userB : c.userA));
+
+    const mine = await this.participants.find({ where: { userId: myId } });
+    const hosted = await this.events.find({ where: { hostId: myId } });
+    const eventIds = [
+      ...new Set([...mine.map((p) => p.eventId), ...hosted.map((e) => e.id)]),
+    ];
+    let coIds: string[] = [];
+    let hostIds: string[] = [];
+    if (eventIds.length > 0) {
+      const co = await this.participants.find({
+        where: { eventId: In(eventIds) },
+      });
+      coIds = co.map((p) => p.userId);
+      const evts = await this.events.find({ where: { id: In(eventIds) } });
+      hostIds = evts.map((e) => e.hostId);
+    }
+
+    const ids = [...new Set([...chatIds, ...coIds, ...hostIds])]
+      .filter((uid) => uid !== myId)
+      .slice(0, MAX_CIRCLE_MEMBERS);
+    if (ids.length === 0) return { data: [], meta: { total: 0 } };
+
+    const members = await this.users.find({ where: { id: In(ids) } });
+    const order = new Map(ids.map((uid, i) => [uid, i]));
+    members.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    return {
+      data: members.map((m) => ({
+        id: m.id,
+        email: m.email,
+        displayName: m.displayName ?? null,
+        avatarUrl: m.avatarUrl ?? null,
+        verified: m.verified ?? false,
+        sports: m.sports ?? [],
+        skillLevel: m.skillLevel ?? null,
+      })),
+      meta: { total: members.length },
     };
   }
 

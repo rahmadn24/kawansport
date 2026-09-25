@@ -119,6 +119,13 @@ import { CreateEventScreen } from './src/screens/CreateEventScreen';
 import { EventDetailScreen } from './src/screens/EventDetailScreen';
 import { EventListScreen } from './src/screens/EventListScreen';
 import { VenueListScreen } from './src/screens/VenueListScreen';
+import { SearchScreen } from './src/screens/SearchScreen';
+import {
+  SearchItem,
+  searchAll,
+  validateSearchFilter,
+} from './src/api/search';
+import { PromoItem, listPromos } from './src/api/promos';
 import { VenueDetailScreen } from './src/screens/VenueDetailScreen';
 import { CheckoutScreen } from './src/screens/CheckoutScreen';
 import { MyBookingsScreen } from './src/screens/MyBookingsScreen';
@@ -416,6 +423,8 @@ function EventsFlow({
   const [mutating, setMutating] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** ST-09: banner promo CMS real; gagal/kosong -> disembunyikan (fail-soft). */
+  const [promos, setPromos] = useState<PromoItem[]>([]);
 
   useEffect(() => {
     if (!toast) return;
@@ -438,6 +447,10 @@ function EventsFlow({
 
   useEffect(() => {
     loadList(sportFilter).catch(() => undefined);
+    // ST-09: promo banner CMS (GET /promos publik); gagal -> [] = sembunyi.
+    listPromos()
+      .then(setPromos)
+      .catch(() => setPromos([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -597,6 +610,7 @@ function EventsFlow({
         onSelect={openDetail}
         onCreate={() => setRoute({ name: 'create' })}
         onBellPress={onOpenNotifications}
+        promos={promos}
       />
       {toastView}
     </View>
@@ -906,6 +920,108 @@ function BookingFlow({
   );
 }
 
+/**
+ * Alur Cari ST-09: query + hasil gabungan (venue/event/produk) + nearby geo.
+ * Venue -> tab Booking (deepVenueId); event -> tab Event (deepEventId);
+ * produk -> tab Shop (tak ada layar detail produk di mobile).
+ * TODO(ST-09-map): map view butuh react-native-maps (native rebuild tak
+ * terverifikasi) — sementara daftar nearby + jarak, tanpa peta palsu.
+ */
+function SearchFlow({
+  onSelectVenue,
+  onSelectEvent,
+  onSelectProduct,
+  onOpenNotifications,
+}: {
+  onSelectVenue: (id: string) => void;
+  onSelectEvent: (id: string) => void;
+  onSelectProduct: (id: string) => void;
+  onOpenNotifications?: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const runSearch = useCallback(
+    async (q: string, l: { lat: number; lng: number } | null) => {
+      const filter = {
+        ...(q.trim() ? { q: q.trim() } : {}),
+        ...(l ? { lat: l.lat, lng: l.lng } : {}),
+        limit: 20,
+      };
+      const invalid = validateSearchFilter(filter);
+      if (invalid) {
+        setError(invalid);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await searchAll(filter);
+        setResults(res.data);
+        setTotal(res.meta.total);
+      } catch (e) {
+        setError(toErrorMessage(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    runSearch('', null).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleUseLocation = async () => {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const pos = await getCurrentPosition();
+      const l = { lat: pos.latitude, lng: pos.longitude };
+      setLoc(l);
+      await runSearch(query, l);
+    } catch (e) {
+      setLocationError(e instanceof Error ? e.message : 'Gagal mendapatkan lokasi GPS');
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const handleClearLocation = () => {
+    setLoc(null);
+    runSearch(query, null).catch(() => undefined);
+  };
+
+  return (
+    <SearchScreen
+      query={query}
+      onQueryChange={setQuery}
+      results={results}
+      total={total}
+      loading={loading}
+      error={error}
+      nearbyActive={loc !== null}
+      locating={locating}
+      locationError={locationError}
+      onSubmit={() => runSearch(query, loc).catch(() => undefined)}
+      onRefresh={() => runSearch(query, loc).catch(() => undefined)}
+      onUseLocation={() => handleUseLocation().catch(() => undefined)}
+      onClearLocation={handleClearLocation}
+      onSelectVenue={onSelectVenue}
+      onSelectEvent={onSelectEvent}
+      onSelectProduct={onSelectProduct}
+      onBellPress={onOpenNotifications}
+    />
+  );
+}
+
 type ShopRoute =
   | { name: 'cart' }
   | { name: 'checkout'; order: ShopOrder }
@@ -1050,6 +1166,7 @@ function ShopFlow({ onOpenNotifications }: { onOpenNotifications?: () => void })
 const TABS = [
   { key: 'events', label: 'Event', icon: '📅', a11y: 'Tab Event' },
   { key: 'booking', label: 'Booking', icon: '🏟', a11y: 'Tab Booking' },
+  { key: 'search', label: 'Cari', icon: '🔍', a11y: 'Tab Cari' },
   { key: 'shop', label: 'Shop', icon: '🛍', a11y: 'Tab Shop' },
   { key: 'partners', label: 'Partner', icon: '🤝', a11y: 'Tab Partner' },
   { key: 'chat', label: 'Chat', icon: '💬', a11y: 'Tab Chat' },
@@ -1226,6 +1343,19 @@ function LoggedIn() {
             deepVenueId={deepVenueId}
             onConsumedDeepVenue={() => setDeepVenueId(null)}
             mineSignal={mineSignal}
+            onOpenNotifications={openNotif}
+          />
+        ) : tab === 'search' ? (
+          <SearchFlow
+            onSelectVenue={(id) => {
+              setDeepVenueId(id);
+              setTab('booking');
+            }}
+            onSelectEvent={(id) => {
+              setDeepEventId(id);
+              setTab('events');
+            }}
+            onSelectProduct={() => setTab('shop')}
             onOpenNotifications={openNotif}
           />
         ) : tab === 'shop' ? (

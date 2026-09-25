@@ -411,6 +411,9 @@ export function SearchPartnerScreen({
                     <Text style={styles.cardTitle} numberOfLines={1}>
                       {name}
                     </Text>
+                    {item.verified ? (
+                      <UIBadge kind="info" label="Terverifikasi" icon="✓" />
+                    ) : null}
                     <View style={styles.chips}>
                       {sports.map((s) => (
                         <View key={s} style={styles.miniChip}>
