@@ -8,6 +8,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Booking } from '../bookings/booking.entity';
 import { Conversation } from '../chat/conversation.entity';
+import {
+  DEFAULT_ELO_SCORE,
+  PROVISIONAL_MATCH_LIMIT,
+} from '../elo/elo.service';
+import { EloRating } from '../elo/elo-rating.entity';
 import { EventParticipant } from '../events/event-participant.entity';
 import { SportEvent } from '../events/event.entity';
 import { Court } from '../venues/court.entity';
@@ -19,6 +24,17 @@ export const DEFAULT_SEARCH_RADIUS_M = 10000;
 
 /** Maksimal anggota circle (ST-07) — definisi lihat getCircle. */
 export const MAX_CIRCLE_MEMBERS = 50;
+
+/** Default rentang ELO EL-01: skorku ±100 bila eloSport tanpa batas eksplisit. */
+export const DEFAULT_ELO_DELTA = 100;
+
+/** Badge skor ELO per hasil pencarian (EL-01, hanya bila eloSport diminta). */
+export interface EloSearchBadge {
+  sport: string;
+  score: number;
+  /** true bila belum punya rating (skor default) atau matchesPlayed < 10. */
+  provisional: boolean;
+}
 
 export interface UserSearchItem {
   id: string;
@@ -33,6 +49,8 @@ export interface UserSearchItem {
   verified: boolean;
   /** Meter dari titik query; hanya ada saat filter lat/lng dipakai. */
   distanceMeters?: number;
+  /** EL-01: badge ELO; hanya ada saat query eloSport diisi. */
+  elo?: EloSearchBadge;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,6 +106,8 @@ export class UsersService implements OnModuleInit {
     private readonly courts: Repository<Court>,
     @InjectRepository(Conversation)
     private readonly conversations: Repository<Conversation>,
+    @InjectRepository(EloRating)
+    private readonly eloRatings: Repository<EloRating>,
   ) {}
 
   /** Buat extension PostGIS + GIST index (postgres saja, idempotent). */
@@ -391,15 +411,24 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * GET /users/search (SM-06) — cari partner sparing.
+   * GET /users/search (SM-06 + EL-01) — cari partner sparing.
    * - Selalu exclude diri sendiri (selfId).
    * - Filter sport: overlap case-insensitive terhadap satu item sports[].
    * - Filter skill: cocok persis.
    * - Filter geo (bila lat+lng diisi): ST_DWithin radius meter memakai GIST
    *   index `idx_users_location_gist` (dibuat idempotent di onModuleInit),
    *   sort jarak ASC. User tanpa lokasi (lat/lng null) tidak ikut hasil geo.
+   * - Filter ELO EL-01 (bila eloSport diisi): skor efektif tiap kandidat
+   *   (rating cabor tsb, atau DEFAULT_ELO_SCORE=1000 provisional bila belum
+   *   punya) harus dalam [lo, hi] inklusif. lo/hi: eksplisit eloMin/eloMax
+   *   (sisi yang tak diisi = tak dibatasi); bila keduanya tak diisi =
+   *   [skorku-delta, skorku+delta] dengan delta = eloMaxDelta ?? 100
+   *   (skorku = ratingku cabor tsb, atau 1000 bila aku pun belum punya).
+   *   eloMin/eloMax/eloMaxDelta tanpa eloSport -> 400; eloMin > eloMax -> 400.
+   *   Tiap item hasil memuat `elo: { sport, score, provisional }`.
    * - Tanpa geo: sort createdAt ASC (deterministik).
-   * - Pagination page/limit + meta { page, limit, total }.
+   * - Pagination page/limit + meta { page, limit, total } (total SUDAH
+   *   memperhitungkan filter ELO — filter diterapkan SEBELUM paginasi).
    */
   async searchUsers(
     selfId: string,
@@ -417,11 +446,82 @@ export class UsersService implements OnModuleInit {
     }
     const useGeo = latSet && lngSet;
     const radius = query.radius ?? DEFAULT_SEARCH_RADIUS_M;
+    const elo = await this.resolveEloFilter(selfId, query);
 
     if (this.users.manager.connection.options.type === 'postgres') {
-      return this.searchPostgres(query, selfId, page, limit, useGeo, radius);
+      return this.searchPostgres(query, selfId, page, limit, useGeo, radius, elo);
     }
-    return this.searchSqljs(query, selfId, page, limit, useGeo, radius);
+    return this.searchSqljs(query, selfId, page, limit, useGeo, radius, elo);
+  }
+
+  /**
+   * Validasi + resolusi filter ELO EL-01. null bila eloSport tak diisi.
+   * Cabor dicocokkan case-insensitive (konsisten dengan filter sport SM-06).
+   */
+  private async resolveEloFilter(
+    selfId: string,
+    query: SearchUsersDto,
+  ): Promise<{ sport: string; lo: number; hi: number } | null> {
+    const sport = query.eloSport?.trim();
+    const hasBounds =
+      query.eloMin !== undefined ||
+      query.eloMax !== undefined ||
+      query.eloMaxDelta !== undefined;
+    if (!sport) {
+      if (hasBounds) {
+        throw new BadRequestException(
+          'eloSport is required when eloMin/eloMax/eloMaxDelta is set',
+        );
+      }
+      return null;
+    }
+    if (
+      query.eloMin !== undefined &&
+      query.eloMax !== undefined &&
+      query.eloMin > query.eloMax
+    ) {
+      throw new BadRequestException('eloMin must not exceed eloMax');
+    }
+    const lower = sport.toLowerCase();
+    const mine = await this.eloRatings.find({ where: { userId: selfId } });
+    const myScore =
+      mine.find((r) => r.sport.toLowerCase() === lower)?.score ??
+      DEFAULT_ELO_SCORE;
+    if (query.eloMin === undefined && query.eloMax === undefined) {
+      const delta = query.eloMaxDelta ?? DEFAULT_ELO_DELTA;
+      return { sport, lo: myScore - delta, hi: myScore + delta };
+    }
+    return {
+      sport,
+      lo: query.eloMin ?? Number.MIN_SAFE_INTEGER,
+      hi: query.eloMax ?? Number.MAX_SAFE_INTEGER,
+    };
+  }
+
+  /** Peta userId -> rating cabor (case-insensitive) untuk badge + filter sqljs. */
+  private async loadEloMap(
+    sport: string,
+  ): Promise<Map<string, { score: number; matchesPlayed: number }>> {
+    const lower = sport.toLowerCase();
+    const rows = await this.eloRatings.find();
+    const map = new Map<string, { score: number; matchesPlayed: number }>();
+    for (const r of rows) {
+      if (r.sport.toLowerCase() === lower && !map.has(r.userId)) {
+        map.set(r.userId, { score: r.score, matchesPlayed: r.matchesPlayed });
+      }
+    }
+    return map;
+  }
+
+  private toEloBadge(
+    sport: string,
+    row: { score: number; matchesPlayed: number } | undefined,
+  ): EloSearchBadge {
+    return {
+      sport,
+      score: row?.score ?? DEFAULT_ELO_SCORE,
+      provisional: row ? row.matchesPlayed < PROVISIONAL_MATCH_LIMIT : true,
+    };
   }
 
   private async searchPostgres(
@@ -431,6 +531,7 @@ export class UsersService implements OnModuleInit {
     limit: number,
     useGeo: boolean,
     radius: number,
+    elo: { sport: string; lo: number; hi: number } | null,
   ): Promise<{ data: UserSearchItem[]; meta: { page: number; limit: number; total: number } }> {
     const qb = this.users
       .createQueryBuilder('u')
@@ -448,6 +549,20 @@ export class UsersService implements OnModuleInit {
     }
     if (query.skill) {
       qb.andWhere('u.skillLevel = :skill', { skill: query.skill });
+    }
+    if (elo) {
+      // LEFT JOIN satu baris rating cabor (UNIQUE user+sport) + COALESCE ke
+      // skor default agar yang belum punya rating ikut terfilter sebagai 1000.
+      qb.leftJoin(
+        EloRating,
+        'er',
+        'er.userId = u.id AND LOWER(er.sport) = LOWER(:eloSport)',
+        { eloSport: elo.sport },
+      ).andWhere('COALESCE(er.score, :eloDefault) BETWEEN :eloLo AND :eloHi', {
+        eloDefault: DEFAULT_ELO_SCORE,
+        eloLo: elo.lo,
+        eloHi: elo.hi,
+      });
     }
     if (useGeo) {
       // ST_DWithin geography memakai idx_users_location_gist; user tanpa
@@ -471,11 +586,17 @@ export class UsersService implements OnModuleInit {
       const raw = await qb.getRawMany<{ distanceMeters: string }>();
       distances = raw.map((r) => (r.distanceMeters == null ? null : Number(r.distanceMeters)));
     }
+    // Badge ELO untuk halaman ini (batch satu query, cocok case-insensitive).
+    let eloMap: Map<string, { score: number; matchesPlayed: number }> | null = null;
+    if (elo) {
+      eloMap = await this.loadEloMap(elo.sport);
+    }
     return {
       data: rows.map((u, i) =>
         this.toSearchItem(
           u,
           useGeo && distances[i] != null ? Math.round(distances[i] as number) : undefined,
+          elo && eloMap ? this.toEloBadge(elo.sport, eloMap.get(u.id)) : undefined,
         ),
       ),
       meta: { page, limit, total },
@@ -490,9 +611,11 @@ export class UsersService implements OnModuleInit {
     limit: number,
     useGeo: boolean,
     radius: number,
+    elo: { sport: string; lo: number; hi: number } | null,
   ): Promise<{ data: UserSearchItem[]; meta: { page: number; limit: number; total: number } }> {
     const rows = await this.users.find({ order: { createdAt: 'ASC' } });
     const sport = query.sport?.trim().toLowerCase();
+    const eloMap = elo ? await this.loadEloMap(elo.sport) : null;
 
     const withDistance = rows
       .filter((u) => u.id !== selfId)
@@ -502,6 +625,10 @@ export class UsersService implements OnModuleInit {
           if (!sports.includes(sport)) return false;
         }
         if (query.skill && u.skillLevel !== query.skill) return false;
+        if (elo && eloMap) {
+          const score = eloMap.get(u.id)?.score ?? DEFAULT_ELO_SCORE;
+          if (score < elo.lo || score > elo.hi) return false;
+        }
         if (useGeo) {
           if (u.lat == null || u.lng == null) return false;
           const d = haversineMeters(query.lat as number, query.lng as number, u.lat, u.lng);
@@ -525,16 +652,25 @@ export class UsersService implements OnModuleInit {
     const slice = withDistance.slice((page - 1) * limit, page * limit);
     return {
       data: slice.map(({ user, distance }) =>
-        this.toSearchItem(user, distance != null ? Math.round(distance) : undefined),
+        this.toSearchItem(
+          user,
+          distance != null ? Math.round(distance) : undefined,
+          elo && eloMap ? this.toEloBadge(elo.sport, eloMap.get(user.id)) : undefined,
+        ),
       ),
       meta: { page, limit, total },
     };
   }
 
-  private toSearchItem(user: User, distanceMeters?: number): UserSearchItem {
+  private toSearchItem(
+    user: User,
+    distanceMeters?: number,
+    elo?: EloSearchBadge,
+  ): UserSearchItem {
     return {
       ...this.toPublic(user),
       ...(distanceMeters !== undefined ? { distanceMeters } : {}),
+      ...(elo !== undefined ? { elo } : {}),
     };
   }
 }

@@ -128,11 +128,16 @@ Promosi otomatis: saat ada slot kosong (`leave`), antrean `waiting` terdepan dit
 
 ### `GET /users/search`
 Cari partner sparing. Selalu exclude diri sendiri.
-Query: `sport? (overlap satu item, case-insensitive), skill? (beginner|intermediate|advanced), lat?+lng? (berpasangan), radius? (default 10000), page?, limit?`.
+Query: `sport? (overlap satu item, case-insensitive), skill? (beginner|intermediate|advanced), lat?+lng? (berpasangan), radius? (default 10000), page?, limit?`
++ filter ELO (EL-01): `eloSport? (cabor acuan, case-insensitive, ≤60), eloMin? (int), eloMax? (int), eloMaxDelta? (int ≥0)`.
 - Dengan geo: hanya user ber-lokasi dalam radius, sort jarak ASC, tiap item ada `distanceMeters`.
 - Tanpa geo: sort `createdAt` ASC.
 - Tiap item memuat `verified` (ST-07, badge terverifikasi).
-- Response `{ data: UserSearchItem[], meta: { page, limit, total } }`.
+- Bila `eloSport` diisi, tiap item memuat `elo: { sport, score, provisional }`
+  (skor efektif cabor tsb; `provisional = true` + `score = 1000` untuk yang
+  belum punya rating). Perilaku default/batas lihat seksi EL-01 di bawah.
+- Response `{ data: UserSearchItem[], meta: { page, limit, total } }`
+  (`total` sudah memperhitungkan filter ELO).
 
 ## Profil sosial terbatas (ST-07 TERBATAS, auth)
 
@@ -1135,3 +1140,29 @@ TODO EL-05 (EKSPLISIT, belum diimplementasikan di EL-00):
 - Walkover (WO): aturan menang-tanpa-tanding (no-show) + penerapan ELO-nya.
 - Rating decay: penurunan skor otomatis untuk pemain vakum (jangka waktu +
   batas bawah skor belum diputuskan PO).
+
+## Cari partner seimbang ELO (EL-01, auth)
+
+Filter ELO di `GET /users/search` (tanpa endpoint/tabel baru — rating dari
+`elo_ratings` EL-00; ajakan main tetap `POST /invites` GAP-01 yang sudah ada,
+client mengisi `sport` sendiri bila relevan).
+
+Query:
+- `eloSport` (cabor acuan, case-insensitive). Bila diisi, tiap item hasil
+  memuat `elo: { sport, score, provisional }`.
+- `eloMin` / `eloMax` (rentang skor eksplisit, inklusif).
+- `eloMaxDelta` (alternatif min/max: rentang `[skorku−delta, skorku+delta]`).
+
+Perilaku default (bila `eloSport` diisi TANPA `eloMin`/`eloMax`/`eloMaxDelta`):
+rentang `[skorku−100, skorku+100]` — `skorku` = ratingku di cabor tsb, atau
+1000 bila aku pun belum punya rating. Bila hanya `eloMaxDelta` yang diisi:
+`[skorku−delta, skorku+delta]`. Bila hanya satu dari `eloMin`/`eloMax` yang
+diisi, sisi lainnya TAK dibatasi (bukan default ±100).
+
+Skor lawan yang belum punya rating = 1000 `provisional: true` — IKUT hasil
+(bila 1000 masuk rentang) + ditandai, bukan disembunyikan.
+
+Validasi: `eloMin`/`eloMax`/`eloMaxDelta` tanpa `eloSport` → 400;
+`eloMin > eloMax` → 400; `eloMaxDelta < 0` → 400. Filter ELO diterapkan
+SEBELUM paginasi (`meta.total` = total setelah filter ELO) dan bisa
+dikombinasikan dengan `sport`/`skill`/geo yang sudah ada (SM-06).

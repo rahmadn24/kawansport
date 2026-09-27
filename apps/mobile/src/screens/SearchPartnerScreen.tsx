@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import {
+  ELO_DELTA_PRESETS,
   PartnerItem,
   RADIUS_PRESETS,
   SearchPartnersFilter,
@@ -63,10 +64,13 @@ interface Props {
 }
 
 /**
- * Layar Search Partner (SM-06): kartu filter + hasil + pagination.
+ * Layar Search Partner (SM-06 + EL-01): kartu filter + hasil + pagination.
  * Restyle Stitch "Kawan di Sekitarmu": header navy, judul + pill online,
  * search bar + chip aktif horizontal, banner radar, kartu partner real-only.
  * Logic pencarian, validasi, pagination, GPS, Sapa/Chat/Invite IDENTIK.
+ * EL-01: filter ELO (cabor + min/max atau delta ±, default ±100 dari skorku)
+ * + badge skor ELO + "Baru" (provisional) di tiap hasil. Tombol "Ajak Main"
+ * memakai ulang onInvite (POST /invites, GAP-01) — tanpa endpoint baru.
  */
 export function SearchPartnerScreen({
   partners,
@@ -94,6 +98,12 @@ export function SearchPartnerScreen({
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [radius, setRadius] = useState('10000');
+  // EL-01: filter ELO — cabor acuan + (min/max eksplisit ATAU delta ±).
+  // Default delta 100 (sama dengan default server bila cabor diisi tanpa batas).
+  const [eloSport, setEloSport] = useState('');
+  const [eloMin, setEloMin] = useState('');
+  const [eloMax, setEloMax] = useState('');
+  const [eloDelta, setEloDelta] = useState('100');
   const [localError, setLocalError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   // UI-only: kata kunci saring hasil yg sudah ada (nama/cabor), buka-tutup filter.
@@ -141,6 +151,47 @@ export function SearchPartnerScreen({
       setLocalError('Radius harus 100..100000 meter');
       return;
     }
+    // EL-01: validasi filter ELO (mirror server: batas butuh cabor, min<=max).
+    const eloSportTrim = eloSport.trim();
+    const eloMinTrim = eloMin.trim();
+    const eloMaxTrim = eloMax.trim();
+    const eloDeltaTrim = eloDelta.trim();
+    if ((eloMinTrim !== '' || eloMaxTrim !== '' || eloDeltaTrim !== '') && eloSportTrim === '') {
+      setLocalError('Cabor ELO wajib diisi bila batas ELO dipakai');
+      return;
+    }
+    if (eloSportTrim.length > 60) {
+      setLocalError('Cabor ELO maksimal 60 karakter');
+      return;
+    }
+    let eloMinNum: number | undefined;
+    let eloMaxNum: number | undefined;
+    let eloDeltaNum: number | undefined;
+    if (eloMinTrim !== '') {
+      eloMinNum = Number(eloMinTrim.replace(',', '.'));
+      if (!Number.isInteger(eloMinNum)) {
+        setLocalError('ELO min harus bilangan bulat');
+        return;
+      }
+    }
+    if (eloMaxTrim !== '') {
+      eloMaxNum = Number(eloMaxTrim.replace(',', '.'));
+      if (!Number.isInteger(eloMaxNum)) {
+        setLocalError('ELO max harus bilangan bulat');
+        return;
+      }
+    }
+    if (eloMinNum !== undefined && eloMaxNum !== undefined && eloMinNum > eloMaxNum) {
+      setLocalError('ELO min tidak boleh melebihi ELO max');
+      return;
+    }
+    if (eloDeltaTrim !== '') {
+      eloDeltaNum = Number(eloDeltaTrim.replace(',', '.'));
+      if (!Number.isInteger(eloDeltaNum) || eloDeltaNum < 0) {
+        setLocalError('Delta ELO harus bilangan bulat ≥ 0');
+        return;
+      }
+    }
     setLocalError(null);
     setSearched(true);
     setShowFilter(false);
@@ -148,9 +199,23 @@ export function SearchPartnerScreen({
       ...(sport ? { sport } : {}),
       ...(skill ? { skill } : {}),
       ...(latNum !== undefined ? { lat: latNum, lng: lngNum as number, radius: Math.round(radiusNum) } : {}),
+      ...(eloSportTrim ? { eloSport: eloSportTrim } : {}),
+      ...(eloMinNum !== undefined ? { eloMin: eloMinNum } : {}),
+      ...(eloMaxNum !== undefined ? { eloMax: eloMaxNum } : {}),
+      // Delta hanya dikirim bila min/max tak diisi (server: eksplisit menang).
+      ...(eloSportTrim && eloMinNum === undefined && eloMaxNum === undefined && eloDeltaNum !== undefined
+        ? { eloMaxDelta: eloDeltaNum }
+        : {}),
       page: 1,
       limit,
     });
+  };
+
+  const clearElo = () => {
+    setEloSport('');
+    setEloMin('');
+    setEloMax('');
+    setEloDelta('100');
   };
 
   // Saring client-side dari hasil real: nama/email + cabor yg ikut hasil.
@@ -164,6 +229,18 @@ export function SearchPartnerScreen({
 
   const radiusNum = Number(radius);
   const radiusLabel = Number.isFinite(radiusNum) && radiusNum > 0 ? formatDistance(radiusNum) : 'Jarak —';
+
+  // EL-01: label chip filter ELO aktif (cabor + min–max atau ±delta).
+  const eloSportTrimmed = eloSport.trim();
+  const eloActive = eloSportTrimmed !== '';
+  const eloMinTrimmed = eloMin.trim();
+  const eloMaxTrimmed = eloMax.trim();
+  const eloDeltaTrimmed = eloDelta.trim();
+  const eloChipLabel = eloActive
+    ? eloMinTrimmed !== '' || eloMaxTrimmed !== ''
+      ? `🏅 ELO ${eloSportTrimmed} ${eloMinTrimmed !== '' ? eloMinTrimmed : '…'}–${eloMaxTrimmed !== '' ? eloMaxTrimmed : '…'}`
+      : `🏅 ELO ${eloSportTrimmed} ±${eloDeltaTrimmed !== '' ? eloDeltaTrimmed : '100'}`
+    : null;
 
   return (
     <View style={styles.screen}>
@@ -250,6 +327,16 @@ export function SearchPartnerScreen({
                     <Text style={styles.chipLightText}>⚡ {SKILL_LABELS[skill]} ×</Text>
                   </TouchableOpacity>
                 ) : null}
+                {eloActive && eloChipLabel ? (
+                  <TouchableOpacity
+                    style={styles.chipLight}
+                    onPress={clearElo}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Hapus filter ELO ${eloChipLabel}`}
+                  >
+                    <Text style={styles.chipLightText}>{eloChipLabel} ×</Text>
+                  </TouchableOpacity>
+                ) : null}
               </ScrollView>
 
               {/* Form filter lengkap (collapsible) — state/handler tetap */}
@@ -271,8 +358,66 @@ export function SearchPartnerScreen({
                     ]}
                   />
 
-                  <Text style={styles.label}>Jarak</Text>
+                  {/* EL-01: filter ELO — cabor + min/max atau delta ± (default ±100). */}
+                  <Text style={styles.label}>ELO (opsional)</Text>
+                  <UITextInput
+                    label="Cabor ELO"
+                    testID="partner-elo-sport"
+                    placeholder="mis. Badminton"
+                    value={eloSport}
+                    onChangeText={setEloSport}
+                  />
+                  <Text style={styles.gpsStatus}>
+                    Kosongkan = tanpa filter ELO. Cabor diisi tanpa batas = ±100 dari skormu.
+                  </Text>
+                  <View style={styles.row}>
+                    <View style={styles.flex}>
+                      <UITextInput
+                        label="ELO min"
+                        testID="partner-elo-min"
+                        placeholder="mis. 900"
+                        keyboardType="numbers-and-punctuation"
+                        value={eloMin}
+                        onChangeText={setEloMin}
+                      />
+                    </View>
+                    <View style={styles.gapH} />
+                    <View style={styles.flex}>
+                      <UITextInput
+                        label="ELO max"
+                        testID="partner-elo-max"
+                        placeholder="mis. 1200"
+                        keyboardType="numbers-and-punctuation"
+                        value={eloMax}
+                        onChangeText={setEloMax}
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.gpsStatus}>…atau delta ± dari skorku (diabaikan bila min/max diisi):</Text>
                   <View style={styles.chips}>
+                    {ELO_DELTA_PRESETS.map((d) => {
+                      const active = Number(eloDelta) === d;
+                      return (
+                        <UIChip
+                          key={d}
+                          label={`±${d}`}
+                          active={active}
+                          onPress={() => setEloDelta(String(d))}
+                          accessibilityLabel={`Delta ELO plus minus ${d}`}
+                        />
+                      );
+                    })}
+                  </View>
+                  <UITextInput
+                    label="Delta manual"
+                    testID="partner-elo-delta"
+                    placeholder="100"
+                    keyboardType="numbers-and-punctuation"
+                    value={eloDelta}
+                    onChangeText={setEloDelta}
+                  />
+
+                  <Text style={styles.label}>Jarak</Text>                  <View style={styles.chips}>
                     {RADIUS_PRESETS.map((r) => {
                       const active = Number(radius) === r;
                       return (
@@ -424,6 +569,24 @@ export function SearchPartnerScreen({
                         <UIBadge kind="skill" label={SKILL_LABELS[item.skillLevel]} icon="★" />
                       ) : null}
                     </View>
+                    {/* EL-01: badge skor ELO + "Baru" (provisional) bila server mengirimnya. */}
+                    {item.elo ? (
+                      <View
+                        style={styles.eloRow}
+                        accessibilityLabel={
+                          item.elo.provisional
+                            ? `ELO ${item.elo.sport} ${item.elo.score}, pemain baru`
+                            : `ELO ${item.elo.sport} ${item.elo.score}`
+                        }
+                      >
+                        <UIBadge kind="info" label={`ELO ${item.elo.score}`} icon="🏅" />
+                        {item.elo.provisional ? (
+                          <View style={styles.eloGap}>
+                            <UIBadge kind="pending" label="Baru" icon="✦" />
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
                   </View>
                   {matchSport || matchSkill ? (
                     <View style={styles.matchBadge} accessibilityLabel="Cocok dengan filtermu">
@@ -591,6 +754,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   miniChipText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  eloRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  eloGap: { marginLeft: 6 },
   cardSub: { fontSize: 13, color: COLORS.muted, marginTop: SPACING.sm },
   cardRow: { flexDirection: 'row', marginTop: SPACING.md },
   footer: { marginTop: SPACING.sm },

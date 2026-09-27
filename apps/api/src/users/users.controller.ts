@@ -21,8 +21,10 @@ export class UsersController {
   constructor(private readonly users: UsersService) {}
 
   /**
-   * Cari partner sparing (SM-06): exclude diri sendiri, filter sport overlap
-   * + skill, lingkaran geo ST_DWithin + sort jarak ASC, pagination + meta.
+   * Cari partner sparing (SM-06 + EL-01): exclude diri sendiri, filter sport
+   * overlap + skill, lingkaran geo ST_DWithin + sort jarak ASC, filter ELO
+   * (eloSport/eloMin/eloMax/eloMaxDelta, badge `elo` per item),
+   * pagination + meta.
    */
   @Get('search')
   search(@CurrentUser() user: { id: string }, @Query() query: SearchUsersDto) {
