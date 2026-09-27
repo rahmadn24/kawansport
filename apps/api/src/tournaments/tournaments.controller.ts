@@ -36,6 +36,16 @@ export class TournamentsController {
     return this.tournaments.listMine(user);
   }
 
+  /** GET /tournaments/:id/standing — klasemen real-time (EL-04, guard = detail). */
+  @Get(':id/standing')
+  @UseGuards(JwtAuthGuard)
+  standing(
+    @CurrentUser() user: RequestUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.tournaments.standing(user, id);
+  }
+
   /** GET /tournaments/:id — terlibat/creator atau super_admin + fixture. */
   @Get(':id')
   @UseGuards(JwtAuthGuard)

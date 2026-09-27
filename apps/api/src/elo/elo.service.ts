@@ -8,6 +8,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { ActorInput } from '../auth/ownership';
+import { BadgesService } from '../badges/badges.service';
+import { Tournament } from '../tournaments/tournament.entity';
+import { computeStanding } from '../tournaments/standing';
 import { User } from '../users/user.entity';
 import { Venue } from '../venues/venue.entity';
 import type { CreateMatchDto } from './dto/create-match.dto';
@@ -96,6 +99,9 @@ export class EloService {
     private readonly users: Repository<User>,
     @InjectRepository(Venue)
     private readonly venues: Repository<Venue>,
+    @InjectRepository(Tournament)
+    private readonly tournaments: Repository<Tournament>,
+    private readonly badges: BadgesService,
   ) {}
 
   /** POST /matches — catat hasil (status awal `pending`). */
@@ -183,7 +189,9 @@ export class EloService {
     if (hasBothSides(confirmedBy, teamA, teamB)) {
       await this.applyElo(match);
       match.status = 'confirmed';
-      return this.toPublic(await this.matches.save(match));
+      const saved = await this.matches.save(match);
+      await this.maybeFinishTournament(saved);
+      return this.toPublic(saved);
     }
     return this.toPublic(await this.matches.save(match));
   }
@@ -382,6 +390,48 @@ export class EloService {
   }
 
   // ---- internal ----
+
+  /**
+   * Juara otomatis (EL-04): dipanggil tiap kali sebuah fixture turnamen
+   * menjadi `confirmed` (satu-satunya path confirm/score EL-00/03).
+   * Bila SEMUA fixture turnamen `confirmed` (tanpa pending/disputed/
+   * cancelled) dan turnamen masih `ongoing` → status `done` + `winnerId`
+   * = peringkat 1 standing + badge `tournament_champion` otomatis.
+   * Idempotent: turnamen yang sudah `done`/`cancelled` dilewati; badge
+   * memakai guard duplikat (unique user+kind+refId).
+   * Fixture `disputed`/`cancelled` MEMBLOKIR auto-done (walkover = EL-05).
+   */
+  private async maybeFinishTournament(match: MatchResult): Promise<void> {
+    if (!match.tournamentId) return;
+    const tournament = await this.tournaments.findOne({
+      where: { id: match.tournamentId },
+    });
+    if (!tournament || tournament.status !== 'ongoing') return;
+    const all = await this.matches.find({ order: { createdAt: 'ASC' } });
+    const fixtures = all.filter((m) => m.tournamentId === tournament.id);
+    if (fixtures.length === 0) return;
+    if (fixtures.some((f) => f.status !== 'confirmed')) return;
+    const participantIds = asArray(tournament.participantIds);
+    const names = new Map<string, string | null>();
+    if (participantIds.length > 0) {
+      const found = await this.users
+        .createQueryBuilder('u')
+        .where('u.id IN (:...ids)', { ids: participantIds })
+        .getMany();
+      for (const u of found) names.set(u.id, u.displayName ?? null);
+    }
+    const standings = computeStanding(participantIds, names, fixtures);
+    const champion = standings[0];
+    if (!champion) return;
+    tournament.status = 'done';
+    tournament.winnerId = champion.userId;
+    await this.tournaments.save(tournament);
+    await this.badges.award(
+      champion.userId,
+      'tournament_champion',
+      tournament.id,
+    );
+  }
 
   private async findOr404(id: string): Promise<MatchResult> {
     const match = await this.matches.findOne({ where: { id } });

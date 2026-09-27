@@ -13,6 +13,7 @@ import { MatchResult } from '../elo/match-result.entity';
 import { User } from '../users/user.entity';
 import { Venue } from '../venues/venue.entity';
 import type { CreateTournamentDto } from './dto/create-tournament.dto';
+import { computeStanding, type StandingEntry } from './standing';
 import { Tournament, type TournamentStatus } from './tournament.entity';
 
 export interface TournamentItem {
@@ -30,6 +31,17 @@ export interface TournamentItem {
 
 export interface TournamentDetail extends TournamentItem {
   fixtures: MatchItem[];
+}
+
+export interface TournamentStanding {
+  tournamentId: string;
+  status: TournamentStatus;
+  winnerId: string | null;
+  totalFixtures: number;
+  confirmedCount: number;
+  /** Sisa fixture yang belum confirmed (pending/disputed/cancelled). */
+  pendingCount: number;
+  standings: StandingEntry[];
 }
 
 @Injectable()
@@ -141,6 +153,40 @@ export class TournamentsService {
   }
 
   /**
+   * GET /tournaments/:id/standing (EL-04) — klasemen real-time dari
+   * fixture `confirmed` turnamen tsb. Guard SAMA dengan detail turnamen
+   * (terlibat/creator atau super_admin — keputusan EL-04).
+   * Poin: menang = 3, seri (skor sama) = 1. Urut: points DESC → wins
+   * DESC → scoreDiff DESC → displayName ASC → userId ASC.
+   */
+  async standing(
+    actor: ActorInput,
+    id: string,
+  ): Promise<TournamentStanding> {
+    const tournament = await this.findOr404(id);
+    this.assertCanView(actor, tournament);
+    const fixtures = await this.fixturesOf(tournament.id);
+    const participantIds = asArray(tournament.participantIds);
+    const standings = computeStanding(
+      participantIds,
+      await this.displayNamesOf(participantIds),
+      fixtures,
+    );
+    const confirmedCount = fixtures.filter(
+      (f) => f.status === 'confirmed',
+    ).length;
+    return {
+      tournamentId: tournament.id,
+      status: tournament.status,
+      winnerId: tournament.winnerId ?? null,
+      totalFixtures: fixtures.length,
+      confirmedCount,
+      pendingCount: fixtures.length - confirmedCount,
+      standings,
+    };
+  }
+
+  /**
    * POST /tournaments/:id/cancel — creator/super_admin, selama belum `done`.
    * Fixture `pending` milik turnamen ikut dibatalkan (`cancelled`) agar tidak
    * yatim; fixture `confirmed`/`disputed` dibiarkan (riwayat ELO utuh).
@@ -202,6 +248,20 @@ export class TournamentsService {
   private async fixturesOf(tournamentId: string): Promise<MatchResult[]> {
     const all = await this.matches.find({ order: { createdAt: 'ASC' } });
     return all.filter((m) => m.tournamentId === tournamentId);
+  }
+
+  /** displayName per user id (null bila user tak ditemukan/belum isi nama). */
+  private async displayNamesOf(
+    ids: string[],
+  ): Promise<Map<string, string | null>> {
+    const names = new Map<string, string | null>();
+    if (ids.length === 0) return names;
+    const found = await this.users
+      .createQueryBuilder('u')
+      .where('u.id IN (:...ids)', { ids })
+      .getMany();
+    for (const u of found) names.set(u.id, u.displayName ?? null);
+    return names;
   }
 
   private toPublic(t: Tournament): TournamentItem {

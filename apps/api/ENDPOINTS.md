@@ -1263,3 +1263,54 @@ TODO EL-04 (EKSPLISIT, belum diimplementasikan di EL-03):
 - Penentuan juara (`winnerId` masih selalu null; transisi `ongoing` →
   `done` belum ada endpointnya).
 - Badge/achievement juara (kolom maupun endpoint badge belum ada).
+
+## Standing real-time + juara otomatis + badge digital (EL-04, auth kecuali 1 publik)
+
+Tabel `badges` (`user_id` FK CASCADE, `kind` (`tournament_champion` —
+satu-satunya nilai V1), `ref_id` nullable TANPA FK keras (= id turnamen
+sumber; riwayat utuh walau turnamen dihapus), `awarded_at`,
+UNIQUE(`user_id`,`kind`,`ref_id`) anti-duplikat).
+
+KEPUTUSAN (terdokumentasi): guard `GET /tournaments/:id/standing`
+DISAMAKAN dengan guard detail turnamen (terlibat/creator atau
+super_admin — BUKAN publik). Badge juara memakai entity `Badge`
+(BUKAN kolom `winnerBadge` di turnamen).
+
+### `GET /tournaments/:id/standing` (auth)
+Klasemen real-time dari fixture `confirmed` turnamen tsb (derivasi
+read-only — `pending`/`disputed`/`cancelled` dikecualikan).
+- Guard = detail turnamen: terlibat (peserta/creator) atau super_admin
+  → 200; lintas user → 403; tak ada → 404; UUID invalid → 400;
+  tanpa token → 401.
+- Poin: menang = 3, seri (skor SAMA) = 1, kalah = 0.
+- Per peserta: `{ userId, displayName|null, played, wins, losses,
+  draws, points, scoreDiff }` (`scoreDiff` = skor dicetak − kebobolan;
+  SEMUA peserta tampil walau `played: 0`).
+- Urut: `points` DESC → `wins` DESC → `scoreDiff` DESC →
+  `displayName` ASC (null terbawah) → `userId` ASC (stabil).
+- Response `{ tournamentId, status, winnerId|null, totalFixtures,
+  confirmedCount, pendingCount, standings }` (`pendingCount` = fixture
+  yang BELUM `confirmed`, termasuk `disputed`/`cancelled` — sisa).
+
+### Juara otomatis (tanpa endpoint — hook di confirm)
+Saat sebuah fixture turnamen menjadi `confirmed` via
+`POST /matches/:id/confirm` (satu-satunya path confirm/score EL-00/03),
+server mengecek: bila SEMUA fixture turnamen `confirmed` (tanpa
+`pending`/`disputed`/`cancelled`) dan turnamen masih `ongoing` →
+`status: "done"` + `winnerId` = peringkat 1 standing (tiebreak sama
+seperti di atas) + badge `tournament_champion` otomatis.
+Idempotent: turnamen yang sudah `done`/`cancelled` dilewati; badge
+memakai guard duplikat (unique `user+kind+refId`; confirm ulang tidak
+menambah badge).
+- Fixture `disputed`/`cancelled` MEMBLOKIR auto-done (turnamen tetap
+  `ongoing`, `winnerId` null, tanpa badge) — walkover diurus EL-05.
+- Turnamen yang sudah `done` tidak bisa di-cancel (`POST
+  /tournaments/:id/cancel` → 409, aturan EL-03 yang sudah ada).
+
+### `GET /users/:id/badges` (PUBLIK, tanpa auth)
+Badge milik user mana pun → `{ data: BadgeItem[] }` (terbaru dulu).
+User tak ada → 404; UUID invalid → 400.
+`BadgeItem`: `{ id, userId, kind, refId|null, awardedAt }`.
+
+### `GET /badges/me` (auth)
+Badge milik sendiri → `{ data: BadgeItem[] }`. Tanpa token → 401.
