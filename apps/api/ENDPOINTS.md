@@ -1063,3 +1063,75 @@ hanya menemukan komentar TODO ini). Jangan mock kirim email. Bila dibutuhkan:
 tambah provider email + tabel token reset (single-use, TTL pendek, hash di DB
 seperti refresh token) + `POST /auth/forgot-password` (selalu 200 tanpa
 membocorkan keberadaan email) + `POST /auth/reset-password` + e2e.
+
+## Fondasi ELO + hasil match terkonfirmasi (EL-00, auth kecuali 1 publik)
+
+Tabel `elo_ratings` (`user_id` CASCADE, `sport` ≤60, `score` default 1000,
+`matches_played` default 0, UNIQUE(`user_id`,`sport`)) + `match_results`
+(`sport`, `venue_id` nullable FK SET NULL, `team_a`/`team_b` text[] uuid,
+`score_a`/`score_b` int ≥0, `status` pending|confirmed|disputed|cancelled
+default `pending`, `created_by` FK, `confirmed_by` text[] default {},
+timestamps) + `elo_history` (`user_id` CASCADE, `sport`, `match_id` FK
+CASCADE, `before/after/delta/k_factor`, `created_at` — audit per pemain).
+
+Rumus ELO standar: ekspektasi `EA = 1 / (1 + 10^((RB − RA) / 400))` dengan
+RA/RB = rata-rata rating tim; hasil aktual 1 (menang) / 0,5 (seri) / 0
+(kalah); `delta = round(K × (aktual − ekspektasi))`; tiap pemain dihitung
+vs rata-rata tim LAWAN. K-factor: provisional (`matchesPlayed < 10`,
+derived — TANPA kolom sendiri) → 48; standar → 32; rating ≥ 2400 → 24.
+Contoh: 1v1 sama-sama 1000 → EA = 0,5 → pemenang +24, pecundang −24
+(simetris, K = 48 provisional).
+
+Konfirmasi DUA PIHAK: match `confirmed` + ELO diterapkan SEKALI hanya bila
+ada ≥1 confirmer dari teamA DAN ≥1 dari teamB. Satu pihak saja → tetap
+`pending`, rating tak berubah. Confirm ulang atas `confirmed` → 200 tanpa
+efek ganda (idempotent; history tidak bertambah).
+
+### `POST /matches` (auth)
+Body: `{ sport (≤60), teamA (UUID[] min 1), teamB (UUID[] min 1),
+scoreA/ScoreB (int ≥0), venueId? (UUID, harus ada bila diisi) }`
+→ 201 `MatchItem` (`status: "pending"`). Creator otomatis confirmer pihak
+timnya bila ia termasuk salah satu tim. Validasi: tiap UUID valid, tanpa
+overlap teamA/teamB, tanpa duplikat dalam tim, semua pemain harus ada
+(else 400/404). Tanpa token → 401.
+`MatchItem`: `{ id, sport, venueId|null, teamA, teamB, scoreA, scoreB,
+status, createdBy, confirmedBy, createdAt, updatedAt }`.
+
+### `GET /matches/me` (auth)
+Match yang melibatkan user (`?status?` = pending|confirmed|disputed|
+cancelled) → `{ data: MatchItem[] }`, terbaru dulu. Tanpa token → 401.
+
+### `GET /matches/:id` (auth)
+Terlibat (teamA/teamB) atau super_admin → 200 `MatchItem`. Lintas user
+→ 403; tak ada → 404; UUID invalid → 400; tanpa token → 401.
+
+### `POST /matches/:id/confirm` (auth)
+Hanya pemain match tsb (selain itu 403). Satu pihak → 200 tetap `pending`;
+kedua pihak → 200 `confirmed` + ELO + history per pemain. Confirm ulang →
+200 idempotent. Atas `cancelled`/`disputed` → 409; tak ada → 404.
+
+### `POST /matches/:id/cancel` (auth)
+Hanya creator / super_admin (else 403), hanya bila `pending` (else 409)
+→ 200 `MatchItem` (`status: "cancelled"`).
+
+### `POST /matches/:id/dispute` (auth)
+User terlibat (else 403) → 200 `status: "disputed"` + freeze (rating yang
+sudah terlanjur diterapkan TIDAK di-rollback). Dari `cancelled`/
+`disputed` → 409.
+
+### `GET /elo/me` (auth)
+Semua rating cabor milik sendiri → `{ data: EloItem[] }` (urut sport ASC).
+Tanpa token → 401.
+`EloItem`: `{ sport, score, matchesPlayed, provisional (= matchesPlayed < 10) }`.
+
+### `GET /users/:id/elo` (PUBLIK, tanpa auth)
+Rating cabor user mana pun → `{ data: EloItem[] }`. User tak ada → 404;
+UUID invalid → 400. Dipakai profil sosial (pengganti `winRate` palsu —
+lihat TODO-EL-00 di seksi ST-07 bila masih tertulis).
+
+TODO EL-05 (EKSPLISIT, belum diimplementasikan di EL-00):
+- Integrasi dispute center (`POST /disputes` API-W02) dengan match
+  `disputed` (tautan `targetType/targetId` + alur investigasi admin).
+- Walkover (WO): aturan menang-tanpa-tanding (no-show) + penerapan ELO-nya.
+- Rating decay: penurunan skor otomatis untuk pemain vakum (jangka waktu +
+  batas bawah skor belum diputuskan PO).

@@ -24,7 +24,10 @@ import { NotificationsModule } from './notifications/notifications.module';impor
 import { Invite } from './invites/invite.entity';
 import { InvitesModule } from './invites/invites.module';import { Payout } from './payouts/payout.entity';
 import { PayoutsModule } from './payouts/payouts.module';import { Dispute } from './disputes/dispute.entity';
-import { DisputesModule } from './disputes/disputes.module';import { Promo } from './promos/promo.entity';
+import { DisputesModule } from './disputes/disputes.module';import { EloHistory } from './elo/elo-history.entity';
+import { EloRating } from './elo/elo-rating.entity';
+import { EloModule } from './elo/elo.module';
+import { MatchResult } from './elo/match-result.entity';import { Promo } from './promos/promo.entity';
 import { PromosModule } from './promos/promos.module';import { SearchModule } from './search/search.module';import { Cart, CartItem } from './marketplace/cart.entity';import { Product } from './marketplace/product.entity';
 import { Seller } from './marketplace/seller.entity';
 import {
@@ -63,13 +66,13 @@ import { UploadsModule } from './uploads/uploads.module';
       ...(process.env.DB_DRIVER === 'sqljs'
         ? {
             type: 'sqljs' as const,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout, Promo],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout, Promo, MatchResult, EloRating, EloHistory],
             synchronize: true,
           }
         : {
             type: 'postgres' as const,
             url: process.env.DATABASE_URL,
-            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout, Promo],
+            entities: [User, RefreshToken, SportEvent, EventParticipant, EventPayment, EventWaitlist, Conversation, Message, Venue, Court, RentalItem, VenueDocument, SlotClaim, SlotBlock, Booking, Seller, Product, Cart, CartItem, ShopOrder, ShopOrderGroup, ShopOrderItem, ChangeRequest, Rating, Review, DeviceToken, NotificationHistory, Invite, Voucher, VoucherRedemption, PlatformSetting, Dispute, Payout, Promo, MatchResult, EloRating, EloHistory],
             synchronize: process.env.TYPEORM_SYNC !== 'false',
           }),
     }),
@@ -92,6 +95,7 @@ import { UploadsModule } from './uploads/uploads.module';
     PayoutsModule,
     PromosModule,
     SearchModule,
+    EloModule,
   ],
   controllers: [HealthController],
 })
