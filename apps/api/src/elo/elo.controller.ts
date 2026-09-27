@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { RequestUser } from '../auth/jwt-auth.guard';
 import { ListMatchesDto } from './dto/list-matches.dto';
 import { CreateMatchDto } from './dto/create-match.dto';
+import { VenueLeaderboardQueryDto } from './dto/venue-leaderboard-query.dto';
 import { EloService } from './elo.service';
 
 /**
@@ -95,5 +96,18 @@ export class EloController {
   @Get('users/:id/elo')
   publicElo(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.elo.userElo(id);
+  }
+
+  /**
+   * GET /venues/:id/leaderboard — PUBLIK (tanpa auth). Agregasi
+   * read-only match confirmed per venue (+ filter `?sport=`, `?limit=`).
+   * Venue tak ada → 404; UUID invalid → 400.
+   */
+  @Get('venues/:id/leaderboard')
+  venueLeaderboard(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query() query: VenueLeaderboardQueryDto,
+  ) {
+    return this.elo.venueLeaderboard(id, query.sport, query.limit);
   }
 }

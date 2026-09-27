@@ -124,6 +124,61 @@ export async function getVenueRentals(
   return res.data.data;
 }
 
+/**
+ * Satu baris leaderboard venue (EL-02, mirror API LeaderboardEntry).
+ * `displayName` nama asli (publik, tidak disamarkan); `elo` null bila
+ * agregat lintas cabor (tanpa filter sport) atau belum punya rating.
+ */
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  played: number;
+  wins: number;
+  losses: number;
+  elo: number | null;
+}
+
+export interface VenueLeaderboardResult {
+  data: LeaderboardEntry[];
+  meta: { venueId: string; sport: string | null; total: number };
+}
+
+export interface VenueLeaderboardFilter {
+  /** Cabor (case-insensitive); kosong = semua cabor (elo → null). */
+  sport?: string;
+  /** Batas baris (default server 20, 1..100). */
+  limit?: number;
+}
+
+/** GET /venues/:id/leaderboard — papan peringkat publik per venue (EL-02). */
+export async function getVenueLeaderboard(
+  venueId: string,
+  filter: VenueLeaderboardFilter = {},
+  http: Http = api,
+): Promise<VenueLeaderboardResult> {
+  const res = await http.get<VenueLeaderboardResult>(
+    `/venues/${venueId}/leaderboard`,
+    { params: filter },
+  );
+  return res.data;
+}
+
+/**
+ * Nama tampilan baris leaderboard; jujur kosong (displayName null =
+ * user belum isi nama — bukan disamarkan).
+ */
+export function leaderboardDisplayName(entry: Pick<LeaderboardEntry, 'displayName'>): string {
+  const name = entry.displayName?.trim();
+  return name ? name : 'Pemain';
+}
+
+/** Label rekor menang–kalah: "5M–2K dari 7 main". */
+export function leaderboardRecordLabel(
+  entry: Pick<LeaderboardEntry, 'played' | 'wins' | 'losses'>,
+): string {
+  return `${entry.wins}M–${entry.losses}K dari ${entry.played} main`;
+}
+
 /** Total sewa = sum(price*qty) untuk pilihan user (display sticky total). */
 export function rentalsTotal(
   catalog: Pick<RentalItem, 'id' | 'price'>[],

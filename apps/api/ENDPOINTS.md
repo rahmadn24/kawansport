@@ -1166,3 +1166,31 @@ Validasi: `eloMin`/`eloMax`/`eloMaxDelta` tanpa `eloSport` → 400;
 `eloMin > eloMax` → 400; `eloMaxDelta < 0` → 400. Filter ELO diterapkan
 SEBELUM paginasi (`meta.total` = total setelah filter ELO) dan bisa
 dikombinasikan dengan `sport`/`skill`/geo yang sudah ada (SM-06).
+
+## Leaderboard per venue (EL-02, PUBLIK tanpa auth)
+
+Agregasi read-only (derivasi, TANPA tulis/rating baru) dari `match_results`
+`confirmed` pada venue (+ cabor bila difilter) — fondasi EL-00
+(`elo_ratings` untuk kolom `elo`, `elo_history` tidak dibaca).
+
+### `GET /venues/:id/leaderboard?sport=&limit=`
+- Publik (tanpa token). Venue tak ada → 404; UUID invalid → 400.
+- Query: `sport?` (cabor, case-insensitive, ≤60; kosong = semua cabor),
+  `limit?` (default 20, 1..100; else 400).
+- Hanya match `confirmed` dengan `venue_id` tsb yang dihitung
+  (`pending`/`disputed`/`cancelled` dan match tanpa/beda venue dikecualikan).
+- Per pemain: `played` (+1 tiap match), `wins`/`losses` (pihak skor lebih
+  besar menang; seri = `played` saja tanpa win/loss — berlaku 1v1 maupun
+  2v2 per tim).
+- `displayName` = nama asli apa adanya (leaderboard publik — SENGAJA TIDAK
+  disamarkan seperti review anonim ST-06; `null` bila user belum isi nama).
+  Email TIDAK diekspos.
+- `elo` = skor rating cabor filter saat ini (`null` bila tanpa filter
+  `sport` — agregat lintas cabor — atau pemain belum punya rating).
+- Urut: `wins` DESC, `elo` DESC (`null` terbawah), `displayName` ASC
+  (stabil, lalu `userId` bila masih seri).
+- Response `{ data: LeaderboardEntry[], meta: { venueId, sport|null, total } }`
+  (`meta.total` = semua pemain SEBELUM `limit` dipotong; venue tanpa match
+  → `{ data: [], meta: { total: 0 } }`, jujur bukan 404).
+- `LeaderboardEntry`:
+  `{ userId, displayName|null, played, wins, losses, elo|null }`.

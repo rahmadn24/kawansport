@@ -45,6 +45,25 @@ export interface EloItem {
 }
 
 /**
+ * Satu baris leaderboard venue (EL-02, publik).
+ * `displayName` = nama asli apa adanya (leaderboard publik — TIDAK
+ * disamarkan, tidak seperti review anonim ST-06); null bila user belum
+ * mengisi nama. `elo` = rating cabor filter saat ini, null bila filter
+ * sport kosong (agregat lintas cabor) atau pemain belum punya rating.
+ */
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  played: number;
+  wins: number;
+  losses: number;
+  elo: number | null;
+}
+
+/** Batas default leaderboard venue (EL-02). */
+export const DEFAULT_LEADERBOARD_LIMIT = 20;
+
+/**
  * Ekspektasi skor standar ELO: EA = 1 / (1 + 10^((RB - RA) / 400)),
  * dengan RA/RB = rata-rata rating tim.
  */
@@ -216,6 +235,115 @@ export class EloService {
       order: { sport: 'ASC' },
     });
     return { data: rows.map(toEloItem) };
+  }
+
+  /**
+   * GET /venues/:id/leaderboard — publik (tanpa auth). Venue tak ada → 404.
+   * Agregasi read-only dari `MatchResult` `confirmed` pada venue (+ sport
+   * bila diisi, case-insensitive): per pemain { played, wins, losses }
+   * (seri = played saja, tanpa win/loss) + `elo` = rating cabor filter
+   * saat ini (null bila tanpa filter sport atau belum punya rating).
+   * Urut: wins DESC, elo DESC (null terbawah), displayName ASC (stabil).
+   */
+  async venueLeaderboard(
+    venueId: string,
+    sport?: string,
+    limit?: number,
+  ): Promise<{
+    data: LeaderboardEntry[];
+    meta: { venueId: string; sport: string | null; total: number };
+  }> {
+    const venue = await this.venues.findOne({ where: { id: venueId } });
+    if (!venue) throw new NotFoundException('Venue not found');
+    const filteredSport = sport?.trim() ? sport.trim() : null;
+    const take = Math.min(
+      Math.max(limit ?? DEFAULT_LEADERBOARD_LIMIT, 1),
+      100,
+    );
+
+    // Filter di memori agar portabel postgres maupun sqljs-test
+    // (pola yang sama dengan `listMine`).
+    const all = await this.matches.find();
+    const rows = all.filter(
+      (m) =>
+        m.status === 'confirmed' &&
+        m.venueId === venueId &&
+        (!filteredSport ||
+          m.sport.toLowerCase() === filteredSport.toLowerCase()),
+    );
+
+    const agg = new Map<string, { played: number; wins: number; losses: number }>();
+    const touch = (id: string) => {
+      let row = agg.get(id);
+      if (!row) {
+        row = { played: 0, wins: 0, losses: 0 };
+        agg.set(id, row);
+      }
+      return row;
+    };
+    for (const m of rows) {
+      const teamA = asArray(m.teamA);
+      const teamB = asArray(m.teamB);
+      const wonA = m.scoreA > m.scoreB;
+      const wonB = m.scoreB > m.scoreA;
+      for (const id of teamA) {
+        const row = touch(id);
+        row.played += 1;
+        if (wonA) row.wins += 1;
+        else if (wonB) row.losses += 1;
+      }
+      for (const id of teamB) {
+        const row = touch(id);
+        row.played += 1;
+        if (wonB) row.wins += 1;
+        else if (wonA) row.losses += 1;
+      }
+    }
+
+    const ids = [...agg.keys()];
+    const names = new Map<string, string | null>();
+    const elos = new Map<string, number>();
+    if (ids.length > 0) {
+      const foundUsers = await this.users
+        .createQueryBuilder('u')
+        .where('u.id IN (:...ids)', { ids })
+        .getMany();
+      for (const u of foundUsers) names.set(u.id, u.displayName ?? null);
+      if (filteredSport) {
+        const foundRatings = await this.ratings
+          .createQueryBuilder('r')
+          .where('r.userId IN (:...ids)', { ids })
+          .getMany();
+        const want = filteredSport.toLowerCase();
+        for (const r of foundRatings) {
+          if (r.sport.toLowerCase() === want) elos.set(r.userId, r.score);
+        }
+      }
+    }
+
+    const data: LeaderboardEntry[] = ids.map((userId) => {
+      const row = agg.get(userId)!;
+      return {
+        userId,
+        displayName: names.get(userId) ?? null,
+        played: row.played,
+        wins: row.wins,
+        losses: row.losses,
+        elo: elos.get(userId) ?? null,
+      };
+    });
+    data.sort(
+      (a, b) =>
+        b.wins - a.wins ||
+        (b.elo ?? Number.NEGATIVE_INFINITY) -
+          (a.elo ?? Number.NEGATIVE_INFINITY) ||
+        (a.displayName ?? '').localeCompare(b.displayName ?? '') ||
+        a.userId.localeCompare(b.userId),
+    );
+    return {
+      data: data.slice(0, take),
+      meta: { venueId, sport: filteredSport, total: data.length },
+    };
   }
 
   // ---- internal ----

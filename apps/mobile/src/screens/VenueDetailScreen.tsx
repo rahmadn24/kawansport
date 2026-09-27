@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import { RatingStarsDisplay } from '../components/RatingStars';
 import { RatingFormModal } from '../components/RatingFormModal';
 import { PhotoGallery } from '../components/PhotoGallery';
+import { VenueLeaderboard } from '../components/VenueLeaderboard';
 import { RatingReviewScreen } from './venue/RatingReviewScreen';
 import { useVenueRatingSummary, useUserRatingCheck, useRatingMutations } from '../hooks/useRatings';
 import { CreateRatingInput } from '../api/ratings';
@@ -597,6 +598,13 @@ export function VenueDetailScreen({
 
             {/* Rating & Review Section (di bawah slot) */}
             {renderRatingSection()}
+
+            {/* Papan peringkat venue (EL-02, top 5 cabor court/venue). */}
+            <VenueLeaderboard
+              venueId={venue.id}
+              sport={court?.sport ?? venue.sports[0] ?? null}
+              limit={5}
+            />
           </ScrollView>
 
           {/* Sticky bottom: total real + Lanjut Bayar oranye */}
