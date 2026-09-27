@@ -12,6 +12,8 @@ import { MatchResult } from './match-result.entity';
 /**
  * Jejak audit perubahan ELO per pemain per match confirmed (EL-00).
  * Ditulis sekali per pemain saat match menjadi `confirmed`.
+ * EL-05: baris decay (`kind: 'decay'`) ditulis saat decay oportunistik
+ * diterapkan — tanpa match (`matchId` null, `kFactor` 0).
  */
 @Entity('elo_history')
 export class EloHistory {
@@ -28,12 +30,20 @@ export class EloHistory {
   @Column({ type: 'varchar', length: 60 })
   sport!: string;
 
-  @Column({ name: 'match_id' })
-  matchId!: string;
+  /**
+   * Sumber perubahan: `match` (default, EL-00) atau `decay` (EL-05).
+   * Baris lama (pra-EL-05) terisi `match` via default kolom.
+   */
+  @Column({ type: 'varchar', length: 20, default: 'match' })
+  kind!: string;
 
-  @ManyToOne(() => MatchResult, { onDelete: 'CASCADE' })
+  /** Null untuk baris decay (tidak terkait match mana pun). */
+  @Column({ name: 'match_id', type: 'varchar', nullable: true })
+  matchId?: string | null;
+
+  @ManyToOne(() => MatchResult, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'match_id' })
-  match?: MatchResult;
+  match?: MatchResult | null;
 
   /** Skor sebelum match. */
   @Column({ type: 'int' })

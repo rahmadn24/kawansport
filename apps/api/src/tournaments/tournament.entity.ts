@@ -28,8 +28,10 @@ const isSqljs = process.env.DB_DRIVER === 'sqljs';
 
 /**
  * Turnamen mini 1v1 (EL-03). Fixture round-robin disimpan sebagai
- * `MatchResult` (EL-00) dengan `tournamentId` terisi; standing/juara/badge
- * SENGAJA tidak ada di sini (TODO EL-04).
+ * `MatchResult` (EL-00) dengan `tournamentId` terisi; standing real-time
+ * (`computeStanding` di `standing.ts`), juara otomatis (hook di
+ * `EloService.maybeFinishTournament`), dan badge juara (`BadgesService`)
+ * dihitung di EL-04.
  *
  * KEPUTUSAN: creator TIDAK otomatis menjadi peserta — `participantIds`
  * diisi eksplisit oleh client (boleh memasukkan id creator sendiri).

@@ -9,10 +9,15 @@ import { In, Repository } from 'typeorm';
 import { Booking } from '../bookings/booking.entity';
 import { Conversation } from '../chat/conversation.entity';
 import {
+  DECAY_FLOOR,
+  DECAY_POINTS_PER_PERIOD,
   DEFAULT_ELO_SCORE,
   PROVISIONAL_MATCH_LIMIT,
+  decayPeriodsDue,
 } from '../elo/elo.service';
+import { EloHistory } from '../elo/elo-history.entity';
 import { EloRating } from '../elo/elo-rating.entity';
+import { MatchResult } from '../elo/match-result.entity';
 import { EventParticipant } from '../events/event-participant.entity';
 import { SportEvent } from '../events/event.entity';
 import { Court } from '../venues/court.entity';
@@ -56,11 +61,12 @@ export interface UserSearchItem {
 }
 
 /**
- * Statistik profil (ST-07 TERBATAS) — seluruh angka dari data REAL:
- * event yang di-host, partisipasi event, booking lunas, dan gabungan
- * cabor (profil + event yang di-host + court dari booking lunas).
- * SENGAJA TANPA win-rate: butuh riwayat hasil match (DEPEND EL-00).
- * TODO-EL-00: tambah winRate saat entitas match history ada.
+ * Statistik profil (ST-07 + EL-05) — seluruh angka dari data REAL:
+ * event yang di-host, partisipasi event, booking lunas, gabungan
+ * cabor (profil + event yang di-host + court dari booking lunas),
+ * dan rekor match (EL-05 menutup TODO-EL-00: `match_results`
+ * `confirmed` kini dipakai — hanya match selesai yang dihitung;
+ * `pending`/`disputed`/`cancelled` dikecualikan).
  */
 export interface UserStats {
   user: {
@@ -75,11 +81,21 @@ export interface UserStats {
   totalBookingsPaid: number;
   sportsCount: number;
   sports: string[];
+  /** EL-05: match `confirmed` yang melibatkan user (semua cabor). */
+  totalMatches: number;
+  wins: number;
+  losses: number;
+  /** Seri (skor imbang) — dihitung di totalMatches, bukan win/loss. */
+  draws: number;
+  /** `wins / totalMatches` (2 desimal); null bila belum pernah main. */
+  winRate: number | null;
 }
 
 /**
  * Satu anggota lingkaran mabar (ST-07) — ringkasan publik + badge verified.
- * TODO-EL-04: achievement tidak dimuat di sini (entitas belum ada).
+ * EL-05 menutup TODO-EL-04: achievement/badge TIDAK dimuat di sini
+ * (keputusan final — badge juara ada endpointnya sendiri
+ * `GET /users/:id/badges`; circle = identitas rutin, bukan etalase piala).
  */
 export interface CircleMember {
   id: string;
@@ -108,6 +124,10 @@ export class UsersService implements OnModuleInit {
     private readonly conversations: Repository<Conversation>,
     @InjectRepository(EloRating)
     private readonly eloRatings: Repository<EloRating>,
+    @InjectRepository(EloHistory)
+    private readonly eloHistory: Repository<EloHistory>,
+    @InjectRepository(MatchResult)
+    private readonly matchResults: Repository<MatchResult>,
   ) {}
 
   /** Buat extension PostGIS + GIST index (postgres saja, idempotent). */
@@ -264,19 +284,22 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * GET /users/:id/stats (ST-07) — statistik dari data REAL yang ada.
+   * GET /users/:id/stats (ST-07 + EL-05) — statistik dari data REAL yang ada.
    * sports = gabungan cabor profil + event yang diikuti (termasuk yang
    * di-host — host = peserta #1) + court dari booking lunas (normalisasi
-   * trim/dedupe case-insensitive). TANPA win-rate (butuh EL-00) — JANGAN
-   * baca kolom palsu; lihat TODO-EL-00 di interface.
+   * trim/dedupe case-insensitive).
+   * EL-05 (TODO-EL-00 ditutup): rekor match dari `match_results`
+   * `confirmed` (semua cabor): menang = pihakku skor lebih besar; seri =
+   * `draws`; `winRate = round(wins / totalMatches, 2)` (null bila 0 match).
    */
   async getStats(id: string): Promise<UserStats> {
     const user = await this.findById(id);
     if (!user) throw new NotFoundException('User not found');
-    const [hosted, joined, paidBookings] = await Promise.all([
+    const [hosted, joined, paidBookings, matches] = await Promise.all([
       this.events.find({ where: { hostId: id } }),
       this.participants.find({ where: { userId: id } }),
       this.bookings.find({ where: { userId: id, status: 'paid' } }),
+      this.matchResults.find({ where: { status: 'confirmed' } }),
     ]);
     let eventSports: string[] = [];
     const joinedEventIds = [...new Set(joined.map((p) => p.eventId))];
@@ -297,6 +320,7 @@ export class UsersService implements OnModuleInit {
       ...eventSports,
       ...courtSports,
     ]);
+    const record = countMatchRecord(id, matches);
     return {
       user: {
         id: user.id,
@@ -309,18 +333,25 @@ export class UsersService implements OnModuleInit {
       totalBookingsPaid: paidBookings.length,
       sportsCount: sports.length,
       sports,
+      totalMatches: record.total,
+      wins: record.wins,
+      losses: record.losses,
+      draws: record.draws,
+      winRate: record.total > 0 ? Math.round((record.wins / record.total) * 100) / 100 : null,
     };
   }
 
   /**
-   * GET /users/me/circle (ST-07) — "teman rutin" = DEFINISI SEDERHANA V1:
-   * gabungan (a) partner chat 1-1 (punya conversation bersama) dan
+   * GET /users/me/circle (ST-07 + EL-05) — "teman rutin" = DEFINISI V1:
+   * gabungan (a) partner chat 1-1 (punya conversation bersama),
    * (b) co-participants event (pernah 1 event bersama sebagai peserta
-   * maupun host — termasuk host event yang saya ikuti dan peserta event
-   * yang saya host). Dedupe + exclude diri sendiri, maks 50 (urut:
-   * partner chat dulu, lalu co-participants). Tombol "Ajak Mabar" memakai
+   * maupun host — termasuk host event yang saya ikuti dan peserta event yang
+   * saya host), dan (c) EL-05 menutup TODO-EL-00: lawan/rekan match
+   * `confirmed` (pernah bertanding bersama — `pending`/`disputed`/
+   * `cancelled` bukan "rutin", dikecualikan).
+   * Dedupe + exclude diri sendiri, maks 50 (urut: partner chat dulu, lalu
+   * co-participants event, lalu lawan match). Tombol "Ajak Mabar" memakai
    * ulang POST /invites (GAP-01, sudah ada — TANPA endpoint baru).
-   * TODO-EL-00: riwayat match tidak dipakai (entitas belum ada).
    */
   async getCircle(
     myId: string,
@@ -349,7 +380,21 @@ export class UsersService implements OnModuleInit {
       hostIds = evts.map((e) => e.hostId);
     }
 
-    const ids = [...new Set([...chatIds, ...coIds, ...hostIds])]
+    // EL-05: lawan/rekan match `confirmed` (filter di memori agar portabel
+    // postgres/sqljs — pola yang sama dengan `EloService.listMine`).
+    const confirmedMatches = await this.matchResults.find({
+      where: { status: 'confirmed' },
+    });
+    const matchIds: string[] = [];
+    for (const m of confirmedMatches) {
+      const teamA = asMatchArray(m.teamA);
+      const teamB = asMatchArray(m.teamB);
+      if (teamA.includes(myId) || teamB.includes(myId)) {
+        matchIds.push(...teamA, ...teamB);
+      }
+    }
+
+    const ids = [...new Set([...chatIds, ...coIds, ...hostIds, ...matchIds])]
       .filter((uid) => uid !== myId)
       .slice(0, MAX_CIRCLE_MEMBERS);
     if (ids.length === 0) return { data: [], meta: { total: 0 } };
@@ -484,6 +529,10 @@ export class UsersService implements OnModuleInit {
     }
     const lower = sport.toLowerCase();
     const mine = await this.eloRatings.find({ where: { userId: selfId } });
+    const now = new Date();
+    for (const r of mine) {
+      await this.applyDecayDue(r, now);
+    }
     const myScore =
       mine.find((r) => r.sport.toLowerCase() === lower)?.score ??
       DEFAULT_ELO_SCORE;
@@ -498,19 +547,63 @@ export class UsersService implements OnModuleInit {
     };
   }
 
-  /** Peta userId -> rating cabor (case-insensitive) untuk badge + filter sqljs. */
+  /**
+   * Peta userId -> rating cabor (case-insensitive) untuk badge + filter sqljs.
+   * EL-05: decay oportunistik diterapkan + dipersist (+ history
+   * `kind='decay'`) SEBELUM peta dipakai — skor di peta = skor efektif.
+   * (Jalur postgres memfilter di SQL atas skor yang SUDAH dipersist di sini,
+   * sehingga konsisten tanpa duplikasi rumus.)
+   */
   private async loadEloMap(
     sport: string,
   ): Promise<Map<string, { score: number; matchesPlayed: number }>> {
     const lower = sport.toLowerCase();
     const rows = await this.eloRatings.find();
+    const now = new Date();
     const map = new Map<string, { score: number; matchesPlayed: number }>();
     for (const r of rows) {
       if (r.sport.toLowerCase() === lower && !map.has(r.userId)) {
+        await this.applyDecayDue(r, now);
         map.set(r.userId, { score: r.score, matchesPlayed: r.matchesPlayed });
       }
     }
     return map;
+  }
+
+  /**
+   * Decay oportunistik satu baris rating (EL-05) — mirror
+   * `EloService.applyDecayDue` (helper murni + rumus yang sama;
+   * duplikasi ~10 baris disengaja agar UsersModule tidak mengimpor
+   * EloModule — EloModule justru mengimpor UsersModule).
+   */
+  private async applyDecayDue(
+    rating: EloRating,
+    now: Date,
+  ): Promise<boolean> {
+    const total = decayPeriodsDue(rating.lastMatchAt ?? null, now);
+    const due = total - (rating.decayedPeriods ?? 0);
+    if (due <= 0) return false;
+    const before = rating.score;
+    const after = Math.max(
+      DECAY_FLOOR,
+      before - DECAY_POINTS_PER_PERIOD * due,
+    );
+    rating.score = after;
+    rating.decayedPeriods = total;
+    await this.eloRatings.save(rating);
+    await this.eloHistory.save(
+      this.eloHistory.create({
+        userId: rating.userId,
+        sport: rating.sport,
+        kind: 'decay',
+        matchId: null,
+        before,
+        after,
+        delta: after - before,
+        kFactor: 0,
+      }),
+    );
+    return true;
   }
 
   private toEloBadge(
@@ -533,6 +626,13 @@ export class UsersService implements OnModuleInit {
     radius: number,
     elo: { sport: string; lo: number; hi: number } | null,
   ): Promise<{ data: UserSearchItem[]; meta: { page: number; limit: number; total: number } }> {
+    // EL-05: decay oportunistik DULU (persist) agar filter SQL di bawah
+    // membaca skor efektif — satu-satunya tulisan sebelum query baca ini.
+    let eloMap: Map<string, { score: number; matchesPlayed: number }> | null =
+      null;
+    if (elo) {
+      eloMap = await this.loadEloMap(elo.sport);
+    }
     const qb = this.users
       .createQueryBuilder('u')
       .where('u.id != :selfId', { selfId })
@@ -586,11 +686,7 @@ export class UsersService implements OnModuleInit {
       const raw = await qb.getRawMany<{ distanceMeters: string }>();
       distances = raw.map((r) => (r.distanceMeters == null ? null : Number(r.distanceMeters)));
     }
-    // Badge ELO untuk halaman ini (batch satu query, cocok case-insensitive).
-    let eloMap: Map<string, { score: number; matchesPlayed: number }> | null = null;
-    if (elo) {
-      eloMap = await this.loadEloMap(elo.sport);
-    }
+    // Badge ELO untuk halaman ini (dari peta yang sudah decay-efektif).
     return {
       data: rows.map((u, i) =>
         this.toSearchItem(
@@ -688,6 +784,41 @@ export function normalizeSports(input: string[]): string[] {
     out.push(s);
   }
   return out;
+}
+
+/** Kolom tim match bisa null (simple-json sqljs) → normalisasi ke []. */
+function asMatchArray(value: string[] | null | undefined): string[] {
+  return Array.isArray(value) ? value : [];
+}
+
+/**
+ * Rekor match user dari baris `confirmed` (EL-05, semua cabor).
+ * Menang = pihakku skor lebih besar; seri = `draws` (bukan win/loss).
+ */
+function countMatchRecord(
+  userId: string,
+  matches: MatchResult[],
+): { total: number; wins: number; losses: number; draws: number } {
+  let total = 0;
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  for (const m of matches) {
+    const teamA = asMatchArray(m.teamA);
+    const teamB = asMatchArray(m.teamB);
+    const inA = teamA.includes(userId);
+    const inB = teamB.includes(userId);
+    if (!inA && !inB) continue;
+    total += 1;
+    if (m.scoreA === m.scoreB) {
+      draws += 1;
+    } else if ((inA && m.scoreA > m.scoreB) || (inB && m.scoreB > m.scoreA)) {
+      wins += 1;
+    } else {
+      losses += 1;
+    }
+  }
+  return { total, wins, losses, draws };
 }
 
 /** Jarak great-circle (meter) untuk filter/sort geo fallback sqljs. */

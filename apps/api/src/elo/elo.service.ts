@@ -24,6 +24,52 @@ export const DEFAULT_ELO_SCORE = 1000;
 /** Batas match untuk status provisional (derived: matchesPlayed < 10). */
 export const PROVISIONAL_MATCH_LIMIT = 10;
 
+/**
+ * Rating decay oportunistik (EL-05, TANPA cron).
+ *
+ * RUMUS (didokumentasikan + contoh angka):
+ * - Jangkar = `lastMatchAt` (diisi tiap match confirmed; null = belum
+ *   pernah main → tidak kena decay).
+ * - `fullDays = floor((now − lastMatchAt) / 24 jam)`; bila `fullDays ≤ 90`
+ *   → tidak decay (masa tenggang 90 hari).
+ * - `totalPeriods = floor((fullDays − 90) / 30)` (periode 30-hari PENUH di
+ *   atas tenggang); `due = totalPeriods − decayedPeriods`
+ *   (`decayedPeriods` = periode yang sudah diterapkan; direset ke 0 tiap
+ *   match confirmed baru; `lastMatchAt` TIDAK PERNAH digeser oleh decay —
+ *   keputusan EL-05).
+ * - Bila `due > 0`: `score = max(800, score − 10 × due)`,
+ *   `decayedPeriods = totalPeriods`, + 1 baris history `kind='decay'`
+ *   (`matchId` null, `kFactor` 0).
+ *
+ * CONTOH: skor 1000, vakum 121 hari → `floor((121−90)/30) = 1` periode →
+ * 1000 − 10 = 990. Baca berikutnya (masih 121 hari diff) → `due = 1 − 1
+ * = 0` → tetap 990 (idempoten, tanpa double-decay). Skor 805, vakum 200
+ * hari → `floor(110/30) = 3` → `max(800, 805−30) = 800` (lantai 800).
+ */
+export const DECAY_GRACE_DAYS = 90;
+export const DECAY_PERIOD_DAYS = 30;
+export const DECAY_POINTS_PER_PERIOD = 10;
+export const DECAY_FLOOR = 800;
+
+/** Total periode decay yang SEHARUSNYA sudah diterapkan (murni dari selisih). */
+export function decayPeriodsDue(
+  lastMatchAt: Date | string | null | undefined,
+  now: Date = new Date(),
+): number {
+  if (!lastMatchAt) return 0;
+  const anchor = new Date(lastMatchAt).getTime();
+  if (!Number.isFinite(anchor)) return 0;
+  const ms = now.getTime() - anchor;
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  const fullDays = Math.floor(ms / 86_400_000);
+  if (fullDays <= DECAY_GRACE_DAYS) return 0;
+  return Math.floor((fullDays - DECAY_GRACE_DAYS) / DECAY_PERIOD_DAYS);
+}
+
+/** Skor walkover (EL-05): pemenang 21, yang WO 0 (skor bulu tangkis wajar). */
+export const WALKOVER_WINNER_SCORE = 21;
+export const WALKOVER_LOSER_SCORE = 0;
+
 export interface MatchItem {
   id: string;
   sport: string;
@@ -63,6 +109,13 @@ export interface LeaderboardEntry {
   wins: number;
   losses: number;
   elo: number | null;
+  /**
+   * EL-05: `matchesPlayed < 10` pada cabor filter (derived, sama seperti
+   * `EloItem.provisional` dan badge search EL-01). `null` bila `elo` null
+   * (tanpa filter sport / belum punya rating — tidak ada rating tunggal
+   * yang bisa dinilai provisional).
+   */
+  provisional: boolean | null;
 }
 
 /** Batas default leaderboard venue (EL-02). */
@@ -247,8 +300,10 @@ export class EloService {
    * POST /matches/:id/dispute — user terlibat → status `disputed` + freeze
    * (rating yang sudah terlanjur diterapkan TIDAK di-rollback).
    *
-   * TODO EL-05: integrasi dispute center (POST /disputes) + alur walkover
-   * (WO) + rating decay untuk pemain vakum. Belum diimplementasikan di EL-00.
+   * EL-05: jalur dispute-center (`POST /disputes` dengan `targetType:
+   * 'match'`) otomatis menandai match `disputed` juga; admin menutup alur
+   * via `POST /matches/:id/resolve-dispute` (`confirm` → ELO jalan bila
+   * skor valid / `cancel` → batal) + resolve tiket center seperti biasa.
    */
   async dispute(actor: ActorInput, id: string): Promise<MatchItem> {
     const match = await this.findOr404(id);
@@ -264,12 +319,80 @@ export class EloService {
     return this.toPublic(await this.matches.save(match));
   }
 
-  /** GET /elo/me — semua rating cabor milik sendiri. */
+  /**
+   * POST /matches/:id/resolve-dispute (EL-05, khusus super_admin — guard
+   * di controller). Menutup match `disputed` hasil sengketa:
+   * - `confirm` → `confirmed` + ELO diterapkan normal (decay pre-pass
+   *   dulu; skor dianggap valid apa adanya — admin yang menilai).
+   * - `cancel` → `cancelled` (walkover/batal; rating tak tersentuh).
+   * Non-`disputed` → 409. Dispute-center record ditutup TERPISAH via
+   * `POST /disputes/:id/resolve` (kontrak dispute tidak diubah — dua
+   * langkah yang didokumentasikan, bukan satu aksi implisit).
+   */
+  async resolveDisputed(
+    id: string,
+    decision: 'confirm' | 'cancel',
+  ): Promise<MatchItem> {
+    const match = await this.findOr404(id);
+    if (match.status !== 'disputed') {
+      throw new ConflictException(
+        `Only disputed matches can be resolved (current: ${match.status})`,
+      );
+    }
+    if (decision === 'cancel') {
+      match.status = 'cancelled';
+      return this.toPublic(await this.matches.save(match));
+    }
+    await this.applyElo(match);
+    match.status = 'confirmed';
+    const saved = await this.matches.save(match);
+    await this.maybeFinishTournament(saved);
+    return this.toPublic(saved);
+  }
+
+  /**
+   * POST /matches/:id/walkover (EL-05, khusus super_admin — guard di
+   * controller). KEPUTUSAN: hanya super_admin (bukan kesepakatan pemain)
+   * agar hasil WO tidak bisa dipaksakan satu pihak ke pihak lain.
+   * Dari `pending`/`disputed` → skor WO (pemenang 21, WO 0), `confirmed`,
+   * ELO jalan normal (termasuk decay pre-pass + `maybeFinishTournament`
+   * sehingga fixture WO tidak memblokir juara otomatis EL-04).
+   * `confirmed`/`cancelled` → 409.
+   */
+  async walkover(
+    id: string,
+    winnerSide: 'A' | 'B',
+  ): Promise<MatchItem> {
+    const match = await this.findOr404(id);
+    if (match.status !== 'pending' && match.status !== 'disputed') {
+      throw new ConflictException(
+        `Only pending/disputed matches can be walkovered (current: ${match.status})`,
+      );
+    }
+    if (winnerSide === 'A') {
+      match.scoreA = WALKOVER_WINNER_SCORE;
+      match.scoreB = WALKOVER_LOSER_SCORE;
+    } else {
+      match.scoreA = WALKOVER_LOSER_SCORE;
+      match.scoreB = WALKOVER_WINNER_SCORE;
+    }
+    await this.applyElo(match);
+    match.status = 'confirmed';
+    const saved = await this.matches.save(match);
+    await this.maybeFinishTournament(saved);
+    return this.toPublic(saved);
+  }
+
+  /** GET /elo/me — semua rating cabor milik sendiri (decay oportunistik dulu). */
   async myElo(actor: ActorInput): Promise<{ data: EloItem[] }> {
     return this.userElo(actor.id);
   }
 
-  /** GET /users/:id/elo — publik (tanpa auth). Tak ada user → 404. */
+  /**
+   * GET /users/:id/elo — publik (tanpa auth). Tak ada user → 404.
+   * EL-05: decay oportunistik diterapkan + dipersist (+ history
+   * `kind='decay'`) SEBELUM respons dibaca — tanpa cron.
+   */
   async userElo(userId: string): Promise<{ data: EloItem[] }> {
     const user = await this.users.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
@@ -277,6 +400,10 @@ export class EloService {
       where: { userId },
       order: { sport: 'ASC' },
     });
+    const now = new Date();
+    for (const row of rows) {
+      await this.applyDecayDue(row, now);
+    }
     return { data: rows.map(toEloItem) };
   }
 
@@ -285,7 +412,10 @@ export class EloService {
    * Agregasi read-only dari `MatchResult` `confirmed` pada venue (+ sport
    * bila diisi, case-insensitive): per pemain { played, wins, losses }
    * (seri = played saja, tanpa win/loss) + `elo` = rating cabor filter
-   * saat ini (null bila tanpa filter sport atau belum punya rating).
+   * saat ini (null bila tanpa filter sport atau belum punya rating) +
+   * `provisional` (EL-05, null bila `elo` null).
+   * EL-05: decay oportunistik diterapkan + dipersist untuk rating cabor
+   * filter yang ditampilkan — tanpa cron.
    * Urut: wins DESC, elo DESC (null terbawah), displayName ASC (stabil).
    */
   async venueLeaderboard(
@@ -346,6 +476,7 @@ export class EloService {
     const ids = [...agg.keys()];
     const names = new Map<string, string | null>();
     const elos = new Map<string, number>();
+    const provs = new Map<string, boolean>();
     if (ids.length > 0) {
       const foundUsers = await this.users
         .createQueryBuilder('u')
@@ -358,21 +489,28 @@ export class EloService {
           .where('r.userId IN (:...ids)', { ids })
           .getMany();
         const want = filteredSport.toLowerCase();
+        const now = new Date();
         for (const r of foundRatings) {
-          if (r.sport.toLowerCase() === want) elos.set(r.userId, r.score);
+          if (r.sport.toLowerCase() === want && !elos.has(r.userId)) {
+            await this.applyDecayDue(r, now);
+            elos.set(r.userId, r.score);
+            provs.set(r.userId, r.matchesPlayed < PROVISIONAL_MATCH_LIMIT);
+          }
         }
       }
     }
 
     const data: LeaderboardEntry[] = ids.map((userId) => {
       const row = agg.get(userId)!;
+      const elo = elos.get(userId) ?? null;
       return {
         userId,
         displayName: names.get(userId) ?? null,
         played: row.played,
         wins: row.wins,
         losses: row.losses,
-        elo: elos.get(userId) ?? null,
+        elo,
+        provisional: elo == null ? null : (provs.get(userId) ?? true),
       };
     });
     data.sort(
@@ -462,18 +600,24 @@ export class EloService {
   }
 
   /**
-   * Terapkan ELO standar untuk match yang baru confirmed. Tiap pemain
-   * dihitung vs rata-rata rating tim lawan; delta integer (round);
-   * history ditulis per pemain. Dipanggil sekali per match (guard status
-   * di `confirm`); idempotent karena hanya dari transisi pending→confirmed.
+   * Terapkan ELO standar untuk match yang baru confirmed. EL-05: decay
+   * yang jatuh tempo diterapkan DULU per pemain (persist + history decay),
+   * lalu delta match dihitung dari skor efektif. Tiap pemain dihitung vs
+   * rata-rata rating tim lawan; delta integer (round); history match
+   * ditulis per pemain; `lastMatchAt = now` + `decayedPeriods = 0`.
+   * Dipanggil sekali per match (guard status di `confirm`/`walkover`/
+   * `resolveDisputed`); idempotent karena hanya dari transisi ke confirmed.
    */
   private async applyElo(match: MatchResult): Promise<void> {
     const teamA = asArray(match.teamA);
     const teamB = asArray(match.teamB);
     const all = [...teamA, ...teamB];
+    const now = new Date();
     const current = new Map<string, EloRating>();
     for (const userId of all) {
-      current.set(userId, await this.getOrCreate(match.sport, userId));
+      const rating = await this.getOrCreate(match.sport, userId);
+      await this.applyDecayDue(rating, now);
+      current.set(userId, rating);
     }
     const avg = (ids: string[]): number =>
       ids.reduce((sum, id) => sum + (current.get(id)?.score ?? DEFAULT_ELO_SCORE), 0) /
@@ -498,11 +642,14 @@ export class EloService {
       const before = rating.score;
       rating.score = before + delta;
       rating.matchesPlayed += 1;
+      rating.lastMatchAt = now;
+      rating.decayedPeriods = 0;
       updates.push(rating);
       rows.push(
         this.history.create({
           userId,
           sport: match.sport,
+          kind: 'match',
           matchId: match.id,
           before,
           after: rating.score,
@@ -527,7 +674,45 @@ export class EloService {
       sport,
       score: DEFAULT_ELO_SCORE,
       matchesPlayed: 0,
+      lastMatchAt: null,
+      decayedPeriods: 0,
     });
+  }
+
+  /**
+   * Decay oportunistik satu baris rating (EL-05). Idempoten via
+   * `decayedPeriods` (tanpa menggeser `lastMatchAt`): hanya periode BARU
+   * yang dikurangkan. Persist + 1 baris history `kind='decay'`
+   * (`matchId` null, `kFactor` 0). Return true bila ada yang diterapkan.
+   */
+  private async applyDecayDue(
+    rating: EloRating,
+    now: Date,
+  ): Promise<boolean> {
+    const total = decayPeriodsDue(rating.lastMatchAt ?? null, now);
+    const due = total - (rating.decayedPeriods ?? 0);
+    if (due <= 0) return false;
+    const before = rating.score;
+    const after = Math.max(
+      DECAY_FLOOR,
+      before - DECAY_POINTS_PER_PERIOD * due,
+    );
+    rating.score = after;
+    rating.decayedPeriods = total;
+    await this.ratings.save(rating);
+    await this.history.save(
+      this.history.create({
+        userId: rating.userId,
+        sport: rating.sport,
+        kind: 'decay',
+        matchId: null,
+        before,
+        after,
+        delta: after - before,
+        kFactor: 0,
+      }),
+    );
+    return true;
   }
 
   private toPublic(m: MatchResult): MatchItem {

@@ -42,9 +42,9 @@ export class UsersController {
   }
 
   /**
-   * Statistik profil user mana pun (ST-07) — boleh dibaca user login apa pun.
-   * Angka dari data REAL (host/join event, booking paid, gabungan cabor);
-   * TANPA win-rate (butuh EL-00, TODO-EL-00).
+   * Statistik profil user mana pun (ST-07 + EL-05) — boleh dibaca user
+   * login apa pun. Angka dari data REAL (host/join event, booking paid,
+   * gabungan cabor, rekor match confirmed + winRate).
    */
   @Get(':id/stats')
   stats(@Param('id', new ParseUUIDPipe()) id: string) {

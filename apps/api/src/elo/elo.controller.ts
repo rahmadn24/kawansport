@@ -12,9 +12,13 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { RequestUser } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { ListMatchesDto } from './dto/list-matches.dto';
 import { CreateMatchDto } from './dto/create-match.dto';
+import { ResolveDisputedMatchDto } from './dto/resolve-disputed-match.dto';
 import { SetMatchScoreDto } from './dto/set-match-score.dto';
+import { WalkoverDto } from './dto/walkover.dto';
 import { VenueLeaderboardQueryDto } from './dto/venue-leaderboard-query.dto';
 import { EloService } from './elo.service';
 
@@ -74,7 +78,7 @@ export class EloController {
 
   /**
    * POST /matches/:id/dispute — terlibat → disputed + freeze.
-   * TODO EL-05: integrasi dispute center + walkover + decay (belum ada).
+   * EL-05: admin menutup via POST /matches/:id/resolve-dispute.
    */
   @Post('matches/:id/dispute')
   @HttpCode(200)
@@ -84,6 +88,39 @@ export class EloController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.elo.dispute(user, id);
+  }
+
+  /**
+   * POST /matches/:id/resolve-dispute (EL-05, khusus super_admin) —
+   * putusan atas match `disputed`: `confirm` (confirmed + ELO) atau
+   * `cancel` (cancelled, walkover/batal). Non-disputed → 409.
+   */
+  @Post('matches/:id/resolve-dispute')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  resolveDisputed(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ResolveDisputedMatchDto,
+  ) {
+    return this.elo.resolveDisputed(id, dto.decision);
+  }
+
+  /**
+   * POST /matches/:id/walkover (EL-05, khusus super_admin) — menang
+   * tanpa tanding: skor WO 21-0 untuk `winnerSide`, `confirmed`, ELO
+   * jalan normal. Dari pending/disputed; confirmed/cancelled → 409.
+   * KEPUTUSAN: super_admin saja (bukan kesepakatan pemain).
+   */
+  @Post('matches/:id/walkover')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  walkover(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: WalkoverDto,
+  ) {
+    return this.elo.walkover(id, dto.winnerSide);
   }
 
   /** POST /matches/:id/score (EL-03) — koreksi skor bila pending + reset confirmedBy. */

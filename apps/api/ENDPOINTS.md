@@ -1,4 +1,4 @@
-# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-05 + ST-07-terbatas + ST-09 + ST-10)
+# KawanSport API — Daftar Endpoint (MVP SM-01..SM-07 + AD-01 + BK-01..BK-03 + API-W01..W08 + API-W02/W04 + GAP-01 + GAP-02 + ST-04 + ST-05 + ST-07 + ST-09 + ST-10 + EL-00..EL-05)
 
 Base URL dev: `http://localhost:3000` (env `API_PORT`, prefix kosong — lihat `API_PREFIX` bila di-set).
 Auth (kecuali `GET /health` dan `POST /auth/*`): header `Authorization: Bearer <accessToken>`.
@@ -139,13 +139,17 @@ Query: `sport? (overlap satu item, case-insensitive), skill? (beginner|intermedi
 - Response `{ data: UserSearchItem[], meta: { page, limit, total } }`
   (`total` sudah memperhitungkan filter ELO).
 
-## Profil sosial terbatas (ST-07 TERBATAS, auth)
+## Profil sosial (ST-07 + EL-05, auth)
 
-Scope SENGAJA terbatas (card Trello #67): verified badge + statistik
-real + circle. Yang TIDAK dikerjakan (dependensi ELO belum ada):
-- Riwayat match — DEPEND EL-00 → TODO-EL-00 (termasuk `winRate` di stats:
-  kolom palsu DILARANG; tambah hanya saat entitas match history ada).
-- Achievement — DEPEND EL-04 → TODO-EL-04.
+Scope (card Trello #67 + penutup EL-05): verified badge + statistik
+real + circle. EL-05 menutup TODO-EL-00/EL-04 yang dulu tertulis di sini:
+- Riwayat match — DULU depend EL-00; kini REAL (`match_results`
+  `confirmed`): `GET /users/:id/stats` memuat rekor
+  (`totalMatches/wins/losses/draws/winRate`) dan circle memuat
+  lawan match `confirmed`.
+- Achievement — keputusan FINAL: TIDAK dimuat di circle (circle =
+  identitas rutin, bukan etalase piala); badge juara ada endpointnya
+  sendiri (`GET /users/:id/badges`, EL-04).
 
 ### `POST /users/:id/verify` (khusus super_admin)
 Tandai user terverifikasi → 200 profil publik (`verified: true`).
@@ -160,16 +164,23 @@ Statistik dari data REAL yang ada (tanpa token → 401; tak ada → 404):
 - `totalBookingsPaid`: jumlah booking `paid` milik user.
 - `sports` + `sportsCount`: gabungan cabor profil + event yang diikuti +
   court dari booking lunas (trim + dedupe case-insensitive).
+- Rekor match (EL-05, semua cabor, hanya `confirmed` — `pending`/
+  `disputed`/`cancelled` dikecualikan): `totalMatches`, `wins` (pihakku
+  skor lebih besar), `losses`, `draws` (skor imbang — dihitung di total,
+  bukan win/loss), `winRate = round(wins / totalMatches, 2)` (`null`
+  bila belum pernah main — jujur, bukan 0 palsu).
 - Response `{ user{id,displayName,avatarUrl,verified}, totalEventsHosted,
-  totalEventsJoined, totalBookingsPaid, sportsCount, sports }`.
-- TANPA `winRate` — butuh EL-00 (TODO-EL-00).
+  totalEventsJoined, totalBookingsPaid, sportsCount, sports,
+  totalMatches, wins, losses, draws, winRate }`.
 
 ### `GET /users/me/circle` (milik sendiri)
-"Teman rutin" = DEFINISI SEDERHANA V1 (didokumentasikan apa adanya):
-gabungan (a) partner chat 1-1 (punya conversation bersama) dan
+"Teman rutin" = DEFINISI V1 (didokumentasikan apa adanya):
+gabungan (a) partner chat 1-1 (punya conversation bersama),
 (b) co-participants event (pernah 1 event bersama — sebagai peserta
 maupun host, termasuk host event yang saya ikuti dan peserta event yang
-saya host). Dedupe + exclude diri sendiri, urut partner chat dulu, maks
+saya host), dan (c) EL-05: lawan/rekan match `confirmed` (pernah
+bertanding bersama). Dedupe + exclude diri sendiri, urut partner chat
+dulu, lalu co-participants event, lalu lawan match, maks
 50 → `{ data: CircleMember[], meta: { total } }`.
 `CircleMember`: `{ id, email, displayName, avatarUrl, verified, sports,
 skillLevel }`. Tanpa relasi → `{ data: [], meta: { total: 0 } }`.
@@ -864,11 +875,11 @@ Modul payout belum ada → di-skip (tambah satu sumber + satu tipe bila lahir).
 - `refType/refId`: `booking | order | user` + id baris sumber
   (redeem menunjuk booking/order hasil redeem).
 
-## Dispute center (API-W02, auth)
+## Dispute center (API-W02 + EL-05, auth)
 
 Tabel `disputes` (`reporter_id` CASCADE, `target_type`
-booking|order|user|venue, `target_id` (validasi longgar: non-empty, tanpa
-FK keras karena target lintas tabel), `category`
+booking|order|user|venue|match (EL-05), `target_id` (validasi longgar:
+non-empty, tanpa FK keras karena target lintas tabel), `category`
 no_show|smurfing|refund|other, `description` ≤2000, `status`
 open|investigating|resolved|rejected default `open`, `resolution`,
 `resolved_by`, timestamps).
@@ -880,6 +891,17 @@ sendiri, jangan implisit di resolve.
 Body: `{ targetType, targetId (non-empty), category, description (≤2000) }`
 → 201 item dispute (`status: "open"`, `reporterId` = user JWT).
 Tanpa token → 401; field invalid → 400.
+EL-05 — `targetType: "match"` merujuk id `MatchResult` (tanpa FK keras,
+pola yang sama dengan target lain; TANPA kolom `disputeId` di match —
+tautan balik = `targetType`/`targetId`, paling sedikit duplikasi):
+- `targetId` wajib UUID match yang ada (bukan → 400; tak ada → 404).
+- Pelapor wajib pemain match tsb atau super_admin (else 403).
+- Match `pending`/`confirmed` otomatis menjadi `disputed` (freeze);
+  `disputed` → no-op; `cancelled` → 409.
+- Penutupan DUA LANGKAH (kontrak resolve TIDAK diubah): admin resolve
+  tiket via `POST /disputes/:id/resolve` + putusan match via
+  `POST /matches/:id/resolve-dispute` (`confirm` → confirmed + ELO /
+  `cancel` → cancelled). Lihat seksi EL-05.
 
 ### `GET /disputes/me` (user login)
 Daftar laporan milik sendiri, terbaru dulu → `{ data: DisputeItem[] }`.
@@ -1131,15 +1153,68 @@ Tanpa token → 401.
 
 ### `GET /users/:id/elo` (PUBLIK, tanpa auth)
 Rating cabor user mana pun → `{ data: EloItem[] }`. User tak ada → 404;
-UUID invalid → 400. Dipakai profil sosial (pengganti `winRate` palsu —
-lihat TODO-EL-00 di seksi ST-07 bila masih tertulis).
+UUID invalid → 400. Dipakai profil sosial berdampingan dengan rekor
+`winRate` di `GET /users/:id/stats` (ST-07 + EL-05).
 
-TODO EL-05 (EKSPLISIT, belum diimplementasikan di EL-00):
-- Integrasi dispute center (`POST /disputes` API-W02) dengan match
-  `disputed` (tautan `targetType/targetId` + alur investigasi admin).
-- Walkover (WO): aturan menang-tanpa-tanding (no-show) + penerapan ELO-nya.
-- Rating decay: penurunan skor otomatis untuk pemain vakum (jangka waktu +
-  batas bawah skor belum diputuskan PO).
+## Follow-up ELO: dispute-match + walkover + decay + provisional (EL-05, penutup epic ELO)
+
+Menutup TODO-EL-05 eksplisit EL-00 (diimplementasikan — bukan TODO lagi).
+
+### Dispute match ↔ dispute center
+- `POST /disputes` dengan `targetType: "match"` merujuk id `MatchResult`
+  (kontrak create/list/resolve TAK berubah — hanya nilai `targetType`
+  baru; validasi + auto-`disputed` lihat seksi Dispute center di atas).
+- Alur: match `disputed` → admin resolve tiket center
+  (`POST /disputes/:id/resolve`, kontrak API-W02) → admin putuskan match:
+- `POST /matches/:id/resolve-dispute` (khusus super_admin).
+  Body: `{ decision: confirm|cancel }` → 200 `MatchItem`.
+  - `confirm` → `confirmed` + ELO diterapkan normal (termasuk decay
+    pre-pass; skor dianggap valid apa adanya — admin yang menilai).
+  - `cancel` → `cancelled` (walkover/batal; rating tak tersentuh).
+  - Hanya dari `disputed` (else 409); tak ada → 404; non-admin → 403;
+    decision selain itu → 400.
+  - Fixture turnamen yang di-confirm lewat sini ikut hook juara otomatis
+    EL-04 (`maybeFinishTournament`) — WO/dispute yang selesai tidak
+    memblokir `done` selamanya.
+
+### Walkover (WO)
+- `POST /matches/:id/walkover` (khusus super_admin).
+  Body: `{ winnerSide: "A"|"B" }` → 200 `MatchItem` (`confirmed`).
+  Skor WO: pemenang 21, yang WO 0; ELO jalan normal (termasuk decay
+  pre-pass + hook turnamen EL-04).
+- KEPUTUSAN (didokumentasikan): HANYA super_admin — bukan kesepakatan
+  pemain — agar hasil WO tidak bisa dipaksakan satu pihak ke pihak lain.
+- Hanya dari `pending`/`disputed` (`confirmed`/`cancelled` → 409);
+  tak ada → 404; non-admin → 403; `winnerSide` selain A/B → 400.
+
+### Rating decay oportunistik (TANPA cron)
+Kolom `elo_ratings.last_match_at` (jangkar; null = belum pernah main →
+tidak kena decay; diisi tiap match confirmed) + `decayed_periods`
+(pengaman idempotensi) + baris history `kind: "decay"` (`match_id`
+null, `k_factor` 0; baris `match` biasa `kind: "match"`).
+RUMUS: `fullDays = floor((now − lastMatchAt) / 24 jam)`; `fullDays ≤ 90`
+→ tidak decay (tenggang 90 hari); `total = floor((fullDays − 90) / 30)`
+(periode 30-hari penuh di atas tenggang); `due = total −
+decayedPeriods`; bila `due > 0`: `score = max(800, score − 10 × due)`
++ `decayedPeriods = total` + 1 history decay.
+CONTOH ANGKA: skor 1000 vakum 121 hari → `floor(31/30) = 1` → 990;
+baca ulang tetap 990 (`due = 0`, tanpa double-decay). Skor 805 vakum
+200 hari → `floor(110/30) = 3` → `max(800, 775) = 800` (lantai 800).
+KEPUTUSAN: `lastMatchAt` TIDAK PERNAH digeser oleh decay (jangkar murni
+selisih); idempotensi dijamin `decayedPeriods` (direset 0 tiap match
+confirmed baru) — tanpa kolom ini tiap baca akan mengurangi skor
+berulang. Tanpa cron: decay diterapkan oportunistik pada
+`GET /elo/me`, `GET /users/:id/elo`, leaderboard venue, badge/filter
+search ELO, dan SEBELUM apply ELO tiap match (delta dihitung dari skor
+efektif pasca-decay).
+
+### Provisional di semua respons rating
+`provisional = matchesPlayed < 10` (derived, tanpa kolom sendiri —
+SUDAH ada sejak EL-00/EL-01, EL-05 memastikan + e2e assert):
+`GET /elo/me`, `GET /users/:id/elo`, badge `elo` di `GET /users/search`
+(`provisional: true` + skor 1000 bagi yang belum punya rating),
+dan `LeaderboardEntry.provisional` (EL-05: field BARU; `null` bila
+`elo` null — tanpa filter sport / belum punya rating).
 
 ## Cari partner seimbang ELO (EL-01, auth)
 
@@ -1160,7 +1235,9 @@ rentang `[skorku−100, skorku+100]` — `skorku` = ratingku di cabor tsb, atau
 diisi, sisi lainnya TAK dibatasi (bukan default ±100).
 
 Skor lawan yang belum punya rating = 1000 `provisional: true` — IKUT hasil
-(bila 1000 masuk rentang) + ditandai, bukan disembunyikan.
+(bila 1000 masuk rentang) + ditandai, bukan disembunyikan. Skor yang
+dibaca = skor EFEKTIF pasca-decay EL-05 (decay oportunistik diterapkan +
+dipersist sebelum filter, sehingga filter SQL Postgres konsisten).
 
 Validasi: `eloMin`/`eloMax`/`eloMaxDelta` tanpa `eloSport` → 400;
 `eloMin > eloMax` → 400; `eloMaxDelta < 0` → 400. Filter ELO diterapkan
@@ -1185,15 +1262,17 @@ Agregasi read-only (derivasi, TANPA tulis/rating baru) dari `match_results`
 - `displayName` = nama asli apa adanya (leaderboard publik — SENGAJA TIDAK
   disamarkan seperti review anonim ST-06; `null` bila user belum isi nama).
   Email TIDAK diekspos.
-- `elo` = skor rating cabor filter saat ini (`null` bila tanpa filter
-  `sport` — agregat lintas cabor — atau pemain belum punya rating).
+- `elo` = skor rating EFEKTIF (pasca-decay EL-05) cabor filter saat ini
+  (`null` bila tanpa filter `sport` — agregat lintas cabor — atau pemain
+  belum punya rating) + `provisional` (EL-05; `null` bila `elo` null).
 - Urut: `wins` DESC, `elo` DESC (`null` terbawah), `displayName` ASC
   (stabil, lalu `userId` bila masih seri).
 - Response `{ data: LeaderboardEntry[], meta: { venueId, sport|null, total } }`
   (`meta.total` = semua pemain SEBELUM `limit` dipotong; venue tanpa match
   → `{ data: [], meta: { total: 0 } }`, jujur bukan 404).
 - `LeaderboardEntry`:
-  `{ userId, displayName|null, played, wins, losses, elo|null }`.
+  `{ userId, displayName|null, played, wins, losses, elo|null,
+  provisional|null }`.
 
 ## Turnamen mini (EL-03, auth)
 
@@ -1257,12 +1336,11 @@ Hanya creator / super_admin (else 403), selama belum `done` (`done` →
 `cancelled` (agar tidak yatim); fixture `confirmed`/`disputed`
 dibiarkan (riwayat ELO utuh).
 
-TODO EL-04 (EKSPLISIT, belum diimplementasikan di EL-03):
-- Standing/klasemen turnamen (agregasi fixture `confirmed` per turnamen:
-  menang/seri/kalah, poin, selisih skor).
-- Penentuan juara (`winnerId` masih selalu null; transisi `ongoing` →
-  `done` belum ada endpointnya).
-- Badge/achievement juara (kolom maupun endpoint badge belum ada).
+TODO EL-04 (SUDAH diimplementasikan di EL-04 — bukan TODO lagi; blok
+dipertahankan agar konteks EL-03 utuh):
+- Standing/klasemen turnamen ✅ `GET /tournaments/:id/standing`.
+- Penentuan juara ✅ hook juara otomatis di confirm (EL-04).
+- Badge/achievement juara ✅ entity + endpoint badge (EL-04).
 
 ## Standing real-time + juara otomatis + badge digital (EL-04, auth kecuali 1 publik)
 

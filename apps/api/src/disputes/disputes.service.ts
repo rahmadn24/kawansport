@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { RequestUser } from '../auth/jwt-auth.guard';
+import { MatchResult } from '../elo/match-result.entity';
 import { Dispute } from './dispute.entity';
 import type { DisputeStatus } from './dispute.entity';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
@@ -28,12 +29,22 @@ export interface DisputeItem {
 }
 
 /**
- * Dispute center (API-W02).
+ * Dispute center (API-W02 + EL-05: `targetType` `match`).
  * - User: create untuk dirinya + list miliknya (`GET /disputes/me`).
  * - Super_admin: list semua (+ filter status), investigate, resolve.
  *
  * Aturan transisi: `investigating` hanya dari `open`; `resolved`/`rejected`
  * hanya dari `open`/`investigating`; selain itu 409.
+ * EL-05 (match): `POST /disputes` dengan `targetType: 'match'` merujuk id
+ * `MatchResult` (tanpa FK keras — pola yang sama dengan target lain):
+ * targetId wajib UUID match yang ada (else 400/404), pelapor wajib pemain
+ * match tsb atau super_admin (else 403), dan match `pending`/`confirmed`
+ * otomatis menjadi `disputed` (freeze; `cancelled` → 409, `disputed` →
+ * no-op). Tautan balik = `targetType/targetId` (TANPA kolom `disputeId`
+ * di match — paling sedikit duplikasi, konsisten pola existing).
+ * Penutupan DUA LANGKAH (kontrak resolve tidak diubah): admin resolve
+ * tiket via `POST /disputes/:id/resolve` + putusan match via
+ * `POST /matches/:id/resolve-dispute` (`confirm`/`cancel`).
  * TODO: resolve dengan refund otomatis di luar scope API-W02 — bila
  * dibutuhkan, tambahkan aksi refund terpisah (reversal Midtrans / poin)
  * dengan auditnya sendiri, jangan implisit di resolve.
@@ -43,15 +54,23 @@ export class DisputesService {
   constructor(
     @InjectRepository(Dispute)
     private readonly disputes: Repository<Dispute>,
+    @InjectRepository(MatchResult)
+    private readonly matches: Repository<MatchResult>,
   ) {}
 
-  /** POST /disputes — buat laporan untuk diri sendiri. */
+  /**
+   * POST /disputes — buat laporan untuk diri sendiri.
+   * EL-05: `targetType: 'match'` → validasi + auto-dispute match (di atas).
+   */
   async create(
     actor: RequestUser,
     dto: CreateDisputeDto,
   ): Promise<DisputeItem> {
     if (!dto.targetId.trim()) {
       throw new BadRequestException('targetId must be non-empty');
+    }
+    if (dto.targetType === 'match') {
+      await this.linkMatchDispute(actor, dto.targetId.trim());
     }
     const dispute = await this.disputes.save(
       this.disputes.create({
@@ -137,6 +156,40 @@ export class DisputesService {
     if (!dispute) throw new NotFoundException('Dispute not found');
     return dispute;
   }
+
+  /**
+   * EL-05: validasi + auto-dispute untuk `targetType: 'match'`.
+   * UUID invalid → 400; match tak ada → 404; pelapor bukan pemain (dan
+   * bukan super_admin) → 403; match `cancelled` → 409.
+   */
+  private async linkMatchDispute(
+    actor: RequestUser,
+    matchId: string,
+  ): Promise<void> {
+    if (!UUID_RE.test(matchId)) {
+      throw new BadRequestException(
+        'targetId must be a match UUID when targetType is match',
+      );
+    }
+    const match = await this.matches.findOne({ where: { id: matchId } });
+    if (!match) throw new NotFoundException('Match not found');
+    const teamA = asStringArray(match.teamA);
+    const teamB = asStringArray(match.teamB);
+    if (
+      actor.role !== 'super_admin' &&
+      !teamA.includes(actor.id) &&
+      !teamB.includes(actor.id)
+    ) {
+      throw new ForbiddenException('Only players of this match can dispute it');
+    }
+    if (match.status === 'cancelled') {
+      throw new ConflictException('Cannot dispute a cancelled match');
+    }
+    if (match.status === 'pending' || match.status === 'confirmed') {
+      match.status = 'disputed';
+      await this.matches.save(match);
+    }
+  }
 }
 
 export function assertReporterOrAdmin(
@@ -162,4 +215,13 @@ export function toDisputeItem(d: Dispute): DisputeItem {
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
   };
+}
+
+/** UUID v4/umum (validasi ringan target match — kecocokan penuh di DB). */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Kolom array bisa null (simple-json sqljs) → normalisasi ke []. */
+function asStringArray(value: string[] | null | undefined): string[] {
+  return Array.isArray(value) ? value : [];
 }

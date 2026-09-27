@@ -13,9 +13,11 @@ import { Court } from '../src/venues/court.entity';
 import { Venue } from '../src/venues/venue.entity';
 
 /**
- * ST-07 TERBATAS (Trello #67): verified badge + stats real + circle.
- * BATAS TEGAS: riwayat match (EL-00) + achievement (EL-04) TIDAK diuji
- * di sini — tidak ada endpoint/kolomnya (TODO-EL).
+ * ST-07 (Trello #67): verified badge + stats real + circle.
+ * EL-05 menutup TODO-EL: stats kini memuat rekor match REAL
+ * (`totalMatches/wins/losses/draws/winRate` dari match `confirmed`);
+ * circle memuat lawan match `confirmed`; badge/achievement tetap di
+ * endpoint badge (`GET /users/:id/badges`) — keputusan final.
  */
 describe('Users ST-07 terbatas (e2e)', () => {
   let app: INestApplication;
@@ -204,7 +206,12 @@ describe('Users ST-07 terbatas (e2e)', () => {
     expect(hostStats.body.totalBookingsPaid).toBe(0);
     expect(hostStats.body.sports).toContain('Futsal');
     expect(hostStats.body.sportsCount).toBe(hostStats.body.sports.length);
-    expect(hostStats.body.winRate).toBeUndefined();
+    // EL-05: rekor match REAL (belum ada match → nol + winRate null).
+    expect(hostStats.body.totalMatches).toBe(0);
+    expect(hostStats.body.wins).toBe(0);
+    expect(hostStats.body.losses).toBe(0);
+    expect(hostStats.body.draws).toBe(0);
+    expect(hostStats.body.winRate).toBeNull();
     expect(hostStats.body.user.verified).toBe(false);
 
     const playerStats = await srv()

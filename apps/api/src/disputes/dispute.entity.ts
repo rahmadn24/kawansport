@@ -9,14 +9,20 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 
-/** Jenis target yang dilaporkan (API-W02). */
-export type DisputeTargetType = 'booking' | 'order' | 'user' | 'venue';
+/** Jenis target yang dilaporkan (API-W02 + EL-05: `match` = MatchResult). */
+export type DisputeTargetType =
+  | 'booking'
+  | 'order'
+  | 'user'
+  | 'venue'
+  | 'match';
 
 export const DISPUTE_TARGET_TYPES: DisputeTargetType[] = [
   'booking',
   'order',
   'user',
   'venue',
+  'match',
 ];
 
 /** Kategori laporan (API-W02). */
@@ -46,7 +52,10 @@ export const DISPUTE_STATUSES: DisputeStatus[] = [
 /**
  * Laporan/sengketa user (API-W02, dispute center).
  * `targetId` divalidasi longgar (non-empty) — tidak ada FK keras karena
- * target lintas tabel (booking/order/user/venue).
+ * target lintas tabel (booking/order/user/venue). EL-05: `targetType`
+ * `match` merujuk id `MatchResult` (divalidasi di service: harus UUID
+ * match yang ada; pelapor harus pemain match tsb atau super_admin;
+ * match pending/confirmed otomatis menjadi `disputed`).
  */
 @Entity('disputes')
 export class Dispute {
