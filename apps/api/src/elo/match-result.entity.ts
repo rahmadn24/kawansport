@@ -77,6 +77,14 @@ export class MatchResult {
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   status!: MatchStatus;
 
+  /**
+   * Turnamen pemilik fixture (EL-03, nullable). Match biasa (POST /matches)
+   * selalu null; fixture turnamen diisi id turnamennya. Turnamen dihapus →
+   * SET NULL (riwayat match + ELO utuh).
+   */
+  @Column({ name: 'tournament_id', type: 'varchar', nullable: true })
+  tournamentId?: string | null;
+
   /** User pencatat hasil (FK ke users, CASCADE). */
   @Column({ name: 'created_by' })
   createdBy!: string;

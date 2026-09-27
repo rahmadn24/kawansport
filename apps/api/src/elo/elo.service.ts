@@ -32,6 +32,8 @@ export interface MatchItem {
   status: MatchStatus;
   createdBy: string;
   confirmedBy: string[];
+  /** Id turnamen pemilik fixture (EL-03) — null untuk match biasa. */
+  tournamentId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,6 +123,7 @@ export class EloService {
       status: 'pending',
       createdBy: actor.id,
       confirmedBy,
+      tournamentId: null,
     });
     return this.toPublic(await this.matches.save(match));
   }
@@ -182,6 +185,38 @@ export class EloService {
       match.status = 'confirmed';
       return this.toPublic(await this.matches.save(match));
     }
+    return this.toPublic(await this.matches.save(match));
+  }
+
+  /**
+   * POST /matches/:id/score (EL-03) — koreksi skor fixture turnamen yang
+   * masih `pending`. Hanya pemain match tsb atau super_admin (else 403);
+   * non-`pending` (confirmed/disputed/cancelled) → 409.
+   * `confirmedBy` di-reset ke [] karena hasil berubah — kedua pihak wajib
+   * konfirmasi ulang via POST /matches/:id/confirm (ELO + history ikut
+   * alur EL-00 yang sudah ada).
+   */
+  async setScore(
+    actor: ActorInput,
+    id: string,
+    scoreA: number,
+    scoreB: number,
+  ): Promise<MatchItem> {
+    const match = await this.findOr404(id);
+    if (match.status !== 'pending') {
+      throw new ConflictException(
+        `Only pending matches can be re-scored (current: ${match.status})`,
+      );
+    }
+    if (
+      actor.role !== 'super_admin' &&
+      !sideOf(actor.id, asArray(match.teamA), asArray(match.teamB))
+    ) {
+      throw new ForbiddenException('Only players of this match can set score');
+    }
+    match.scoreA = scoreA;
+    match.scoreB = scoreB;
+    match.confirmedBy = [];
     return this.toPublic(await this.matches.save(match));
   }
 
@@ -457,6 +492,7 @@ export class EloService {
       status: m.status,
       createdBy: m.createdBy,
       confirmedBy: asArray(m.confirmedBy),
+      tournamentId: m.tournamentId ?? null,
       createdAt: m.createdAt,
       updatedAt: m.updatedAt,
     };

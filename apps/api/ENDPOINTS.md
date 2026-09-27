@@ -1194,3 +1194,72 @@ Agregasi read-only (derivasi, TANPA tulis/rating baru) dari `match_results`
   → `{ data: [], meta: { total: 0 } }`, jujur bukan 404).
 - `LeaderboardEntry`:
   `{ userId, displayName|null, played, wins, losses, elo|null }`.
+
+## Turnamen mini (EL-03, auth)
+
+Tabel `tournaments` (`name` ≤120, `sport` ≤60, `venue_id` nullable FK
+SET NULL, `created_by` FK CASCADE, `participant_ids` text[] uuid —
+min 3, maks 16, unik — `status` draft|ongoing|done|cancelled default
+`draft`, `winner_id` nullable FK SET NULL — SELALU null di EL-03,
+timestamps) + kolom `match_results.tournament_id` nullable FK SET NULL
+(null = match biasa via `POST /matches`; terisi = fixture turnamen —
+turnamen dihapus → SET NULL, riwayat match + ELO utuh).
+
+KEPUTUSAN (terdokumentasi): creator TIDAK otomatis menjadi peserta —
+`participantIds` diisi eksplisit oleh client (boleh memasukkan id
+creator sendiri bila ikut main).
+
+Fixture round-robin 1v1 circle-method: semua pasangan tak-terurut tepat
+sekali (`n·(n−1)/2` fixture, mis. 4 peserta → 6 fixture), tiap fixture =
+`MatchResult` (`teamA=[p1]`, `teamB=[p2]`, skor awal 0-0, `venueId`
+diwarisi turnamen, `status: "pending"`, `confirmedBy: []`,
+`tournamentId` terisi, `createdBy` = creator turnamen).
+
+### `POST /tournaments` (auth)
+Body: `{ name (1..120), sport (1..60), venueId? (UUID, harus ada bila
+diisi), participantIds (UUID[] 3..16, unik) }` → 201 `TournamentItem`
+(`status: "draft"`, `winnerId: null`). Semua peserta harus ada (else
+404); duplikat → 400; tanpa token → 401.
+`TournamentItem`: `{ id, name, sport, venueId|null, createdBy,
+participantIds, status, winnerId|null, createdAt, updatedAt }`.
+
+### `POST /tournaments/:id/generate` (auth)
+Hanya creator / super_admin (else 403), hanya dari `draft` → 200
+`TournamentDetail` (`status: "ongoing"` + `fixtures: MatchItem[]`).
+Generate ulang saat `ongoing`/`done`/`cancelled` → 409 (idempotent —
+TANPA duplikat fixture). Tak ada → 404; UUID invalid → 400.
+`MatchItem` kini memuat `tournamentId|null` (fixture turnamen terisi,
+match biasa null).
+`TournamentDetail` = `TournamentItem` + `fixtures` (urut dibuat ASC).
+
+### `POST /matches/:id/score` (auth, EL-03)
+Koreksi skor match yang masih `pending` (dibutuhkan karena fixture lahir
+0-0 — skor TIDAK ikut `POST /matches/:id/confirm` EL-00).
+Body: `{ scoreA/scoreB (int ≥0) }` → 200 `MatchItem`.
+Hanya pemain match tsb atau super_admin (else 403); non-`pending`
+(confirmed/disputed/cancelled) → 409. `confirmedBy` di-reset ke `[]`
+karena hasil berubah — kedua pihak WAJIB konfirmasi ulang via
+`POST /matches/:id/confirm` (ELO + history ikut alur EL-00 yang sudah
+ada). Tanpa token → 401.
+
+### `GET /tournaments/me` (auth)
+Turnamen yang melibatkan user (peserta ATAU creator), terbaru dulu →
+`{ data: TournamentItem[] }`. Tanpa token → 401.
+
+### `GET /tournaments/:id` (auth)
+Terlibat (peserta/creator) atau super_admin → 200 `TournamentDetail`.
+Lintas user → 403; tak ada → 404; UUID invalid → 400.
+
+### `POST /tournaments/:id/cancel` (auth)
+Hanya creator / super_admin (else 403), selama belum `done` (`done` →
+409; sudah `cancelled` → 409) → 200 `TournamentItem`
+(`status: "cancelled"`). Fixture `pending` milik turnamen ikut
+`cancelled` (agar tidak yatim); fixture `confirmed`/`disputed`
+dibiarkan (riwayat ELO utuh).
+
+TODO EL-04 (EKSPLISIT, belum diimplementasikan di EL-03):
+- Standing/klasemen turnamen (agregasi fixture `confirmed` per turnamen:
+  menang/seri/kalah, poin, selisih skor).
+- Penentuan juara (`winnerId` masih selalu null; transisi `ongoing` →
+  `done` belum ada endpointnya).
+- Badge/achievement juara (kolom maupun endpoint badge belum ada).

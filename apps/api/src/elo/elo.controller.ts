@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { RequestUser } from '../auth/jwt-auth.guard';
 import { ListMatchesDto } from './dto/list-matches.dto';
 import { CreateMatchDto } from './dto/create-match.dto';
+import { SetMatchScoreDto } from './dto/set-match-score.dto';
 import { VenueLeaderboardQueryDto } from './dto/venue-leaderboard-query.dto';
 import { EloService } from './elo.service';
 
@@ -83,6 +84,18 @@ export class EloController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.elo.dispute(user, id);
+  }
+
+  /** POST /matches/:id/score (EL-03) — koreksi skor bila pending + reset confirmedBy. */
+  @Post('matches/:id/score')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  setScore(
+    @CurrentUser() user: RequestUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetMatchScoreDto,
+  ) {
+    return this.elo.setScore(user, id, dto.scoreA, dto.scoreB);
   }
 
   /** GET /elo/me — semua rating cabor milik sendiri. */
